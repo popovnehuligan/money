@@ -18,14 +18,15 @@ Tatra banka b-mail (e-mail) ──► Gmail ──► Apps Script, every minute 
 The dashboard treats money as water. Scrolling down is diving deeper:
 
 - **Today:** your allowance is a pool.
-  - The number floats on the water. It gets thinner and narrower and sinks as the day's money runs out, and the water turns from aqua to amber to coral.
+  - The number floats on the water and gets lighter as the day's money runs out, while the water turns from aqua to amber to coral.
   - Today's payments hang in the sky above, because that money has left the pool. Drag one into a category to sort it, or tap it to edit.
   - Touch the water to make ripples; in Telegram 8.0+ it sloshes when you tilt the phone.
-  - The moon is your savings goal, filling with gold.
 - **The month:** one glass per day, filled with that day's spending by category. ✦ marks days with nothing spent, and a dripping glass was a big day.
-- **Where it flowed:** a waterfall from income and podmoga, through your pool, into categories, the jar and what's left. Podmoga that only passed through goes around the pool.
+- **Where it went:** what came in, what was spent and what was saved, then spending by category and what you kept from podmoga.
 - **Savings jar:** gold liquid with the goal date at your current pace, plus "leaks": what you marked 👎.
 - **Every drop:** the full list, with filters.
+
+One typeface (Geist) is used throughout.
 
 Preview it with example data: `npm run preview`, then open `preview/out/index.html`.
 
