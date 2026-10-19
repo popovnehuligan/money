@@ -159,7 +159,8 @@ const noop = () => {};
 // Make it obvious these aren't real figures.
 addEventListener('DOMContentLoaded', () => {
   const banner = document.createElement('p');
-  banner.textContent = 'Example data · design preview of the Telegram dashboard';
-  banner.style.cssText = 'margin:8px 0 0;padding:8px 12px;border-radius:12px;background:var(--surface-2);color:var(--ink-2);font-size:12px;font-weight:600;text-align:center';
-  document.querySelector('.wrap')?.prepend(banner);
+  banner.textContent = 'Example data';
+  banner.style.cssText =
+    'position:fixed;z-index:50;left:50%;top:calc(22px + env(safe-area-inset-top, 0px));transform:translateX(-50%);margin:0;padding:6px 12px;border-radius:12px;background:rgba(2,8,26,.7);color:#a9bbdc;font:500 11px ui-monospace,monospace;letter-spacing:.06em;pointer-events:none;white-space:nowrap';
+  document.body.append(banner);
 });

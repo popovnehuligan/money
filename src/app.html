@@ -7,415 +7,375 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Geist+Mono:wght@400..600&family=Instrument+Sans:wdth,wght@75..100,400..700&display=swap">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-/* Layout: one-hand phone feed. Allowance hero first, then compact modules; every action
-   sits in the thumb zone (floating Cash button, bottom sheets). Cobalt is the brand,
-   gold is reserved for money you keep (allowance left, savings). */
+/* Concept: money as water. Today's allowance is a pool at the surface; scrolling is diving:
+   the month as glasses, where the water flowed, the savings jar, and every drop at the bottom.
+   One deliberate night-water world, so there is no light variant. */
 :root {
-  --bg: #eef0f7;
-  --surface: #ffffff;
-  --surface-2: #f3f4fa;
-  --ink: #11131c;
-  --ink-2: #4c5166;
-  --muted: #80859c;
-  --line: #e3e6f0;
-  --accent: #3945f0;
-  --accent-2: #232dc4;
-  --on-accent: #ffffff;
-  --gold: #ffbf3f;
-  --gold-deep: #f29d0b;
-  --good: #12b886;
-  --good-ink: #08805a;
-  --bad: #e5484d;
-  --bad-ink: #c9353a;
-  --warn: #ffb020;
-  --shadow: 0 1px 0 rgba(17, 19, 28, .04), 0 10px 30px -18px rgba(17, 19, 28, .22);
-  --jar-glass: rgba(57, 69, 240, .06);
-  --jar-line: #c9cde0;
-  --c-food: #2a78d6; --c-eat: #eb6834; --c-transport: #1baf7a; --c-fun: #eda100;
-  --c-home: #e87ba4; --c-health: #008300; --c-shop: #6250d6; --c-other: #8a8fa3;
-
-  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
-  --font-ui: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --r-card: 24px;
-  --r-ctl: 14px;
-  --ease: cubic-bezier(.2, .8, .2, 1);
-  --spring: cubic-bezier(.2, 1.2, .3, 1);
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0b0c12; --surface: #151722; --surface-2: #1e2131; --ink: #f1f2f8; --ink-2: #b3b7cb; --muted: #7c819a; --line: #272b3d;
-    --accent: #5b66ff; --accent-2: #3a44e6; --on-accent: #ffffff; --gold: #ffc94d; --gold-deep: #f2a51a;
-    --good: #2dd4a0; --good-ink: #3ddba8; --bad: #ff6b70; --bad-ink: #ff7d81; --warn: #ffb020;
-    --shadow: none; --jar-glass: rgba(91, 102, 255, .10); --jar-line: #3a3f58;
-    --c-food: #3987e5; --c-eat: #d95926; --c-transport: #199e70; --c-fun: #c98500;
-    --c-home: #d55181; --c-health: #18a018; --c-shop: #9085e9; --c-other: #7c819a;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #0b0c12; --surface: #151722; --surface-2: #1e2131; --ink: #f1f2f8; --ink-2: #b3b7cb; --muted: #7c819a; --line: #272b3d;
-  --accent: #5b66ff; --accent-2: #3a44e6; --on-accent: #ffffff; --gold: #ffc94d; --gold-deep: #f2a51a;
-  --good: #2dd4a0; --good-ink: #3ddba8; --bad: #ff6b70; --bad-ink: #ff7d81; --warn: #ffb020;
-  --shadow: none; --jar-glass: rgba(91, 102, 255, .10); --jar-line: #3a3f58;
-  --c-food: #3987e5; --c-eat: #d95926; --c-transport: #199e70; --c-fun: #c98500;
-  --c-home: #d55181; --c-health: #18a018; --c-shop: #9085e9; --c-other: #7c819a;
   color-scheme: dark;
-}
+  --sky-0: #060a22;
+  --sky-1: #111b4a;
+  --shallow: #0a3266;
+  --abyss: #020716;
+  --ink: #eaf3ff;
+  --ink-2: #a9bbdc;
+  --muted: #7085ad;
+  --line: rgba(160, 195, 255, .14);
+  --glass-2: rgba(170, 210, 255, .08);
+  --aqua: #38e8d6;
+  --amber: #ffc857;
+  --coral: #ff6b5e;
+  --gold: #ffd166;
+  --gold-deep: #f29e1b;
+  --good: #3ee0a1;
+  --bad: #ff7076;
+  --podmoga: #8f86ff;
+  --water: 56 232 214;
+  --c-food: #3987e5; --c-eat: #e0662e; --c-transport: #1fae7c; --c-fun: #d79a12;
+  --c-home: #e0598b; --c-health: #3fae3f; --c-shop: #9085e9; --c-other: #7c8bb0;
 
+  --f-display: "Anybody", "Arial Narrow", system-ui, sans-serif;
+  --f-ui: "Instrument Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --vh: var(--tg-viewport-stable-height, 100svh);
+  --top-safe: max(env(safe-area-inset-top, 0px), calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)));
+  --d: 0;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.25, 1.35, .4, 1);
+}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { -webkit-text-size-adjust: 100%; }
+html { scroll-snap-type: y proximity; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
-  min-height: 100%;
-  background: var(--bg);
   color: var(--ink);
-  font: 400 15px/1.45 var(--font-ui);
+  font: 400 15px/1.45 var(--f-ui);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-block: 0 calc(104px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in oklab, var(--shallow) calc((1 - var(--d)) * 100%), var(--abyss));
+  overflow-x: hidden;
 }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; text-align: inherit; }
 input { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+:focus-visible { outline: 2px solid var(--aqua); outline-offset: 3px; border-radius: 10px; }
 svg { display: block; }
-.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
-.muted { color: var(--muted); }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mono { font-family: var(--f-mono); }
 
-/* ---------- header ---------- */
-.top {
-  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding-block: 12px 10px; background: var(--bg);
+/* ---------- chrome ---------- */
+#ambient { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+.bar {
+  position: fixed; z-index: 8; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding-top: calc(10px + var(--top-safe)); padding-bottom: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
 }
-.month-switch { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.month-title { min-width: 0; padding-inline: 4px; }
-.eyebrow { display: block; font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.month-title h1 { margin: 0; font: 600 19px/1.15 var(--font-display); letter-spacing: -.01em; white-space: nowrap; }
-.icon-btn {
-  display: grid; place-items: center; width: 38px; height: 38px; flex: none;
-  border-radius: 12px; background: var(--surface); color: var(--ink); box-shadow: var(--shadow);
-  transition: transform .15s var(--ease), opacity .2s;
+.bar::before { content: ""; position: absolute; z-index: -1; inset: 0 0 -28px; background: linear-gradient(180deg, rgba(3, 9, 28, .9) 0%, rgba(3, 9, 28, .7) 55%, rgba(3, 9, 28, 0)); pointer-events: none; }
+.bar > * { pointer-events: auto; }
+.hello { margin: 0; font: 500 12px/1.2 var(--f-mono); letter-spacing: .02em; color: var(--ink-2); }
+.hello b { display: block; font: 700 15px/1.2 var(--f-ui); color: var(--ink); letter-spacing: 0; }
+.bar-actions { display: flex; gap: 8px; }
+.orb {
+  display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(170, 210, 255, .10); box-shadow: inset 0 0 0 1px rgba(170, 210, 255, .18);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  transition: transform .2s var(--spring);
 }
-.icon-btn:active { transform: scale(.92); }
-.icon-btn:disabled { opacity: .3; cursor: default; }
-.icon-btn svg { width: 20px; height: 20px; }
+.orb:active { transform: scale(.9); }
+.orb svg { width: 19px; height: 19px; }
 
-/* ---------- cards ---------- */
-.card { background: var(--surface); border-radius: var(--r-card); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
-.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; min-height: 24px; }
-.sec-head h2 { margin: 0; font: 600 12px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
-.tag { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 99px; background: var(--surface-2); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
-.feed { display: flex; flex-direction: column; gap: 12px; transition: opacity .25s; }
-.feed.is-loading { opacity: .55; pointer-events: none; }
-.feed > * { animation: rise .5s var(--ease) both; }
-.feed > *:nth-child(2) { animation-delay: .04s; } .feed > *:nth-child(3) { animation-delay: .08s; }
-.feed > *:nth-child(4) { animation-delay: .12s; } .feed > *:nth-child(n+5) { animation-delay: .16s; }
-@keyframes rise { from { transform: translateY(10px); opacity: .001; } }
-
-/* ---------- hero ---------- */
-.hero {
-  position: relative; overflow: hidden; isolation: isolate;
-  border-radius: 28px; padding: 20px 20px 18px; color: var(--on-accent);
-  background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in oklab, var(--accent) 70%, white) 0%, transparent 55%),
-    linear-gradient(160deg, var(--accent) 0%, var(--accent-2) 100%);
-  box-shadow: 0 18px 40px -22px color-mix(in oklab, var(--accent) 80%, black);
+.gauge {
+  position: fixed; z-index: 7; right: max(6px, env(safe-area-inset-right, 0px)); top: 34%; height: 32%;
+  width: 14px; display: flex; flex-direction: column; justify-content: space-between; align-items: center;
 }
-.hero::after {
-  content: ""; position: absolute; z-index: -1; width: 260px; height: 260px; right: -90px; bottom: -150px;
-  border-radius: 50%; border: 36px solid rgba(255, 255, 255, .06);
+.gauge::before { content: ""; position: absolute; top: 4px; bottom: 4px; width: 1px; background: var(--line); }
+.gauge button { position: relative; width: 14px; height: 14px; display: grid; place-items: center; }
+.gauge button::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--muted); transition: background .3s, transform .3s var(--spring); }
+.gauge button.on::before { background: var(--aqua); transform: scale(1.8); box-shadow: 0 0 10px var(--aqua); }
+.gauge button span {
+  position: absolute; right: 18px; white-space: nowrap; font: 500 10px var(--f-mono); color: var(--ink-2);
+  padding: 3px 7px; border-radius: 8px; background: rgba(2, 8, 26, .6);
+  opacity: 0; transform: translateX(6px); transition: opacity .3s, transform .3s; pointer-events: none;
 }
-.hero-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.hero-copy { min-width: 0; }
-.hero-label { margin: 0 0 2px; font-size: 13px; font-weight: 600; opacity: .85; }
-.hero-num { margin: 0; font: 800 50px/1.02 var(--font-ui); letter-spacing: -.035em; white-space: nowrap; }
-.hero-num .dec, .big .dec { font-size: .46em; font-weight: 700; letter-spacing: -.01em; opacity: .8; margin-left: 1px; }
-.hero-sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
-.ring { width: 104px; height: 104px; flex: none; }
-.ring-track { fill: none; stroke: rgba(255, 255, 255, .18); stroke-width: 11; }
-.ring-arc { fill: none; stroke: var(--gold); stroke-width: 11; stroke-linecap: round; animation: ring-in 1.1s var(--ease) both .15s; }
-.ring-arc.is-over { stroke: #ff8a8d; }
-@keyframes ring-in { from { stroke-dashoffset: var(--c); } }
-.ring-pct { fill: var(--on-accent); font: 800 22px var(--font-ui); text-anchor: middle; }
-.ring-cap { fill: var(--on-accent); opacity: .75; font: 600 11px var(--font-ui); text-anchor: middle; letter-spacing: .04em; }
-.hero-month { margin-top: 18px; }
-.mbar { position: relative; height: 10px; border-radius: 99px; background: rgba(255, 255, 255, .18); }
-.mbar i { position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: inherit; background: var(--on-accent); animation: grow .9s var(--ease) both .2s; transform-origin: left; }
-.mbar b { position: absolute; top: -4px; width: 3px; height: 18px; margin-left: -1.5px; border-radius: 2px; background: var(--gold); }
-@keyframes grow { from { transform: scaleX(0); } }
-.hero-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
-.hero-row strong { font-weight: 700; }
-.pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 8px; border-radius: 99px; font-size: 12px; font-weight: 700; white-space: nowrap; }
-.pill svg { width: 14px; height: 14px; }
-.pill-good { background: rgba(255, 255, 255, .16); color: var(--on-accent); }
-.pill-warn { background: var(--gold); color: #2a1d00; }
-.hero .btn-on-accent { margin-top: 14px; }
-.hero-hint { margin: 8px 0 0; font-size: 12px; opacity: .75; }
+.gauge.show button span { opacity: 1; transform: none; }
 
-/* ---------- buttons ---------- */
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 18px; border-radius: var(--r-ctl); font-weight: 700; font-size: 15px; transition: transform .15s var(--ease), filter .2s; }
-.btn:active { transform: scale(.97); }
-.btn svg { width: 18px; height: 18px; }
-.btn-primary { background: var(--accent); color: var(--on-accent); }
-.btn-soft { background: color-mix(in oklab, var(--accent) 12%, var(--surface)); color: var(--accent); height: 40px; font-size: 14px; }
-.btn-on-accent { background: var(--on-accent); color: var(--accent-2); height: 42px; }
-.btn-block { width: 100%; }
-.btn-text { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 14px; color: var(--ink-2); padding: 8px 4px; }
-.btn-text.danger { color: var(--bad-ink); }
-.btn-text svg { width: 16px; height: 16px; }
-
-/* ---------- stat tiles ---------- */
-.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.tile { background: var(--surface); border-radius: 20px; padding: 14px; box-shadow: var(--shadow); min-width: 0; }
-.tile-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
-.tile-label i { width: 8px; height: 8px; border-radius: 3px; background: var(--k); flex: none; }
-.tile-value { margin: 4px 0 2px; font: 700 21px/1.15 var(--font-ui); letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile-foot { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; white-space: nowrap; }
-.delta { display: inline-flex; align-items: center; gap: 2px; font-weight: 700; }
-.delta svg { width: 13px; height: 13px; }
-.delta.is-good { color: var(--good-ink); } .delta.is-bad { color: var(--bad-ink); }
-
-/* ---------- sort nudge ---------- */
-.nudge {
-  display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px 12px 12px;
-  border-radius: 20px; background: color-mix(in oklab, var(--accent) 10%, var(--surface)); color: var(--ink);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 22%, transparent);
-  transition: transform .15s var(--ease);
+.drop-btn {
+  position: fixed; z-index: 9; right: max(22px, calc(env(safe-area-inset-right, 0px) + 14px)); bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  display: grid; width: 60px; height: 60px; border-radius: 50% 50% 50% 8%; transform: rotate(-45deg);
+  background: radial-gradient(circle at 35% 30%, #b9fff6 0%, var(--aqua) 38%, #128fb0 100%);
+  box-shadow: 0 12px 34px -8px rgba(56, 232, 214, .65), inset 0 -6px 12px rgba(0, 40, 80, .35);
+  transition: transform .25s var(--spring);
 }
-.nudge:active { transform: scale(.98); }
-.nudge-badge { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: var(--accent); color: var(--on-accent); font: 700 16px var(--font-display); flex: none; }
-.nudge-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.nudge-text strong { font-size: 15px; }
-.nudge-text small { font-size: 12px; color: var(--ink-2); }
-.nudge > svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.drop-btn:active { transform: rotate(-45deg) scale(.88); }
+.drop-btn svg { width: 26px; height: 26px; transform: rotate(45deg); margin: auto; color: #04203a; }
 
-/* ---------- savings ---------- */
-.sv-body { display: flex; align-items: center; gap: 16px; }
-.jar { width: 96px; height: 120px; flex: none; overflow: visible; }
-.jar .liquid { transform: translateY(var(--level)); animation: fill-up 1.4s var(--ease) both .2s; }
-@keyframes fill-up { from { transform: translateY(150px); } }
-.jar .wave { animation: wave 3.2s linear infinite; }
-@keyframes wave { to { transform: translateX(-60px); } }
-.sv-copy { min-width: 0; flex: 1; }
-.big { margin: 0; font: 800 30px/1.05 var(--font-ui); letter-spacing: -.03em; white-space: nowrap; }
-.sv-of { margin: 2px 0 8px; font-size: 13px; color: var(--muted); }
-.chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; }
-.chip-good { background: color-mix(in oklab, var(--good) 16%, var(--surface)); color: var(--good-ink); }
-.sv-eta { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); }
-.sv-eta strong { color: var(--ink); }
-
-/* ---------- pace chart ---------- */
-.legend { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--muted); }
-.legend span { display: inline-flex; align-items: center; gap: 5px; }
-.key { display: inline-block; width: 14px; height: 2px; border-radius: 2px; background: var(--k); }
-.pace { position: relative; height: 176px; touch-action: pan-y; }
-.pace svg { width: 100%; height: 100%; overflow: visible; }
-.pace .grid { stroke: var(--line); stroke-width: 1; }
-.pace .axis-text { fill: var(--muted); font: 500 11px var(--font-ui); }
-.pace .budget-line { stroke: var(--muted); stroke-width: 1.5; fill: none; stroke-linecap: round; }
-.pace .spent-line { stroke: var(--accent); stroke-width: 2.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
-.pace .spent-area { fill: var(--accent); fill-opacity: .12; }
-.pace .end-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2.5; }
-.pace .end-label { fill: var(--ink); font: 700 12px var(--font-ui); }
-.pace .cross { stroke: var(--ink-2); stroke-width: 1; }
-.tip {
-  position: absolute; top: -6px; pointer-events: none; padding: 7px 10px; border-radius: 12px;
-  background: var(--ink); color: var(--bg); font-size: 12px; line-height: 1.3; white-space: nowrap;
-  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, .5);
+/* ---------- scenes ---------- */
+.scene {
+  position: relative; z-index: 1; min-height: var(--vh); scroll-snap-align: start;
+  padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(28px, calc(env(safe-area-inset-right, 0px) + 22px));
+  padding-block: calc(78px + var(--top-safe)) 56px;
 }
-.tip b { font-size: 14px; display: block; }
-
-/* ---------- calendar ---------- */
-.streak { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 4px 10px 4px 7px; border-radius: 99px; background: color-mix(in oklab, var(--gold) 26%, var(--surface)); color: var(--ink); }
-.streak svg { width: 15px; height: 15px; color: var(--gold-deep); }
-.cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-.cal-wd { text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); padding-bottom: 2px; }
-.cal-day {
-  position: relative; aspect-ratio: 1; max-width: 100%; border-radius: 11px; display: grid; place-items: center;
-  font: 600 12px var(--font-ui); background: var(--surface-2); color: var(--ink-2);
-  transition: transform .15s var(--ease);
+.eyebrow { margin: 0; font: 500 11px/1.2 var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--aqua); }
+.title {
+  margin: 6px 0 0; font-family: var(--f-display); font-weight: 800; font-variation-settings: "wdth" 130;
+  font-size: clamp(38px, 12vw, 64px); line-height: .9; letter-spacing: -.02em; text-wrap: balance;
 }
-.cal-day:active { transform: scale(.9); }
-.cal-day.lv1 { background: color-mix(in oklab, var(--accent) 16%, var(--surface-2)); color: var(--ink); }
-.cal-day.lv2 { background: color-mix(in oklab, var(--accent) 36%, var(--surface-2)); color: var(--ink); }
-.cal-day.lv3 { background: color-mix(in oklab, var(--accent) 62%, var(--surface-2)); color: var(--on-accent); }
-.cal-day.lv4 { background: color-mix(in oklab, var(--accent) 90%, var(--surface-2)); color: var(--on-accent); }
-.cal-day.is-future { background: transparent; color: var(--muted); opacity: .55; cursor: default; }
-.cal-day.is-today { box-shadow: inset 0 0 0 2px var(--ink); }
-.cal-day.is-sel { box-shadow: inset 0 0 0 2px var(--gold-deep); }
-.cal-day .ok { position: absolute; bottom: 3px; width: 12px; height: 12px; color: var(--good); }
-.cal-day .over { position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 1.5px var(--surface); }
-.cal-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 12px; font-size: 11px; color: var(--muted); }
-.cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.cal-legend .sw { width: 12px; height: 12px; border-radius: 4px; }
-.cal-legend .ok-i { width: 12px; height: 12px; color: var(--good); }
-.cal-legend .over-i { width: 6px; height: 6px; border-radius: 50%; background: var(--bad); }
-.day-note { margin: 10px 0 0; font-size: 13px; color: var(--ink-2); min-height: 1.45em; }
-details.table-view { margin-top: 8px; font-size: 13px; }
-details.table-view summary { cursor: pointer; color: var(--muted); font-weight: 600; font-size: 12px; padding: 4px 0; }
-.table-scroll { overflow-x: auto; }
-.table-view table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 6px; }
-.table-view th, .table-view td { text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--line); }
-.table-view td:last-child, .table-view th:last-child { text-align: right; }
+.lede { margin: 14px 0 0; max-width: 34ch; color: var(--ink-2); font-size: 15px; }
+.lede b { color: var(--ink); font-weight: 600; }
 
-/* ---------- categories ---------- */
-.sq { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: 13px; font-size: 19px; line-height: 1; background: color-mix(in oklab, var(--c, var(--muted)) 18%, var(--surface)); }
-.cat-list { display: flex; flex-direction: column; gap: 4px; }
-.cat-row { display: flex; align-items: center; gap: 12px; width: 100%; padding: 6px; margin: 0 -6px; width: calc(100% + 12px); border-radius: 16px; transition: background .2s; }
-.cat-row.is-active { background: var(--surface-2); }
-.cat-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.cat-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; font-weight: 600; }
-.cat-top span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cat-top strong { white-space: nowrap; font-weight: 700; }
-.cat-bar { height: 6px; border-radius: 99px; background: var(--surface-2); overflow: hidden; }
-.cat-bar i { display: block; height: 100%; width: var(--w); border-radius: 0 4px 4px 0; background: var(--c); animation: grow .8s var(--ease) both .15s; transform-origin: left; }
-.cat-pct { width: 38px; text-align: right; font-size: 12px; font-weight: 600; color: var(--muted); flex: none; }
-
-/* ---------- podmoga & worth ---------- */
-.kv-big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-.kv-big .big.is-good { color: var(--good-ink); } .kv-big .big.is-bad { color: var(--bad-ink); }
-.kv-big span { font-size: 13px; color: var(--muted); }
-.flow { display: flex; gap: 2px; height: 14px; margin: 14px 0 10px; }
-.flow i { display: block; height: 100%; width: var(--w); border-radius: 4px; background: var(--k); min-width: 4px; animation: grow .8s var(--ease) both .15s; transform-origin: left; }
-.flow-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--ink-2); }
-.flow-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.flow-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--k); }
-.insight { margin: 12px 0 0; padding: 10px 12px; border-radius: 14px; background: var(--surface-2); font-size: 13px; color: var(--ink-2); }
-.insight strong { color: var(--ink); }
-
-/* ---------- transactions ---------- */
-.filter-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px 5px 10px; border-radius: 99px; background: var(--ink); color: var(--bg); font-size: 12px; font-weight: 700; }
-.filter-chip svg { width: 14px; height: 14px; }
-.tx-day { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 0 4px; font-size: 12px; font-weight: 700; color: var(--muted); }
-.tx-day:first-child { padding-top: 0; }
-.tx { position: relative; display: flex; align-items: center; gap: 12px; width: calc(100% + 12px); margin: 0 -6px; padding: 8px 6px; border-radius: 16px; transition: background .15s; }
-.tx:active { background: var(--surface-2); }
-.tx-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.tx-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-amt { font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.tx-amt.is-in { color: var(--good-ink); }
-.tx-amt.is-off { color: var(--muted); text-decoration: line-through; }
-.tx .dot { position: absolute; left: 36px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--surface); }
-.empty { text-align: center; padding: 28px 12px; color: var(--ink-2); }
-.empty h3 { margin: 10px 0 4px; font: 600 16px var(--font-display); color: var(--ink); }
-.empty p { margin: 0 auto; max-width: 30ch; font-size: 14px; }
-.empty-art { font-size: 40px; }
-
-/* ---------- floating button ---------- */
-.fab {
-  position: fixed; z-index: 6;
-  right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  display: inline-flex; align-items: center; gap: 8px; height: 54px; padding: 0 20px 0 16px; border-radius: 18px;
-  background: var(--ink); color: var(--bg); font-weight: 700; font-size: 15px;
-  box-shadow: 0 14px 30px -12px rgba(0, 0, 0, .45); transition: transform .2s var(--spring);
+/* today: the pool */
+.scene.today { padding: 0; overflow: hidden; min-height: max(var(--vh), 600px); background: linear-gradient(180deg, var(--sky-0) 0%, var(--sky-1) 70%, #1a2c6c 100%); }
+#pool { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: pan-y; }
+.moon { position: absolute; z-index: 2; right: 30px; top: calc(76px + var(--top-safe)); width: 46px; height: 46px; border-radius: 50%; transition: transform .3s var(--spring); }
+.moon:active { transform: scale(.9); }
+.moon svg { width: 100%; height: 100%; overflow: visible; }
+.num-block { position: absolute; z-index: 2; left: 0; right: 0; top: 0; text-align: center; pointer-events: none; padding-inline: 12px; will-change: transform; }
+.num-label { margin: 0 0 6px; font: 500 11px/1.2 var(--f-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+.num-wrap { position: relative; display: inline-block; max-width: 100%; }
+.num {
+  margin: 0; font-family: var(--f-display); font-size: clamp(74px, 26vw, 150px); line-height: .92; letter-spacing: -.03em; white-space: nowrap;
+  font-variation-settings: "wdth" var(--wdth, 120), "wght" var(--wght, 700);
+  transition: font-variation-settings 1.4s var(--ease), color .6s;
 }
-.fab:active { transform: scale(.94); }
-.fab svg { width: 22px; height: 22px; }
+.num .dec { font-size: .34em; letter-spacing: 0; font-variation-settings: "wdth" 100, "wght" 600; vertical-align: 1em; margin-left: .06em; opacity: .85; }
+.num.dry { color: var(--ink); text-shadow: 0 2px 30px rgba(120, 160, 255, .25); }
+.num.dry.is-over { color: var(--coral); }
+.num.wet { position: absolute; inset: 0; color: color-mix(in oklab, rgb(var(--water)) 40%, white); filter: url(#refract) drop-shadow(0 0 18px rgb(var(--water) / .5)); }
+.num-sub { margin: 12px auto 0; max-width: 30ch; font-size: 14px; color: #fff; text-shadow: 0 1px 12px rgba(0, 20, 60, .6); }
+.num-sub b { font-weight: 700; }
+.buoys { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.buoy {
+  position: absolute; left: 0; top: 0; pointer-events: auto; touch-action: none; will-change: transform;
+  display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 6px; border-radius: 20px;
+  background: linear-gradient(180deg, rgba(40, 62, 130, .75), rgba(14, 26, 70, .8));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), 0 10px 24px -12px rgba(0, 0, 0, .7);
+  font: 600 13px var(--f-mono); white-space: nowrap;
+}
+.sky-cap { position: absolute; z-index: 2; left: 0; right: 0; top: 0; margin: 0; text-align: center; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); pointer-events: none; will-change: transform; }
+.sky-cap b { color: var(--ink-2); font-weight: 600; }
+.buoy .e { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: color-mix(in oklab, var(--c, var(--c-other)) 45%, transparent); font: 600 15px var(--f-ui); }
+.buoy.is-unsorted { animation: beacon 2.4s infinite; }
+.buoy.is-unsorted .e { background: rgba(255, 255, 255, .2); }
+@keyframes beacon {
+  0%, 60%, 100% { box-shadow: inset 0 0 0 1.5px #fff, 0 0 0 0 rgba(255, 255, 255, .45), 0 8px 20px -10px rgba(0, 0, 0, .6); }
+  30% { box-shadow: inset 0 0 0 1.5px #fff, 0 0 0 10px rgba(255, 255, 255, 0), 0 8px 20px -10px rgba(0, 0, 0, .6); }
+}
+.buoy.is-dragging { z-index: 20; animation: none; box-shadow: inset 0 0 0 1.5px #fff, 0 22px 40px -10px rgba(0, 0, 0, .7); }
+.buoy.is-more { font-family: var(--f-ui); padding: 0 14px; }
+.deep-info { position: absolute; z-index: 2; left: 0; right: 0; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: 100px; }
+.deep-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tide { position: relative; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .16); margin-bottom: 10px; }
+.tide i { position: absolute; inset: 0 auto 0 0; width: var(--w); border-radius: inherit; background: #fff; }
+.tide b { position: absolute; top: -5px; width: 2px; height: 14px; margin-left: -1px; background: var(--gold); border-radius: 2px; box-shadow: 0 0 8px var(--gold); }
+.deep-info p { margin: 0; font-size: 13px; color: rgba(234, 243, 255, .85); }
+.deep-info p > span { white-space: nowrap; }
+.deep-info .ok { color: var(--good); font-weight: 600; }
+.deep-info .warn { color: var(--amber); font-weight: 600; }
+.dive { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .12); }
+.dive svg { width: 16px; height: 16px; animation: bob 2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(4px); } }
+.cta-glass { display: inline-flex; align-items: center; height: 44px; padding: 0 18px; border-radius: 22px; background: #fff; color: #08183e; font-weight: 700; }
+
+/* month: glasses */
+.eyebrow-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.month-nav { display: flex; gap: 8px; }
+.month-nav .orb { width: 36px; height: 36px; }
+.month-nav .orb:disabled { opacity: .25; cursor: default; }
+.stats-line { margin: 14px 0 24px; display: flex; flex-wrap: wrap; gap: 6px 16px; font: 500 13px var(--f-mono); color: var(--ink-2); }
+.stats-line b { color: var(--ink); font-weight: 600; }
+.streak { color: var(--gold); }
+.glasses { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px 4px; }
+.wd { text-align: center; font: 500 10px var(--f-mono); letter-spacing: .08em; color: var(--muted); }
+.glass { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; padding-bottom: 8px; }
+.glass .dn { font: 500 10px var(--f-mono); color: var(--ink-2); }
+.tube {
+  position: relative; width: 24px; height: 64px; border-radius: 3px 3px 12px 12px; overflow: hidden;
+  background: linear-gradient(90deg, rgba(170, 210, 255, .10), rgba(170, 210, 255, .03) 60%, rgba(170, 210, 255, .08));
+  box-shadow: inset 0 0 0 1.5px rgba(170, 210, 255, .26);
+  transition: transform .2s var(--spring);
+}
+.tube::before { content: ""; position: absolute; z-index: 2; left: 4px; top: 6px; bottom: 10px; width: 2px; border-radius: 2px; background: rgba(255, 255, 255, .22); }
+.tube .mark { position: absolute; z-index: 2; left: 0; right: 0; top: 50%; height: 1px; background: rgba(255, 255, 255, .3); }
+.liq { position: absolute; left: 0; right: 0; bottom: 0; height: var(--h); display: flex; flex-direction: column-reverse; animation: pour 1.1s var(--ease) both; animation-delay: var(--delay, 0s); }
+.liq i { display: block; height: var(--s); background: var(--c); }
+.liq::after { content: ""; position: absolute; left: 0; right: 0; top: -2px; height: 4px; border-radius: 50%; background: rgba(255, 255, 255, .45); }
+@keyframes pour { from { height: 0; } }
+.glass.is-today .tube { box-shadow: inset 0 0 0 1.5px var(--aqua), 0 0 18px rgba(56, 232, 214, .45); }
+.glass.is-today .dn { color: var(--aqua); }
+.glass.is-future { cursor: default; }
+.glass.is-future .tube { opacity: .28; }
+.glass .sparkle { position: absolute; bottom: 34px; font-size: 11px; color: var(--gold); text-shadow: 0 0 8px var(--gold); animation: twinkle 2.6s ease-in-out infinite; }
+@keyframes twinkle { 50% { opacity: .35; transform: scale(.8); } }
+.glass .drip { position: absolute; bottom: 0; width: 6px; height: 8px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: var(--coral); animation: drip 1.9s ease-in infinite; }
+@keyframes drip { 0% { transform: translateY(-6px) scale(.4); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(14px) scale(1); opacity: 0; } }
+.glass:not(:disabled):active .tube { transform: scale(.9); }
+.keys { margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+.key-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px 0 8px; border-radius: 15px; background: var(--glass-2); font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.key-chip i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.legend-note { margin: 14px 0 0; max-width: 46ch; font: 400 12px/1.55 var(--f-mono); color: var(--muted); }
+
+/* flow: waterfall */
+.sources { margin: 22px 0 12px; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--ink-2); }
+.sources span { display: inline-flex; align-items: center; gap: 6px; }
+.sources i { width: 10px; height: 10px; border-radius: 3px; background: var(--c); }
+.sources b { color: var(--ink); font-family: var(--f-mono); font-weight: 600; }
+#flow-svg { width: 100%; height: 356px; overflow: visible; }
+.ribbon { opacity: .5; }
+.stream { fill: none; stroke: #fff; stroke-linecap: round; stroke-dasharray: .1 16; animation: flow var(--dur, 1.4s) linear infinite; opacity: .6; }
+@keyframes flow { to { stroke-dashoffset: -16.1; } }
+.sinks { margin-top: 10px; display: flex; flex-direction: column; }
+.sink { display: grid; grid-template-columns: 12px 1fr auto 44px; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); text-align: left; width: 100%; }
+.sink i { width: 12px; height: 12px; border-radius: 4px; background: var(--c); }
+.sink .nm { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sink .am { font: 600 14px var(--f-mono); }
+.sink .pc { font: 500 12px var(--f-mono); color: var(--muted); text-align: right; }
+.sinks-note { margin: 10px 0 0; font: 400 12px var(--f-mono); color: var(--muted); }
+
+/* jar */
+.jar-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 10px; margin-top: 18px; }
+#jar { width: 100%; aspect-ratio: 220 / 270; max-width: 100%; }
+.jar-copy .big { margin: 0; font-family: var(--f-display); font-weight: 800; font-variation-settings: "wdth" 112; font-size: clamp(34px, 11vw, 52px); line-height: .95; letter-spacing: -.02em; white-space: nowrap; color: var(--gold); text-shadow: 0 0 30px rgba(255, 209, 102, .35); }
+.jar-copy .big .dec { font-size: .45em; font-variation-settings: "wdth" 100; opacity: .8; }
+.jar-copy p { margin: 6px 0 0; color: var(--ink-2); font-size: 14px; }
+.jar-copy p b { color: var(--ink); }
+.jar-copy .eta { margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: var(--glass-2); color: var(--ink); font-size: 14px; }
+.jar-copy .eta b { color: var(--gold); }
+.jar-copy .cta-glass { margin-top: 14px; }
+.chip-gold { display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 12px; background: rgba(255, 209, 102, .14); color: var(--gold); font: 600 12px var(--f-mono); }
+.leaks { position: relative; margin-top: 30px; padding: 18px; border-radius: 22px; background: var(--glass-2); overflow: hidden; }
+.leaks h3 { margin: 0; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--bad); }
+.leaks .amt { margin: 6px 0 4px; font-family: var(--f-display); font-weight: 700; font-variation-settings: "wdth" 110; font-size: 34px; line-height: 1; }
+.leaks p { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 30ch; }
+.leaks p b { color: var(--ink); }
+.split { display: flex; gap: 3px; height: 8px; margin-top: 14px; }
+.split i { display: block; height: 100%; border-radius: 4px; width: var(--w); background: var(--c); }
+.split-key { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 12px var(--f-mono); color: var(--ink-2); }
+.leak-drops { position: absolute; right: 26px; top: 0; bottom: 0; width: 40px; pointer-events: none; }
+.leak-drops i { position: absolute; top: 0; width: 7px; height: 10px; border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%; background: var(--bad); opacity: 0; animation: leak 2.8s ease-in infinite; }
+@keyframes leak { 0% { transform: translateY(0) scale(.3); opacity: 0; } 15% { opacity: .9; } 100% { transform: translateY(150px) scale(1); opacity: 0; } }
+
+/* ledger */
+.filters { display: flex; gap: 8px; overflow-x: auto; margin: 18px -28px 8px -18px; padding: 2px 28px 6px 18px; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.filter { flex: none; height: 34px; padding: 0 14px; border-radius: 17px; background: var(--glass-2); font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.filter[aria-pressed="true"] { background: var(--ink); color: #071433; }
+.day-head { display: flex; justify-content: space-between; padding: 18px 0 6px; font: 500 11px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 9px 0; border-radius: 14px; transition: background .2s; }
+.row:active { background: var(--glass-2); }
+.drop { flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50% 50% 50% 12%; transform: rotate(-45deg); background: color-mix(in oklab, var(--c) 30%, transparent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c) 70%, transparent); }
+.drop > span { transform: rotate(45deg); font: 600 17px/1 var(--f-ui); }
+.row.is-unsorted .drop { background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 1.5px #fff; animation: glow 2.4s infinite; }
+@keyframes glow { 50% { box-shadow: inset 0 0 0 1.5px #fff, 0 0 14px rgba(255, 255, 255, .45); } }
+.row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.row-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-sub { font: 400 11.5px var(--f-mono); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-amt { font: 600 15px var(--f-mono); white-space: nowrap; }
+.row-amt.in { color: var(--good); }
+.row-amt.off { color: var(--muted); text-decoration: line-through; }
+.empty { padding: 40px 0; text-align: center; color: var(--ink-2); }
+.empty b { display: block; font-family: var(--f-display); font-variation-settings: "wdth" 120; font-size: 22px; color: var(--ink); margin-bottom: 6px; }
+.bottom-line { margin: 40px 0 0; text-align: center; font: 500 11px var(--f-mono); letter-spacing: .14em; color: var(--muted); text-transform: uppercase; }
+
+/* ---------- drag targets ---------- */
+.drains { position: fixed; z-index: 15; left: 0; right: 0; bottom: 0; padding: 22px 14px calc(24px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(180deg, transparent, rgba(2, 8, 26, .94) 30%); pointer-events: none; }
+.drains p { margin: 0 0 12px; text-align: center; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+.drain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 8px; }
+.drain { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-2); animation: rise-in .35s var(--spring) both; animation-delay: calc(var(--i) * 25ms); }
+.drain .hole { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; font-size: 22px; background: color-mix(in oklab, var(--c) 28%, rgba(4, 12, 34, .8)); box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--c) 80%, transparent); transition: transform .2s var(--spring), box-shadow .2s; }
+.drain.hot .hole { transform: scale(1.25); box-shadow: inset 0 0 0 2.5px #fff, 0 0 24px var(--c); }
+.drain.hot { color: #fff; }
+@keyframes rise-in { from { transform: translateY(40px); opacity: 0; } }
 
 /* ---------- sheet ---------- */
-.backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(8, 9, 16, .45); opacity: 0; transition: opacity .3s; }
+.backdrop { position: fixed; inset: 0; z-index: 20; background: rgba(1, 4, 14, .55); opacity: 0; transition: opacity .3s; }
 .backdrop.open { opacity: 1; }
 .sheet {
-  position: fixed; z-index: 21; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 600px; max-height: 90%;
-  display: flex; flex-direction: column; background: var(--surface); border-radius: 28px 28px 0 0;
-  transform: translateY(105%); transition: transform .38s var(--ease);
-  box-shadow: 0 -20px 50px -20px rgba(0, 0, 0, .4);
+  position: fixed; z-index: 21; left: 0; right: 0; bottom: 0; max-width: 620px; margin: 0 auto; max-height: 88%;
+  display: flex; flex-direction: column; border-radius: 30px 30px 0 0;
+  background: linear-gradient(180deg, rgba(22, 40, 92, .88), rgba(8, 18, 48, .95));
+  backdrop-filter: blur(28px) saturate(1.4); -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 -30px 60px -20px rgba(0, 0, 0, .7);
+  transform: translateY(105%); transition: transform .42s var(--ease);
 }
 .sheet.open { transform: translateY(0); }
 .grabber { flex: none; padding: 10px 0 6px; touch-action: none; cursor: grab; }
-.grabber::before { content: ""; display: block; width: 40px; height: 5px; margin: 0 auto; border-radius: 9px; background: var(--line); }
+.grabber::before { content: ""; display: block; width: 42px; height: 5px; margin: 0 auto; border-radius: 9px; background: rgba(255, 255, 255, .25); }
 .sheet-body {
   overflow-y: auto; overscroll-behavior: contain;
-  padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px));
-  padding-block: 4px calc(22px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-block: 6px calc(24px + env(safe-area-inset-bottom, 0px));
 }
-.sheet-head { display: flex; align-items: center; gap: 12px; }
-.sheet-head .sq { width: 48px; height: 48px; border-radius: 16px; font-size: 24px; }
-.sheet-title { min-width: 0; }
-.sheet-title h2, .sheet-h { margin: 0; font: 600 18px/1.25 var(--font-display); letter-spacing: -.01em; overflow-wrap: anywhere; }
-.sheet-title p { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
-.sheet-amount { margin: 14px 0 4px; font: 800 38px/1 var(--font-ui); letter-spacing: -.03em; }
-.sheet-amount.is-in { color: var(--good-ink); }
-.sheet-amount .dec { font-size: .5em; font-weight: 700; opacity: .7; }
-.field-label { margin: 18px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 16px; background: var(--surface-2); }
-.seg button { padding: 9px 4px; border-radius: 12px; font-size: 13px; font-weight: 600; text-align: center; color: var(--ink-2); transition: background .2s, color .2s, transform .15s; white-space: nowrap; }
-.seg button[aria-checked="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px -4px rgba(0, 0, 0, .25); }
-.seg button:active { transform: scale(.96); }
-.hint { margin: 8px 2px 0; font-size: 13px; color: var(--ink-2); }
-.cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-.cat-tile {
-  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 2px 9px; border-radius: 16px;
-  background: color-mix(in oklab, var(--c) 10%, var(--surface)); font-size: 11.5px; font-weight: 600; text-align: center; color: var(--ink-2);
-  box-shadow: inset 0 0 0 1.5px transparent; transition: transform .15s var(--spring), box-shadow .2s, background .2s;
+.sh-head { display: flex; align-items: center; gap: 14px; }
+.sh-head .drop { width: 50px; height: 50px; }
+.sh-head .drop > span { font-size: 22px; }
+.sh-title { min-width: 0; }
+.sh-title h2, .sh-h { margin: 0; font-family: var(--f-display); font-weight: 700; font-variation-settings: "wdth" 112; font-size: 22px; line-height: 1.1; overflow-wrap: anywhere; }
+.sh-title p { margin: 3px 0 0; font: 400 12px var(--f-mono); color: var(--muted); }
+.sh-amount { margin: 16px 0 2px; font-family: var(--f-display); font-weight: 800; font-variation-settings: "wdth" 125; font-size: 54px; line-height: .95; letter-spacing: -.02em; }
+.sh-amount.in { color: var(--good); }
+.sh-amount .dec { font-size: .4em; font-variation-settings: "wdth" 100; opacity: .7; }
+.label { margin: 20px 0 9px; font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 18px; background: rgba(0, 0, 0, .25); }
+.seg button { padding: 10px 2px; border-radius: 14px; font-size: 13px; font-weight: 600; text-align: center; color: var(--ink-2); white-space: nowrap; transition: background .2s, color .2s, transform .15s; }
+.seg button[aria-checked="true"] { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
+.seg button:active { transform: scale(.95); }
+.hint { margin: 9px 2px 0; font-size: 13px; color: var(--ink-2); }
+.tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.tile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 2px 10px; border-radius: 18px;
+  background: color-mix(in oklab, var(--c) 16%, rgba(0, 0, 0, .2)); font-size: 11.5px; font-weight: 600; text-align: center; color: var(--ink-2);
+  transition: transform .18s var(--spring), box-shadow .2s, background .2s;
 }
-.cat-tile .emo { font-size: 22px; line-height: 1; }
-.cat-tile:active { transform: scale(.92); }
-.cat-tile[aria-pressed="true"] { background: color-mix(in oklab, var(--c) 22%, var(--surface)); box-shadow: inset 0 0 0 2px var(--c); color: var(--ink); }
-.worth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.worth-btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 50px; border-radius: 16px; background: var(--surface-2); font-weight: 700; transition: transform .15s var(--spring), background .2s, box-shadow .2s; }
-.worth-btn:active { transform: scale(.95); }
-.worth-btn .emo { font-size: 20px; }
-.worth-btn[aria-pressed="true"].is-yes { background: color-mix(in oklab, var(--good) 18%, var(--surface)); box-shadow: inset 0 0 0 2px var(--good); }
-.worth-btn[aria-pressed="true"].is-no { background: color-mix(in oklab, var(--bad) 14%, var(--surface)); box-shadow: inset 0 0 0 2px var(--bad); }
-.sheet-foot { display: flex; justify-content: center; margin-top: 16px; }
-.field { display: flex; flex-direction: column; gap: 6px; margin-top: 16px; }
-.field-name { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tile .em { font-size: 23px; line-height: 1; }
+.tile:active { transform: scale(.9); }
+.tile[aria-pressed="true"] { background: color-mix(in oklab, var(--c) 34%, rgba(0, 0, 0, .1)); box-shadow: inset 0 0 0 2px var(--c), 0 0 22px -4px var(--c); color: #fff; }
+.worth { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.worth button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 18px; background: rgba(0, 0, 0, .22); font-weight: 700; transition: transform .18s var(--spring), box-shadow .2s, background .2s; }
+.worth button:active { transform: scale(.94); }
+.worth .em { font-size: 20px; }
+.worth button[aria-pressed="true"].yes { background: rgba(62, 224, 161, .16); box-shadow: inset 0 0 0 2px var(--good); }
+.worth button[aria-pressed="true"].no { background: rgba(255, 112, 118, .14); box-shadow: inset 0 0 0 2px var(--bad); }
+.sh-foot { display: flex; justify-content: center; margin-top: 16px; }
+.textbtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 4px; font-weight: 600; font-size: 14px; color: var(--ink-2); }
+.textbtn.danger { color: var(--bad); }
+.textbtn svg { width: 16px; height: 16px; }
+.primary { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; margin-top: 22px; border-radius: 27px; background: linear-gradient(180deg, #7ff5e9, var(--aqua)); color: #04203a; font-weight: 700; font-size: 16px; box-shadow: 0 12px 30px -10px rgba(56, 232, 214, .6); transition: transform .18s var(--spring); }
+.primary:active { transform: scale(.97); }
+.field { display: flex; flex-direction: column; gap: 7px; margin-top: 16px; }
+.field-name { font: 500 11px var(--f-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .field small { font-size: 12px; color: var(--muted); }
-.input, .suffix { width: 100%; height: 50px; border-radius: var(--r-ctl); border: 0; background: var(--surface-2); padding: 0 14px; font-size: 16px; outline: none; box-shadow: inset 0 0 0 1.5px transparent; transition: box-shadow .2s; }
-.input:focus, .suffix:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.input, .suffix { width: 100%; height: 52px; border-radius: 16px; border: 0; background: rgba(0, 0, 0, .25); padding: 0 16px; font-size: 16px; outline: none; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); transition: box-shadow .2s; }
+.input:focus, .suffix:focus-within { box-shadow: inset 0 0 0 2px var(--aqua); }
 .suffix { display: flex; align-items: center; gap: 6px; }
-.suffix input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: none; font-size: 16px; }
+.suffix input { flex: 1; min-width: 0; height: 100%; border: 0; background: none; outline: none; font: 600 16px var(--f-mono); }
 .suffix b { color: var(--muted); font-weight: 600; }
-.amount-field { display: flex; align-items: baseline; justify-content: center; gap: 6px; margin: 18px 0 4px; }
-.amount-field input { width: 6.5ch; max-width: 70%; border: 0; background: none; outline: none; text-align: right; font: 800 48px/1.1 var(--font-ui); letter-spacing: -.03em; caret-color: var(--accent); }
-.amount-field input::placeholder { color: var(--line); }
-.amount-field span { font: 700 26px var(--font-ui); color: var(--muted); }
-.form-actions { margin-top: 20px; }
-.form-error { margin: 10px 0 0; font-size: 13px; color: var(--bad-ink); min-height: 1.2em; }
-
-/* sort flow */
-.sort-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.amount-field { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin: 20px 0 6px; }
+.amount-field input { width: 5.2ch; max-width: 72%; border: 0; background: none; outline: none; text-align: right; font-family: var(--f-display); font-weight: 800; font-variation-settings: "wdth" 120; font-size: 64px; line-height: 1; caret-color: var(--aqua); }
+.amount-field input::placeholder { color: rgba(255, 255, 255, .18); }
+.amount-field span { font: 600 26px var(--f-mono); color: var(--muted); }
+.form-error { margin: 10px 0 0; font-size: 13px; color: var(--bad); min-height: 1.2em; }
+.sort-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .dots { display: flex; gap: 5px; }
-.dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background .2s, width .2s; }
-.dots i.on { width: 18px; border-radius: 9px; background: var(--accent); }
-.dots i.done { background: color-mix(in oklab, var(--accent) 45%, var(--surface)); }
-.sort-card { margin: 14px 0 6px; padding: 16px; border-radius: 22px; background: var(--surface-2); display: flex; align-items: center; gap: 12px; animation: card-in .35s var(--spring) both; }
-@keyframes card-in { from { transform: translateX(24px) scale(.97); opacity: .001; } }
-.sort-card .sq { background: var(--surface); }
-.sort-card .tx-main { gap: 2px; }
-.sort-card .amt { font: 800 22px var(--font-ui); letter-spacing: -.02em; white-space: nowrap; }
-.done { text-align: center; padding: 16px 0 4px; }
-.done-art { font-size: 54px; animation: pop .6s var(--spring) both; }
-@keyframes pop { from { transform: scale(.3); opacity: .001; } }
-.done h2 { margin: 8px 0 4px; font: 700 22px var(--font-display); }
-.done p { margin: 0 0 20px; color: var(--ink-2); }
-
-/* toast & skeleton */
+.dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, .2); transition: width .25s, background .25s; }
+.dots i.on { width: 20px; border-radius: 9px; background: var(--aqua); }
+.dots i.done { background: rgba(56, 232, 214, .45); }
+.sort-card { margin: 16px 0 4px; padding: 16px; border-radius: 22px; background: rgba(255, 255, 255, .07); display: flex; align-items: center; gap: 14px; animation: card-in .4s var(--spring) both; }
+@keyframes card-in { from { transform: translateX(30px) scale(.96); opacity: 0; } }
+.sort-card .row-amt { font-size: 20px; }
+.done { text-align: center; padding: 20px 0 6px; }
+.done-art { font-size: 56px; animation: pop .7s var(--spring) both; }
+@keyframes pop { from { transform: scale(.2); opacity: 0; } }
+.done h2 { margin: 10px 0 4px; font-family: var(--f-display); font-variation-settings: "wdth" 130; font-weight: 800; font-size: 34px; }
+.done p { margin: 0; color: var(--ink-2); }
 .toast {
-  position: fixed; z-index: 30; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom, 0px));
-  max-width: calc(100% - 32px); transform: translate(-50%, 20px); opacity: 0;
-  padding: 11px 16px; border-radius: 14px; background: var(--ink); color: var(--bg); font-size: 14px; font-weight: 600;
-  box-shadow: 0 12px 30px -12px rgba(0, 0, 0, .5); transition: transform .3s var(--spring), opacity .3s; pointer-events: none;
+  position: fixed; z-index: 30; left: 50%; top: calc(64px + var(--top-safe)); max-width: calc(100% - 32px);
+  transform: translate(-50%, -16px); opacity: 0; pointer-events: none;
+  padding: 12px 18px; border-radius: 18px; background: rgba(234, 243, 255, .96); color: #071433; font-size: 14px; font-weight: 600;
+  box-shadow: 0 16px 40px -14px rgba(0, 0, 0, .6); transition: transform .35s var(--spring), opacity .3s;
 }
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
-.toast.on-top { bottom: auto; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translate(-50%, -20px); }
-.toast.on-top.show { transform: translate(-50%, 0); }
-.sk { border-radius: var(--r-card); background: var(--surface); position: relative; overflow: hidden; }
-.sk::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--surface-2) 80%, transparent), transparent); animation: shimmer 1.3s infinite; transform: translateX(-100%); }
-@keyframes shimmer { to { transform: translateX(100%); } }
-.state { text-align: center; padding: 48px 16px; }
-.state h2 { font: 700 20px var(--font-display); margin: 12px 0 6px; }
-.state p { margin: 0 auto 18px; max-width: 32ch; color: var(--ink-2); }
 canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -424,23 +384,54 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="top">
-    <div class="month-switch">
-      <button class="icon-btn" id="prev" data-act="prev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
-      <div class="month-title"><span class="eyebrow" id="greet">Hello</span><h1 id="month">Money</h1></div>
-      <button class="icon-btn" id="next" data-act="next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
-    </div>
-    <button class="icon-btn" data-act="settings" aria-label="Budget and savings goal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
-  </header>
-  <main class="feed" id="feed">
-    <div class="sk" style="height:196px;border-radius:28px"></div>
-    <div class="tiles"><div class="sk" style="height:92px"></div><div class="sk" style="height:92px"></div><div class="sk" style="height:92px"></div><div class="sk" style="height:92px"></div></div>
-    <div class="sk" style="height:220px"></div>
-  </main>
-</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="refract"><feTurbulence type="fractalNoise" baseFrequency="0.012 0.06" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G"/></filter>
+</svg>
+<canvas id="ambient" aria-hidden="true"></canvas>
 
-<button class="fab" data-act="cash" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Cash</button>
+<header class="bar">
+  <p class="hello" id="hello">Money<b>Your pool</b></p>
+  <div class="bar-actions">
+    <button class="orb" id="immersive" data-act="immersive" aria-label="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="orb" data-act="settings" aria-label="Budget and savings goal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
+  </div>
+</header>
+
+<nav class="gauge" id="gauge" aria-label="Sections">
+  <button data-go="today" aria-label="Today"><span>0 m · today</span></button>
+  <button data-go="month" aria-label="Month"><span>−5 m · month</span></button>
+  <button data-go="flow" aria-label="Where it flowed"><span>−12 m · flow</span></button>
+  <button data-go="jar" aria-label="Savings jar"><span>−20 m · jar</span></button>
+  <button data-go="ledger" aria-label="Every payment"><span>−30 m · every drop</span></button>
+</nav>
+
+<main>
+  <section class="scene today" id="today" aria-label="Today">
+    <canvas id="pool" aria-hidden="true"></canvas>
+    <button class="moon" id="moon" data-go="jar" aria-label="Savings jar"></button>
+    <div class="num-block" id="num-block">
+      <p class="num-label" id="num-label">Safe to spend today</p>
+      <div class="num-wrap" id="num-wrap"><p class="num dry" id="num-dry">&nbsp;</p><p class="num wet" id="num-wet" aria-hidden="true">&nbsp;</p></div>
+      <p class="num-sub" id="num-sub">Filling the pool…</p>
+    </div>
+    <p class="sky-cap" id="sky-cap" hidden></p>
+    <div class="buoys" id="buoys"></div>
+    <div class="deep-info" id="deep-info"></div>
+  </section>
+
+  <section class="scene" id="month" aria-labelledby="month-title"></section>
+  <section class="scene" id="flow" aria-labelledby="flow-title"></section>
+  <section class="scene" id="jar-scene" aria-labelledby="jar-title">
+    <p class="eyebrow">−20 m · savings</p>
+    <h2 class="title" id="jar-title">Savings jar</h2>
+    <div class="jar-stage"><canvas id="jar" aria-hidden="true"></canvas><div class="jar-copy" id="jar-copy"></div></div>
+    <div id="leaks"></div>
+  </section>
+  <section class="scene" id="ledger" aria-labelledby="ledger-title"></section>
+</main>
+
+<button class="drop-btn" data-act="cash" aria-label="Add cash"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+<div class="drains" id="drains" hidden><p>Drop it into a category</p><div class="drain-grid" id="drain-grid"></div></div>
 <div class="backdrop" id="backdrop" data-act="close" hidden></div>
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
   <div class="grabber" id="grabber" aria-hidden="true"></div>
@@ -451,10 +442,12 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
 <script>
 'use strict';
 const TG = window.Telegram && window.Telegram.WebApp;
-const tg = TG && TG.initData ? TG : null; // null when opened outside Telegram
+const tg = TG && TG.initData ? TG : null; // null outside Telegram
 const root = document.documentElement;
 const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /* ---------- formatting ---------- */
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -463,6 +456,7 @@ const NUM0 = new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 });
 const sign = (c, signed) => (c < 0 ? '−' : signed && c > 0 ? '+' : '');
 const eur = (c, signed) => sign(c, signed) + NUM.format(Math.abs(c) / 100) + ' €';
 const eur0 = (c, signed) => sign(c, signed) + NUM0.format(Math.round(Math.abs(c) / 100)) + ' €';
+const short = (c, signed) => sign(c, signed) + NUM.format(Math.abs(c) / 100);
 function money(c, signed) {
   const [int, dec] = NUM.format(Math.abs(c) / 100).split(',');
   return `${sign(c, signed)}${int}<span class="dec">,${dec} €</span>`;
@@ -482,47 +476,54 @@ const shiftMonth = (m, n) => { const [y, mo] = m.split('-').map(Number); return 
 const shortDay = (day) => `${WD[wdIndex(day)]} ${+day.slice(8)} ${MON[+day.slice(5, 7) - 1]}`;
 const dayLabel = (day, today) => (day === today ? 'Today' : day === addDays(today, -1) ? 'Yesterday' : shortDay(day));
 
+/* ---------- colors ---------- */
+const mix = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const rgba = (c, a) => `rgba(${c[0] | 0},${c[1] | 0},${c[2] | 0},${a})`;
+const AQUA = [56, 232, 214], AMBER = [255, 200, 87], CORAL = [255, 107, 94], DEEP = [8, 30, 78];
+const GOLD = [255, 209, 102], GOLD_DEEP = [242, 158, 27];
+/** The pool cools down to aqua when there's plenty left and heats up as it runs out. */
+function waterFor(f, over) {
+  if (over) return CORAL;
+  if (f >= 0.45) return AQUA;
+  if (f >= 0.18) return mix(AMBER, AQUA, (f - 0.18) / 0.27);
+  return mix(CORAL, AMBER, f / 0.18);
+}
+const cssVar = (name) => getComputedStyle(root).getPropertyValue(name).trim();
+
 /* ---------- icons ---------- */
-const svg = (d, extra = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" ${extra}>${d}</svg>`;
+const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
-  check: svg('<path d="M20 6 9 17l-5-5"/>'),
-  bolt: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
-  up: svg('<path d="M7 17 17 7M8 7h9v9"/>'),
-  down: svg('<path d="M7 7l10 10M17 8v9H8"/>'),
-  next: svg('<path d="m9 18 6-6-6-6"/>'),
-  x: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+  left: svg('<path d="m15 18-6-6 6-6"/>'),
+  right: svg('<path d="m9 18 6-6-6-6"/>'),
+  down: svg('<path d="M12 5v14M6 13l6 6 6-6"/>'),
   trash: svg('<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>'),
-  flame: svg('<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>'),
 };
 
 /* ---------- vocabulary ---------- */
 const KIND = {
   spend: { icon: '💸', name: 'Spend', c: 'var(--c-other)', hint: 'Counts as spending. Pick a category; next time this place is sorted for you.' },
   income: { icon: '💰', name: 'Income', c: 'var(--good)', hint: 'Counts as income.' },
-  podmoga: { icon: '🔁', name: 'Podmoga', c: 'var(--accent)', hint: 'Job money you pass on. Only what you keep, in minus out, counts as income.' },
-  savings: { icon: '🏦', name: 'Savings', c: 'var(--gold-deep)', hint: 'Moved to or from savings. Shown as saved, never as spending.' },
+  podmoga: { icon: '🔁', name: 'Podmoga', c: 'var(--podmoga)', hint: 'Job money you pass on. Only what you keep, in minus out, counts as income.' },
+  savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
 let CATS = {};
 const catMeta = (id) => {
   const label = CATS[id] || CATS.other || '📦 Other';
   const i = label.indexOf(' ');
-  return { emoji: label.slice(0, i), name: label.slice(i + 1), c: `var(--c-${id in CATS ? id : 'other'})` };
+  return { id, emoji: label.slice(0, i), name: label.slice(i + 1), c: `var(--c-${id in CATS ? id : 'other'})` };
 };
-const txVisual = (t) => (t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
+const visual = (t) => (t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
+const isUnsorted = (t) => t.kind === 'spend' && !t.category && t.amount < 0;
 
 /* ---------- Telegram glue ---------- */
 const haptic = {
   tap() { tg?.HapticFeedback?.impactOccurred('light'); },
+  soft() { tg?.HapticFeedback?.impactOccurred('soft'); },
   pick() { tg?.HapticFeedback?.selectionChanged(); },
   ok() { tg?.HapticFeedback?.notificationOccurred('success'); },
   err() { tg?.HapticFeedback?.notificationOccurred('error'); },
 };
-function applyTheme() {
-  if (tg?.colorScheme) root.dataset.theme = tg.colorScheme;
-  const bg = getComputedStyle(root).getPropertyValue('--bg').trim();
-  try { tg?.setHeaderColor?.(bg); tg?.setBackgroundColor?.(bg); tg?.setBottomBarColor?.(bg); } catch {}
-}
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -536,417 +537,657 @@ async function api(path, body) {
 }
 
 /* ---------- state ---------- */
-const state = { d: null, latest: null, filter: null, sheet: null };
+// cur: this month, which drives the pool. view: the month shown in the deeper scenes.
+const state = { cur: null, view: null, filter: 'all', sheet: null };
 
-function dailySpend(d) {
-  const days = Array.from({ length: d.days + 1 }, () => ({ spent: 0, count: 0 }));
+function dailyOf(d) {
+  const days = Array.from({ length: d.days + 1 }, () => ({ spent: 0, count: 0, cats: {} }));
   for (const t of d.tx) {
     if (t.kind !== 'spend') continue;
-    const i = +t.ts.slice(8, 10);
-    days[i].spent -= t.amount;
-    if (t.amount < 0) days[i].count++;
+    const day = days[+t.ts.slice(8, 10)];
+    day.spent -= t.amount;
+    if (t.amount < 0) day.count++;
+    const c = t.category || 'other';
+    day.cats[c] = (day.cats[c] || 0) - t.amount;
   }
   return days;
 }
-const unsorted = (d) => d.tx.filter((t) => t.kind === 'spend' && !t.category && t.amount < 0);
 
-/* ---------- modules ---------- */
-function ring(frac, over) {
-  const r = 44, C = +(2 * Math.PI * r).toFixed(1);
-  const off = (C * (1 - (over ? 1 : frac))).toFixed(1);
-  return `<svg class="ring" viewBox="0 0 104 104" aria-hidden="true">
-    <circle cx="52" cy="52" r="${r}" class="ring-track"/>
-    <circle cx="52" cy="52" r="${r}" class="ring-arc${over ? ' is-over' : ''}" style="--c:${C}" stroke-dasharray="${C}" stroke-dashoffset="${off}" transform="rotate(-90 52 52)"/>
-    <text x="52" y="54" class="ring-pct">${over ? '0%' : Math.round(frac * 100) + '%'}</text>
-    <text x="52" y="71" class="ring-cap">${over ? 'OVER' : 'LEFT'}</text>
-  </svg>`;
-}
-
-function hero(d) {
-  const s = d.summary;
-  if (d.safe) {
-    const { allowance, left } = d.safe;
-    const over = left < 0;
-    const frac = allowance > 0 ? Math.max(0, Math.min(1, left / allowance)) : 0;
-    const dayNum = +d.today.slice(8);
-    const expected = Math.round((d.budget * dayNum) / d.days);
-    const ahead = s.spent - expected;
-    const status = ahead <= 0
-      ? `<span class="pill pill-good">${ICON.check}On track</span>`
-      : `<span class="pill pill-warn">${ICON.bolt}${eur0(ahead)} over pace</span>`;
-    return `<section class="hero" aria-label="Today's allowance">
-      <div class="hero-main">
-        <div class="hero-copy">
-          <p class="hero-label">${over ? 'Over today’s allowance' : 'Safe to spend today'}</p>
-          <p class="hero-num" data-count="${left}">${money(left)}</p>
-          <p class="hero-sub">${over ? 'The next days get a little less' : `of ${eur(Math.max(allowance, 0))} for today`}</p>
-        </div>
-        ${ring(frac, over)}
-      </div>
-      <div class="hero-month">
-        <div class="mbar" role="img" aria-label="${eur0(s.spent)} of ${eur0(d.budget)} spent; the gold mark shows where today's pace should be">
-          <i style="--w:${Math.min(100, (100 * s.spent) / d.budget).toFixed(1)}%"></i><b style="left:${((100 * dayNum) / d.days).toFixed(1)}%"></b>
-        </div>
-        <div class="hero-row"><span><strong>${eur0(s.spent)}</strong> of ${eur0(d.budget)} · ${d.days - dayNum} days left</span>${status}</div>
-      </div>
-    </section>`;
+/* =========================================================================
+   Water: a row of springs. Cheap, stable and lively enough to touch.
+   ========================================================================= */
+class Wave {
+  constructor(n) {
+    this.n = n;
+    this.h = new Float32Array(n); this.v = new Float32Array(n);
+    this.l = new Float32Array(n); this.r = new Float32Array(n);
+    this.tilt = 0; this.t = 0; this.calm = reduceMotion ? 0 : 1;
   }
-  return `<section class="hero" aria-label="Month result">
-    <p class="hero-label">${d.current ? 'Left this month so far' : `Left over in ${d.name}`}</p>
-    <p class="hero-num" data-count="${s.left}" data-signed="1">${money(s.left, true)}</p>
-    <p class="hero-sub">Income minus spending and savings</p>
-    ${d.current && d.budget === null ? `<button class="btn btn-on-accent" data-act="settings">Set a monthly budget</button><p class="hero-hint">You’ll get a daily allowance that rolls over.</p>` : ''}
-  </section>`;
+  poke(x01, force) {
+    const i = Math.round(clamp(x01, 0, 1) * (this.n - 1));
+    for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < this.n) this.v[j] += force * (1 - Math.abs(k) / 4); }
+  }
+  step() {
+    const { n, h, v, l, r } = this;
+    this.t += 1 / 60;
+    for (let i = 0; i < n; i++) {
+      const rest = this.tilt * (i / (n - 1) - 0.5);
+      v[i] += (rest - h[i]) * 0.02;
+      v[i] *= 0.982;
+      h[i] += v[i];
+    }
+    for (let pass = 0; pass < 3; pass++) {
+      for (let i = 0; i < n; i++) {
+        l[i] = i > 0 ? 0.22 * (h[i] - h[i - 1]) : 0;
+        r[i] = i < n - 1 ? 0.22 * (h[i] - h[i + 1]) : 0;
+        if (i > 0) v[i - 1] += l[i];
+        if (i < n - 1) v[i + 1] += r[i];
+      }
+      for (let i = 0; i < n; i++) { if (i > 0) h[i - 1] += l[i]; if (i < n - 1) h[i + 1] += r[i]; }
+    }
+  }
+  /** Surface displacement in px at x (0..1); positive is lower. */
+  at(x) {
+    const f = clamp(x, 0, 1) * (this.n - 1), i = Math.min(this.n - 2, Math.floor(f)), u = f - i;
+    const base = this.h[i] * (1 - u) + this.h[i + 1] * u;
+    return base + this.calm * (Math.sin(x * 7 + this.t * 1.3) * 3.4 + Math.sin(x * 15 - this.t * 2.2) * 1.5);
+  }
 }
 
-function tiles(d) {
-  const s = d.summary, p = d.prev;
-  const foot = (cur, prev, upGood) => {
-    if (!prev) return `<span class="tile-foot">${esc(d.prevName.slice(0, 3))}: –</span>`;
-    if (d.current) return `<span class="tile-foot">${esc(d.prevName.slice(0, 3))}: ${eur0(prev)}</span>`;
-    const pct = Math.round((Math.abs(cur - prev) / prev) * 100);
-    const up = cur >= prev;
-    return `<span class="tile-foot"><span class="delta ${up === upGood ? 'is-good' : 'is-bad'}">${up ? ICON.up : ICON.down}${pct} %</span> vs ${esc(d.prevName.slice(0, 3))}</span>`;
-  };
-  const podmoga = s.podmogaIn || s.podmogaOut;
-  const t = (label, key, value, footer, signed) => `<div class="tile"><span class="tile-label"><i style="--k:${key}"></i>${label}</span><p class="tile-value">${eur(value, signed)}</p>${footer}</div>`;
-  return `<section class="tiles" aria-label="Month totals">
-    ${t('Real income', 'var(--good)', s.realIncome, foot(s.realIncome, p.realIncome, true))}
-    ${t('Spent', 'var(--accent)', s.realSpent, foot(s.realSpent, p.realSpent, false))}
-    ${t('Saved', 'var(--gold-deep)', s.saved, foot(s.saved, p.saved, true))}
-    ${podmoga
-      ? t('Podmoga kept', 'var(--c-shop)', s.podmogaNet, `<span class="tile-foot">${eur0(s.podmogaIn)} in · ${eur0(s.podmogaOut)} out</span>`, true)
-      : t('Left over', 'var(--ink-2)', s.left, `<span class="tile-foot">income − spent − saved</span>`, true)}
-  </section>`;
-}
-
-function nudge(d) {
-  const n = unsorted(d).length;
-  if (!n) return '';
-  return `<button class="nudge" data-act="sort">
-    <span class="nudge-badge">${n}</span>
-    <span class="nudge-text"><strong>${n === 1 ? '1 payment' : `${n} payments`} to sort</strong><small>About ${Math.max(5, n * 3)} seconds, one tap each</small></span>
-    ${ICON.next}
-  </button>`;
-}
-
-function jar(pct) {
-  const level = (34 + 110 * (1 - pct)).toFixed(1);
-  return `<svg class="jar" viewBox="0 0 120 150" aria-hidden="true">
-    <defs>
-      <clipPath id="jar-clip"><path d="M28 34h64q10 0 10 10v88q0 14-14 14H32q-14 0-14-14V44q0-10 10-10z"/></clipPath>
-      <linearGradient id="jar-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--gold)"/><stop offset="1" style="stop-color:var(--gold-deep)"/></linearGradient>
-    </defs>
-    <g clip-path="url(#jar-clip)">
-      <rect width="120" height="150" style="fill:var(--jar-glass)"/>
-      <g class="liquid" style="--level:${level}px">
-        <path class="wave" d="M0 4q15-8 30 0t30 0 30 0 30 0 30 0 30 0V160H0z" style="fill:url(#jar-fill)"/>
-        <circle cx="44" cy="${pct > 0.1 ? 22 : 8}" r="3" style="fill:#fff;opacity:.35"/>
-        <circle cx="70" cy="${pct > 0.1 ? 40 : 12}" r="2" style="fill:#fff;opacity:.3"/>
-      </g>
-    </g>
-    <path d="M28 34h64q10 0 10 10v88q0 14-14 14H32q-14 0-14-14V44q0-10 10-10z" style="fill:none;stroke:var(--jar-line);stroke-width:3"/>
-    <path d="M30 52v56" style="stroke:#fff;stroke-opacity:.45;stroke-width:4;stroke-linecap:round;fill:none"/>
-    <rect x="34" y="18" width="52" height="14" rx="5" style="fill:var(--accent)"/>
-    <rect x="40" y="22" width="40" height="3" rx="1.5" style="fill:#fff;opacity:.35"/>
-  </svg>`;
-}
-
-function savings(d) {
-  const sv = d.savings, s = d.summary;
-  const goal = sv.goalAmount;
-  const pct = goal ? Math.max(0, Math.min(1, sv.total / goal)) : sv.total > 0 ? 0.4 : 0;
-  const remaining = goal ? Math.max(0, goal - sv.total) : 0;
-  const months = goal && remaining > 0 && sv.perMonth > 0 ? Math.ceil(remaining / sv.perMonth) : null;
-  const eta = months ? shiftMonth(d.today.slice(0, 7), months) : null;
-  let line;
-  if (!goal) line = `<button class="btn btn-soft" data-act="settings">Set a savings goal</button>`;
-  else if (!remaining) line = `<strong>Goal reached.</strong> Time to pick the next one.`;
-  else if (months) line = `At about ${eur0(sv.perMonth)} a month you’ll get there by <strong>${MONTH[+eta.slice(5) - 1]} ${eta.slice(0, 4)}</strong>.`;
-  else line = `Move something to savings and I’ll tell you when you’ll get there.`;
-  return `<section class="card" aria-label="Savings">
-    <div class="sec-head"><h2>Savings</h2>${sv.goalName ? `<span class="tag">${esc(sv.goalName)}</span>` : ''}</div>
-    <div class="sv-body">
-      ${jar(pct)}
-      <div class="sv-copy">
-        <p class="big">${money(sv.total)}</p>
-        <p class="sv-of">${goal ? `of ${eur0(goal)} · ${Math.round(pct * 100)} %` : 'saved so far'}</p>
-        ${s.saved ? `<span class="chip chip-good">${eur0(s.saved, true)} in ${esc(d.name)}</span>` : ''}
-        <p class="sv-eta">${line}</p>
-      </div>
-    </div>
-  </section>`;
-}
-
-function pace(d) {
-  return `<section class="card" aria-label="Spending pace">
-    <div class="sec-head"><h2>Spending pace</h2>
-      <span class="legend"><span><i class="key" style="--k:var(--accent)"></i>Spent</span>${d.budget ? `<span><i class="key" style="--k:var(--muted)"></i>Budget</span>` : ''}</span>
-    </div>
-    <div class="pace" id="pace"><div class="tip" id="pace-tip" hidden></div></div>
-  </section>`;
-}
-
-const niceStep = (v) => {
-  const steps = [1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000, 100000, 200000, 500000];
-  return steps.find((s) => s >= v) || 1000000;
+const pool = {
+  el: $('#pool'), ctx: null, w: 0, h: 0, wave: new Wave(90),
+  level: 0.7, levelTarget: 0.7, color: AQUA.slice(), colorTarget: AQUA.slice(),
+  stars: [], rays: [], bubbles: [], visible: true,
 };
+pool.ctx = pool.el.getContext('2d');
+// Full pool: the surface sits 36% down the screen. Empty: 74%. The sky above is what's been spent.
+const baseY = () => pool.h * (0.36 + (1 - pool.level) * 0.38);
+const surfaceY = (x01) => baseY() + pool.wave.at(x01);
 
-function drawPace(d) {
-  const box = $('#pace');
-  if (!box) return;
-  const W = box.clientWidth, H = box.clientHeight;
-  const pl = 42, pr = 16, pt = 16, pb = 24;
-  const daily = dailySpend(d);
-  const last = d.current ? +d.today.slice(8) : d.days;
-  const cum = [0];
-  for (let i = 1; i <= d.days; i++) cum[i] = cum[i - 1] + daily[i].spent;
-  const peak = Math.max(d.budget || 0, ...cum.slice(0, last + 1), 1000);
-  const step = niceStep(peak / 3);
-  const top = Math.ceil(peak / step) * step;
-  const x = (i) => pl + ((W - pl - pr) * i) / d.days;
-  const y = (v) => pt + (H - pt - pb) * (1 - Math.max(0, v) / top);
-  const ticks = [];
-  for (let v = 0; v <= top; v += step) ticks.push(v);
-  const xt = [1, 8, 15, 22, d.days];
-  const pts = cum.slice(0, last + 1).map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
-  const end = cum[last];
-  const endX = x(last), endY = y(end);
-  const labelX = Math.min(endX, W - pr - 4);
-  const parts = [];
-  parts.push(ticks.map((v) => `<line class="grid" x1="${pl}" x2="${W - pr}" y1="${y(v)}" y2="${y(v)}"/><text class="axis-text" x="${pl - 8}" y="${y(v) + 4}" text-anchor="end">${eur0(v)}</text>`).join(''));
-  parts.push(xt.map((i) => `<text class="axis-text" x="${x(i)}" y="${H - 6}" text-anchor="middle">${i}${i === 1 ? ' ' + MON[+d.month.slice(5) - 1] : ''}</text>`).join(''));
-  if (d.budget) {
-    parts.push(`<line class="budget-line" x1="${x(0)}" y1="${y(0)}" x2="${x(d.days)}" y2="${y(d.budget)}"/>`);
+function sizeCanvas(c) {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  const w = c.el.clientWidth, h = c.el.clientHeight;
+  c.el.width = Math.round(w * dpr); c.el.height = Math.round(h * dpr);
+  c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  c.w = w; c.h = h;
+}
+
+function seedPool() {
+  let s = 11;
+  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
+  pool.stars = Array.from({ length: 70 }, () => ({ x: rnd(), y: rnd() * 0.55, r: rnd() < 0.85 ? 1 : 1.8, a: 0.25 + rnd() * 0.6, ph: rnd() * 6.3, sp: 0.6 + rnd() * 1.6 }));
+  pool.rays = Array.from({ length: 5 }, (_, i) => ({ x: 0.1 + i * 0.2 + rnd() * 0.08, w: 30 + rnd() * 60, sp: 0.2 + rnd() * 0.3, ph: rnd() * 6 }));
+  pool.bubbles = Array.from({ length: 26 }, () => ({ x: rnd(), y: 0.6 + rnd() * 0.4, r: 1 + rnd() * 3, sp: 0.15 + rnd() * 0.5, ph: rnd() * 6 }));
+}
+
+function drawPool(now) {
+  const { ctx: c, w: W, h: H, wave } = pool;
+  if (!W) return;
+  pool.level += (pool.levelTarget - pool.level) * 0.03;
+  pool.color = mix(pool.color, pool.colorTarget, 0.04);
+  const col = pool.color, t = now / 1000;
+  c.clearRect(0, 0, W, H);
+
+  for (const s of pool.stars) {
+    const a = s.a * (reduceMotion ? 1 : 0.55 + 0.45 * Math.sin(t * s.sp + s.ph));
+    c.fillStyle = `rgba(220,232,255,${a})`;
+    c.fillRect(s.x * W, s.y * H, s.r, s.r);
   }
-  parts.push(`<path class="spent-area" d="M${x(0)},${y(0)} L${pts.join(' L')} L${endX.toFixed(1)},${y(0)} Z"/>`);
-  parts.push(`<polyline class="spent-line" points="${pts.join(' ')}"/>`);
-  parts.push(`<circle class="end-dot" cx="${endX}" cy="${endY}" r="5"/>`);
-  parts.push(`<text class="end-label" x="${labelX}" y="${Math.max(12, endY - 12)}" text-anchor="${endX > W - 70 ? 'end' : 'middle'}">${eur0(end)}</text>`);
-  parts.push(`<g id="cross" hidden><line class="cross" x1="0" x2="0" y1="${pt}" y2="${H - pb}"/><circle class="end-dot" r="5"/></g>`);
-  const label = `Cumulative spending in ${d.name}: ${eur0(end)} by day ${last}${d.budget ? ` against a budget of ${eur0(d.budget)}` : ''}.`;
-  box.insertAdjacentHTML('beforeend', `<svg id="pace-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)}" tabindex="0">${parts.join('')}</svg>`);
 
-  const svgEl = $('#pace-svg'), cross = $('#cross'), tip = $('#pace-tip');
-  let current = last;
-  const show = (i) => {
-    current = Math.max(1, Math.min(last, i));
-    const cx = x(current), cy = y(cum[current]);
-    cross.removeAttribute('hidden');
-    cross.querySelector('line').setAttribute('x1', cx);
-    cross.querySelector('line').setAttribute('x2', cx);
-    cross.querySelector('circle').setAttribute('cx', cx);
-    cross.querySelector('circle').setAttribute('cy', cy);
-    const day = `${d.month}-${String(current).padStart(2, '0')}`;
-    const paceLine = d.budget ? ` · pace ${eur0((d.budget * current) / d.days)}` : '';
-    tip.innerHTML = `<b>${eur0(cum[current])}</b>by ${esc(shortDay(day))}${paceLine}`;
-    tip.hidden = false;
-    const tw = tip.offsetWidth;
-    tip.style.left = `${Math.max(0, Math.min(W - tw, cx - tw / 2))}px`;
-  };
-  const fromEvent = (e) => Math.round(((e.clientX - svgEl.getBoundingClientRect().left - pl) / (W - pl - pr)) * d.days);
-  svgEl.addEventListener('pointerdown', (e) => { show(fromEvent(e)); haptic.pick(); });
-  svgEl.addEventListener('pointermove', (e) => show(fromEvent(e)));
-  svgEl.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') { cross.setAttribute('hidden', ''); tip.hidden = true; } });
-  svgEl.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); show(current + (e.key === 'ArrowLeft' ? -1 : 1)); }
+  const SEG = 72, pts = [];
+  for (let k = 0; k <= SEG; k++) pts.push([(k / SEG) * W, surfaceY(k / SEG)]);
+  const base = baseY();
+
+  // a back swell, for depth
+  c.beginPath();
+  c.moveTo(0, H);
+  for (let k = 0; k <= SEG; k++) {
+    const x = k / SEG;
+    c.lineTo(x * W, base - 12 + wave.calm * Math.sin(x * 5 - t * 0.8) * 6 + wave.h[Math.round(x * (wave.n - 1))] * 0.4);
+  }
+  c.lineTo(W, H); c.closePath();
+  c.fillStyle = rgba(col, 0.22);
+  c.fill();
+
+  const body = new Path2D();
+  body.moveTo(0, H);
+  for (const [x, y] of pts) body.lineTo(x, y);
+  body.lineTo(W, H); body.closePath();
+  const g = c.createLinearGradient(0, base - 24, 0, H);
+  g.addColorStop(0, rgba(col, 0.92));
+  g.addColorStop(0.16, rgba(mix(col, DEEP, 0.5), 0.97));
+  g.addColorStop(0.55, rgba(mix(col, DEEP, 0.82), 1));
+  g.addColorStop(1, rgba(DEEP, 1));
+  c.fillStyle = g;
+  c.fill(body);
+
+  c.save();
+  c.clip(body);
+  c.globalCompositeOperation = 'lighter';
+  for (const r of pool.rays) {
+    const x0 = (r.x + (reduceMotion ? 0 : Math.sin(t * r.sp + r.ph) * 0.04)) * W;
+    const top = surfaceY(x0 / W) - 4, len = H * 0.55, skew = 50;
+    const rg = c.createLinearGradient(0, top, 0, top + len);
+    rg.addColorStop(0, rgba(mix(col, [255, 255, 255], 0.5), 0.13));
+    rg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = rg;
+    c.beginPath();
+    c.moveTo(x0 - r.w / 2, top); c.lineTo(x0 + r.w / 2, top);
+    c.lineTo(x0 + r.w + skew, top + len); c.lineTo(x0 - r.w * 0.2 + skew, top + len);
+    c.closePath(); c.fill();
+  }
+  c.strokeStyle = 'rgba(255,255,255,.07)';
+  c.lineWidth = 1;
+  for (let k = 0; k < 4; k++) {
+    c.beginPath();
+    const y0 = base + 30 + k * 26;
+    for (let x = 0; x <= W; x += 8) c.lineTo(x, y0 + Math.sin(x * 0.03 + t * (0.7 + k * 0.2) + k) * 6);
+    c.stroke();
+  }
+  for (const b of pool.bubbles) {
+    if (!reduceMotion) {
+      b.y -= (b.sp / H) * 1.6;
+      if (b.y * H < surfaceY(b.x) + 6) { b.y = 1.02; b.x = Math.random(); }
+    }
+    c.strokeStyle = 'rgba(255,255,255,.35)';
+    c.beginPath(); c.arc(b.x * W + Math.sin(t * 2 + b.ph) * 4, b.y * H, b.r, 0, Math.PI * 2); c.stroke();
+  }
+  c.restore();
+
+  c.save();
+  c.shadowColor = rgba(col, 0.95);
+  c.shadowBlur = 16;
+  c.strokeStyle = 'rgba(255,255,255,.88)';
+  c.lineWidth = 1.6;
+  c.beginPath();
+  pts.forEach(([x, y], i) => (i ? c.lineTo(x, y) : c.moveTo(x, y)));
+  c.stroke();
+  c.restore();
+}
+
+/* The number floats on the pool, two-thirds above the surface; the part below is drawn "wet". */
+const num = { block: $('#num-block'), wrap: $('#num-wrap'), dry: $('#num-dry'), wet: $('#num-wet'), m: null, box: null, top: 0 };
+function measureNum() {
+  const w = num.wrap;
+  num.m = { x: w.offsetLeft, y: w.offsetTop, w: w.offsetWidth, h: w.offsetHeight };
+}
+function floatNum() {
+  const m = num.m;
+  if (!m || !pool.w) return;
+  num.top = baseY() + pool.wave.at(0.5) * 0.7 - (m.y + m.h * 0.66);
+  num.block.style.transform = `translate3d(0, ${num.top.toFixed(1)}px, 0)`;
+  num.box = { x: m.x, y: num.top + m.y, w: m.w, h: m.h };
+}
+function clipNum() {
+  const b = num.box;
+  if (!b || !pool.w || !b.w) return;
+  // The polygons reach 60px past the text box so its glow isn't cut into a rectangle.
+  const P = 60, edge = [];
+  for (let k = 0; k <= 16; k++) {
+    const y = clamp(surfaceY((b.x + (b.w * k) / 16) / pool.w) - b.y, -P, b.h + P);
+    const x = k === 0 ? `${-P}px` : k === 16 ? `calc(100% + ${P}px)` : `${((100 * k) / 16).toFixed(1)}%`;
+    edge.push(`${x} ${y.toFixed(1)}px`);
+  }
+  num.dry.style.clipPath = `polygon(${-P}px ${-P}px, calc(100% + ${P}px) ${-P}px, ${edge.slice().reverse().join(', ')})`;
+  num.wet.style.clipPath = `polygon(${edge.join(', ')}, calc(100% + ${P}px) calc(100% + ${P}px), ${-P}px calc(100% + ${P}px))`;
+}
+
+/* Today's payments hang in the sky as drops: water that has left the pool. */
+const buoys = { list: [] };
+function placeBuoys(now) {
+  const n = buoys.list.length;
+  if (!n) return;
+  const t = now / 1000;
+  const top = 150, bottom = Math.max(top + 50, num.top + (num.m ? num.m.y : 0) - 30);
+  $('#sky-cap').style.transform = `translate3d(0, ${(top + (bottom - top) * 0.3 - 66).toFixed(1)}px, 0)`;
+  buoys.list.forEach((b, i) => {
+    if (b.el.classList.contains('is-dragging')) return;
+    const x = n === 1 ? 0.5 : 0.22 + (0.56 * i) / (n - 1);
+    const row = n === 1 ? 0.5 : n === 2 ? (i ? 0.62 : 0.38) : i % 2 ? 0.78 : 0.3;
+    const bob = reduceMotion ? 0 : Math.sin(t * 1.1 + i * 1.7) * 5;
+    const y = top + (bottom - top) * row - 20 + bob;
+    b.el.style.transform = `translate3d(${(x * pool.w - b.el.offsetWidth / 2).toFixed(1)}px, ${y.toFixed(1)}px, 0) rotate(${(reduceMotion ? 0 : Math.sin(t * 0.9 + i) * 3).toFixed(2)}deg)`;
   });
 }
 
-function calendar(d) {
-  const daily = dailySpend(d);
-  const first = `${d.month}-01`;
-  const lead = wdIndex(first);
+/* =========================================================================
+   The savings jar: the same water, in gold.
+   ========================================================================= */
+const jar = { el: $('#jar'), ctx: null, w: 0, h: 0, wave: new Wave(36), level: 0, levelTarget: 0, fizz: [], visible: false };
+jar.ctx = jar.el.getContext('2d');
+function jarPath(W, H) {
+  const p = new Path2D();
+  p.moveTo(W * 0.33, H * 0.12); p.lineTo(W * 0.33, H * 0.18);
+  p.quadraticCurveTo(W * 0.1, H * 0.2, W * 0.1, H * 0.32);
+  p.lineTo(W * 0.1, H * 0.85); p.quadraticCurveTo(W * 0.1, H * 0.97, W * 0.24, H * 0.97);
+  p.lineTo(W * 0.76, H * 0.97); p.quadraticCurveTo(W * 0.9, H * 0.97, W * 0.9, H * 0.85);
+  p.lineTo(W * 0.9, H * 0.32); p.quadraticCurveTo(W * 0.9, H * 0.2, W * 0.67, H * 0.18);
+  p.lineTo(W * 0.67, H * 0.12); p.closePath();
+  return p;
+}
+function drawJar(now) {
+  const { ctx: c, w: W, h: H, wave } = jar;
+  if (!W) return;
+  const t = now / 1000;
+  jar.level += (jar.levelTarget - jar.level) * 0.025;
+  c.clearRect(0, 0, W, H);
+  const shape = jarPath(W, H);
+  c.fillStyle = 'rgba(170,210,255,.06)';
+  c.fill(shape);
+  const top = H * 0.24, bottom = H * 0.97;
+  const base = bottom - (bottom - top) * jar.level;
+  c.save();
+  c.clip(shape);
+  if (jar.level > 0.005) {
+    const liquid = new Path2D();
+    liquid.moveTo(0, H);
+    for (let k = 0; k <= 40; k++) liquid.lineTo((k / 40) * W, base + wave.at(k / 40) * 0.6);
+    liquid.lineTo(W, H); liquid.closePath();
+    const g = c.createLinearGradient(0, base, 0, bottom);
+    g.addColorStop(0, rgba(GOLD, 0.95)); g.addColorStop(1, rgba(GOLD_DEEP, 1));
+    c.fillStyle = g;
+    c.fill(liquid);
+    c.save();
+    c.clip(liquid);
+    for (const f of jar.fizz) {
+      if (!reduceMotion) { f.y -= f.sp; if (f.y < base + 4) { f.y = bottom; f.x = 0.15 + Math.random() * 0.7; } }
+      c.fillStyle = 'rgba(255,255,255,.5)';
+      c.beginPath(); c.arc(f.x * W + Math.sin(t * 3 + f.ph) * 2, f.y, f.r, 0, Math.PI * 2); c.fill();
+    }
+    c.restore();
+    c.strokeStyle = 'rgba(255,255,255,.75)';
+    c.lineWidth = 1.4;
+    c.beginPath();
+    for (let k = 0; k <= 40; k++) c.lineTo((k / 40) * W, base + wave.at(k / 40) * 0.6);
+    c.stroke();
+  }
+  c.restore();
+  c.strokeStyle = 'rgba(190,220,255,.45)';
+  c.lineWidth = 2;
+  c.stroke(shape);
+  c.strokeStyle = 'rgba(255,255,255,.28)';
+  c.lineWidth = 4; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(W * 0.17, H * 0.36); c.lineTo(W * 0.17, H * 0.8); c.stroke();
+  c.fillStyle = '#5b66ff';
+  c.beginPath(); c.roundRect(W * 0.29, H * 0.04, W * 0.42, H * 0.09, 7); c.fill();
+  c.fillStyle = 'rgba(255,255,255,.3)';
+  c.fillRect(W * 0.34, H * 0.065, W * 0.32, 3);
+}
+
+/* Ambient: slow bubbles behind the deeper scenes. */
+const amb = { el: $('#ambient'), ctx: null, w: 0, h: 0, parts: [] };
+amb.ctx = amb.el.getContext('2d');
+function drawAmbient(now) {
+  const { ctx: c, w: W, h: H } = amb;
+  c.clearRect(0, 0, W, H);
+  const t = now / 1000;
+  for (const p of amb.parts) {
+    if (!reduceMotion) { p.y -= p.sp; if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; } }
+    c.fillStyle = `rgba(170,215,255,${p.a})`;
+    c.beginPath(); c.arc(p.x + Math.sin(t * p.f + p.ph) * 6, p.y, p.r, 0, Math.PI * 2); c.fill();
+  }
+}
+
+/* Tilt the phone and the water follows (Telegram 8.0+). */
+let tiltTarget = 0;
+function startTilt() {
+  const acc = TG?.Accelerometer;
+  if (!acc || !TG.isVersionAtLeast?.('8.0')) return;
+  try {
+    acc.start({ refresh_rate: 40 });
+    TG.onEvent('accelerometerChanged', () => { tiltTarget = clamp(acc.x * 9, -90, 90); });
+  } catch {}
+}
+
+let last = 0;
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (document.hidden || now - last < 15) return;
+  last = now;
+  pool.wave.tilt += (tiltTarget - pool.wave.tilt) * 0.08;
+  jar.wave.tilt = pool.wave.tilt * 0.5;
+  if (pool.visible) {
+    if (!reduceMotion && Math.random() < 0.012) pool.wave.poke(Math.random(), (Math.random() - 0.5) * 3);
+    pool.wave.step();
+    drawPool(now);
+    floatNum();
+    clipNum();
+    placeBuoys(now);
+  }
+  if (jar.visible) { jar.wave.step(); drawJar(now); }
+  if (!pool.visible || scrollY > 40) drawAmbient(now);
+}
+
+/* =========================================================================
+   Scenes
+   ========================================================================= */
+function renderToday() {
+  const d = state.cur, s = d.summary;
+  const label = $('#num-label'), sub = $('#num-sub'), info = $('#deep-info');
+  let f, over = false, value;
+  if (d.safe) {
+    const { allowance, left } = d.safe;
+    over = left < 0;
+    f = allowance > 0 ? clamp(left / allowance, 0, 1) : 0;
+    value = left;
+    label.textContent = over ? 'Over today’s allowance' : 'Safe to spend today';
+    sub.innerHTML = over ? 'Tomorrow’s pool fills a little lower.' : `of <b>${eur(Math.max(allowance, 0))}</b> for today · ${Math.round(f * 100)} % left`;
+  } else {
+    label.textContent = 'Left this month';
+    f = s.realIncome > 0 ? clamp(s.left / s.realIncome, 0, 1) : 0.5;
+    value = s.left;
+    sub.textContent = 'Set a monthly budget and this becomes your daily pool.';
+  }
+  num.dry.innerHTML = num.wet.innerHTML = money(value);
+  num.dry.classList.toggle('is-over', over);
+  // The number gets thinner and narrower as the day's water runs out.
+  root.style.setProperty('--wdth', (over ? 52 : 58 + 84 * Math.pow(f, 0.85)).toFixed(0));
+  root.style.setProperty('--wght', (over ? 260 : 330 + 520 * f).toFixed(0));
+  pool.levelTarget = over ? 0.02 : 0.08 + 0.92 * f;
+  pool.colorTarget = waterFor(f, over);
+  root.style.setProperty('--water', pool.colorTarget.map((v) => v | 0).join(' '));
+
+  // The moon is the savings goal, filling with gold.
+  const sv = d.savings, gp = sv.goalAmount ? clamp(sv.total / sv.goalAmount, 0, 1) : 0;
+  const moon = $('#moon');
+  moon.innerHTML = `<svg viewBox="0 0 46 46" aria-hidden="true"><defs><clipPath id="moon-c"><circle cx="23" cy="23" r="20"/></clipPath><radialGradient id="moon-g" cx=".35" cy=".3"><stop offset="0" stop-color="#fff3c4"/><stop offset="1" stop-color="#ffc24a"/></radialGradient></defs>
+    <circle cx="23" cy="23" r="22" fill="rgba(255,220,140,.08)"/><circle cx="23" cy="23" r="20" fill="rgba(255,240,210,.10)" stroke="rgba(255,230,170,.35)"/>
+    <rect x="0" y="${(3 + 40 * (1 - gp)).toFixed(1)}" width="46" height="46" fill="url(#moon-g)" clip-path="url(#moon-c)"/></svg>`;
+  moon.setAttribute('aria-label', sv.goalAmount ? `Savings jar, ${Math.round(gp * 100)} % of ${sv.goalName || 'your goal'}` : 'Savings jar');
+  moon.style.filter = `drop-shadow(0 0 ${8 + gp * 18}px rgba(255,200,90,${0.25 + gp * 0.45}))`;
+
+  const todays = d.tx.filter((t) => t.ts.startsWith(d.today) && t.kind !== 'ignore');
+  const shown = todays.slice(0, 5), more = todays.length - shown.length;
+  const items = [...shown.map((t) => ({ t })), ...(more > 0 ? [{ more }] : [])];
+  const box = $('#buoys');
+  box.innerHTML = items.map((it) => {
+    if (it.more) return `<button class="buoy is-more" data-go="ledger" aria-label="${it.more} more payments today">+${it.more} more</button>`;
+    const t = it.t, v = visual(t), un = isUnsorted(t);
+    return `<button class="buoy${un ? ' is-unsorted' : ''}" data-n="${t.n}" style="--c:${v.c}" aria-label="${esc(t.label)}, ${eur(t.amount, true)}${un ? ', needs a category: drag it into one or tap it' : ''}"><span class="e">${un ? '?' : v.icon}</span>${short(t.amount, true)}</button>`;
+  }).join('');
+  buoys.list = $$('.buoy', box).map((el) => ({ el }));
+  const gone = todays.reduce((a, t) => (t.kind === 'spend' ? a - t.amount : a), 0);
+  const cap = $('#sky-cap');
+  cap.hidden = !todays.length;
+  cap.innerHTML = gone > 0 ? `Left the pool today · <b>${eur(gone)}</b>` : 'Today';
+  if (!todays.length && d.safe && !over) sub.innerHTML += '<br>Nothing spent yet today. Clear skies.';
+
+  const dayNum = +d.today.slice(8);
+  if (d.budget) {
+    const ahead = s.spent - Math.round((d.budget * dayNum) / d.days);
+    info.innerHTML = `<div class="tide" role="img" aria-label="${eur0(s.spent)} of ${eur0(d.budget)} spent this month; the gold mark is where today's pace should be"><i style="--w:${Math.min(100, (100 * s.spent) / d.budget).toFixed(1)}%"></i><b style="left:${((100 * dayNum) / d.days).toFixed(1)}%"></b></div>
+      <div class="deep-row"><p><span><span class="mono">${eur0(s.spent)} / ${eur0(d.budget)}</span> in ${esc(d.name)}</span> · <span>${d.days - dayNum} days left</span> · ${ahead <= 0 ? '<span class="ok">on pace</span>' : `<span class="warn">${eur0(ahead)} over pace</span>`}</p>
+      <button class="dive" data-go="month" aria-label="Dive into ${esc(d.name)}">${ICON.down}</button></div>`;
+  } else {
+    info.innerHTML = `<div class="deep-row"><button class="cta-glass" data-act="settings">Set a monthly budget</button><button class="dive" data-go="month" aria-label="Dive into ${esc(d.name)}">${ICON.down}</button></div>`;
+  }
+  requestAnimationFrame(measureNum);
+}
+
+function renderMonth() {
+  const d = state.view, s = d.summary, daily = dailyOf(d);
+  const cap = d.budget ? (2 * d.budget) / d.days : Math.max(1, ...daily.map((x) => x.spent));
   const tracked = d.tx.length ? d.tx[d.tx.length - 1].ts.slice(0, 10) : null;
-  const dailyBudget = d.budget ? d.budget / d.days : null;
-  const max = Math.max(...daily.map((x) => x.spent), 1);
-  const ref = dailyBudget ? dailyBudget * 1.6 : max;
-  const cells = [];
-  for (const w of WD) cells.push(`<span class="cal-wd" aria-hidden="true">${w.slice(0, 2)}</span>`);
-  for (let i = 0; i < lead; i++) cells.push('<span aria-hidden="true"></span>');
+  const order = Object.keys(CATS);
+  const cells = WD.map((w) => `<span class="wd" aria-hidden="true">${w.slice(0, 2)}</span>`);
+  for (let i = 0; i < wdIndex(`${d.month}-01`); i++) cells.push('<span aria-hidden="true"></span>');
   for (let n = 1; n <= d.days; n++) {
     const day = `${d.month}-${String(n).padStart(2, '0')}`;
-    const v = daily[n].spent;
-    const future = day > d.today;
-    const lv = v > 0 ? Math.min(4, Math.max(1, Math.ceil((v / ref) * 4))) : 0;
-    const noSpend = !future && v <= 0 && tracked && day >= tracked && day < d.today;
-    const over = dailyBudget && v > 2 * dailyBudget; // only flag the big days, or half the month turns red
-    const cls = ['cal-day', lv ? 'lv' + lv : '', future ? 'is-future' : '', day === d.today ? 'is-today' : '', state.filter?.day === day ? 'is-sel' : ''].join(' ');
-    const label = `${shortDay(day)}: ${future ? 'not yet' : v > 0 ? `spent ${eur(v)}${over ? ', a big day' : ''}` : 'no spending'}`;
-    cells.push(`<button class="${cls}" data-act="day" data-day="${day}" aria-label="${label}" ${future ? 'disabled' : ''}>${n}${noSpend ? `<svg class="ok" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>` : ''}${over ? '<i class="over" aria-hidden="true"></i>' : ''}</button>`);
+    const x = daily[n], future = day > d.today;
+    const dry = !future && x.spent <= 0 && tracked && day >= tracked && day < d.today;
+    const over = x.spent > cap;
+    const segs = order.filter((c) => x.cats[c] > 0).map((c) => `<i style="--s:${((100 * x.cats[c]) / Math.max(x.spent, 1)).toFixed(1)}%;--c:${catMeta(c).c}"></i>`).join('');
+    const cls = ['glass', future ? 'is-future' : '', day === d.today ? 'is-today' : ''].join(' ');
+    const label = `${shortDay(day)}: ${future ? 'still ahead' : x.spent > 0 ? `${eur(x.spent)} in ${x.count} payment${x.count === 1 ? '' : 's'}${over ? ', a big day' : ''}` : 'nothing spent'}`;
+    cells.push(`<button class="${cls}" data-act="day" data-day="${day}" aria-label="${label}" ${future ? 'disabled' : ''}>
+      <span class="dn">${n}</span>
+      <span class="tube">${d.budget ? '<span class="mark"></span>' : ''}${x.spent > 0 ? `<span class="liq" style="--h:${(clamp(x.spent / cap, 0, 1) * 100).toFixed(1)}%;--delay:${(n * 0.012).toFixed(3)}s">${segs}</span>` : ''}</span>
+      ${dry ? '<span class="sparkle" aria-hidden="true">✦</span>' : ''}${over ? '<span class="drip" aria-hidden="true"></span>' : ''}
+    </button>`);
   }
-  const rows = [];
-  for (let n = 1; n <= Math.min(d.days, d.current ? +d.today.slice(8) : d.days); n++) {
-    if (daily[n].spent > 0) rows.push(`<tr><td>${esc(shortDay(`${d.month}-${String(n).padStart(2, '0')}`))}</td><td>${daily[n].count}</td><td>${eur(daily[n].spent)}</td></tr>`);
+  const keys = s.byCategory.map(([c]) => { const m = catMeta(c); return `<button class="key-chip" data-act="cat" data-cat="${c}" style="--c:${m.c}"><i></i>${esc(m.name)}</button>`; }).join('');
+  const year = d.month.slice(0, 4) !== d.today.slice(0, 4) ? ` ${d.month.slice(0, 4)}` : '';
+  $('#month').innerHTML = `
+    <div class="eyebrow-row">
+      <p class="eyebrow">−5 m · the month</p>
+      <div class="month-nav">
+        <button class="orb" data-act="prev" aria-label="Previous month">${ICON.left}</button>
+        <button class="orb" data-act="next" aria-label="Next month" ${d.month >= state.cur.month ? 'disabled' : ''}>${ICON.right}</button>
+      </div>
+    </div>
+    <h2 class="title" id="month-title">${esc(d.name)}${year}</h2>
+    <div class="stats-line"><span><b>${eur0(s.realSpent)}</b> spent</span>${d.budget ? `<span>of <b>${eur0(d.budget)}</b></span>` : ''}${d.streak ? `<span class="streak">✦ ${d.streak}-day dry streak</span>` : ''}</div>
+    <div class="glasses">${cells.join('')}</div>
+    ${keys ? `<div class="keys">${keys}</div>` : ''}
+    <p class="legend-note">Each glass is a day${d.budget ? `, full at ${eur0(cap)} (twice your daily budget); the line marks one day’s budget` : ''}. ✦ means nothing spent. A dripping glass was a big day.</p>`;
+}
+
+function flowModel(d) {
+  const s = d.summary;
+  const kept = Math.max(s.podmogaNet, 0), loss = Math.max(-s.podmogaNet, 0);
+  const sources = [];
+  if (s.income > 0) sources.push({ id: 'income', name: 'Income', v: s.income, c: 'var(--good)' });
+  if (s.saved < 0) sources.push({ id: 'fromsav', name: 'From savings', v: -s.saved, c: 'var(--gold)' });
+  if (s.left < 0) sources.push({ id: 'balance', name: 'From your balance', v: -s.left, c: 'var(--muted)' });
+  if (s.podmogaIn > 0) sources.push({ id: 'podmoga', name: 'Podmoga', v: s.podmogaIn, c: 'var(--podmoga)' });
+  const cats = s.byCategory.filter(([, v]) => v > 0);
+  const rest = cats.slice(5).reduce((a, [, v]) => a + v, 0);
+  const sinks = cats.slice(0, 5).map(([id, v]) => ({ id, name: catMeta(id).name, emoji: catMeta(id).emoji, v, c: catMeta(id).c, cat: id }));
+  if (rest > 0) sinks.push({ id: 'rest', name: 'Everything else', emoji: '', v: rest, c: 'var(--c-other)' });
+  if (s.saved > 0) sinks.push({ id: 'savings', name: 'Into the jar', emoji: '🫙', v: s.saved, c: 'var(--gold)' });
+  if (s.left > 0) sinks.push({ id: 'left', name: 'Still in the pool', emoji: '💧', v: s.left, c: 'var(--aqua)' });
+  if (s.podmogaOut > 0) sinks.push({ id: 'podout', name: 'Podmoga passed on', emoji: '🔁', v: s.podmogaOut, c: 'var(--podmoga)' });
+  return { sources, sinks, kept, loss, pass: Math.min(s.podmogaIn, s.podmogaOut) };
+}
+
+function renderFlow() {
+  const d = state.view, s = d.summary, m = flowModel(d);
+  const lede = !m.sources.length && !m.sinks.length
+    ? 'Nothing has flowed yet this month.'
+    : `<b>${eur0(s.income + s.podmogaIn)}</b> came in. <b>${eur0(s.realSpent)}</b> went to spending${s.saved > 0 ? ` and <b>${eur0(s.saved)}</b> into the jar` : ''}.${s.podmogaIn ? ` Podmoga: ${eur0(s.podmogaIn)} flowed through and you kept <b>${eur0(Math.max(s.podmogaNet, 0))}</b>.` : ''}`;
+  const spent = Math.max(1, s.spent);
+  const sink = (x) => {
+    const attr = x.cat ? `data-act="cat" data-cat="${x.cat}"` : x.id === 'savings' ? 'data-go="jar"' : '';
+    const tag = attr ? 'button' : 'div';
+    const pc = x.cat || x.id === 'rest' ? `${Math.round((100 * x.v) / spent)} %` : '';
+    return `<${tag} class="sink" ${attr} style="--c:${x.c}"><i></i><span class="nm">${x.emoji} ${esc(x.name)}</span><span class="am">${eur0(x.v)}</span><span class="pc">${pc}</span></${tag}>`;
+  };
+  $('#flow').innerHTML = `
+    <p class="eyebrow">−12 m · where it flowed</p>
+    <h2 class="title" id="flow-title">Where it flowed</h2>
+    <p class="lede">${lede}</p>
+    ${m.sources.length ? `<div class="sources">${m.sources.map((x) => `<span style="--c:${x.c}"><i></i>${esc(x.name)} <b>${eur0(x.v)}</b></span>`).join('')}</div>` : ''}
+    <svg id="flow-svg" role="img" aria-label="Where this month’s money came from and where it went; the same numbers are listed below"></svg>
+    <div class="sinks">${m.sinks.map(sink).join('')}</div>
+    ${m.sinks.some((x) => x.cat) ? '<p class="sinks-note">Percentages are shares of this month’s spending.</p>' : ''}`;
+  drawFlow(m);
+}
+
+function drawFlow(m) {
+  const el = $('#flow-svg');
+  if (!el) return;
+  if (!m.sources.length && !m.sinks.length) { el.style.height = '0'; return; }
+  const W = el.clientWidth, H = 340, gap = 6, bar = 10;
+  const yTop = 8, yPool = 160, yBot = H - 18;
+  const topSum = m.sources.reduce((a, x) => a + x.v, 0), botSum = m.sinks.reduce((a, x) => a + x.v, 0);
+  const k = (W - 16 - gap * Math.max(m.sources.length, m.sinks.length)) / Math.max(topSum, botSum, 1);
+  const lay = (items, sum) => {
+    let x = (W - (sum * k + gap * (items.length - 1))) / 2;
+    return items.map((it) => { const r = { ...it, x0: x, x1: x + it.v * k }; x = r.x1 + gap; return r; });
+  };
+  const S = lay(m.sources, topSum), K = lay(m.sinks, botSum);
+  const poolIn = S.reduce((a, x) => a + (x.id === 'podmoga' ? m.kept : x.v), 0);
+  const poolW = poolIn * k;
+  const podS = S.find((x) => x.id === 'podmoga'), podK = K.find((x) => x.id === 'podout');
+  const poolX0 = (W - poolW) / 2 - (podS ? (m.pass * k) / 2 : 0);
+  const color = (c) => cssVar(c.slice(4, -1));
+  const water = cssVar('--aqua');
+  const defs = [], ribbons = [], streams = [];
+  let gid = 0;
+  const ribbon = (ax0, ax1, ay, bx0, bx1, by, c1, c2) => {
+    if (ax1 - ax0 < 0.5) return;
+    const id = `fg${gid++}`, my = (ay + by) / 2;
+    defs.push(`<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${ay}" x2="0" y2="${by}"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient>`);
+    ribbons.push(`<path class="ribbon" fill="url(#${id})" d="M${ax0},${ay} C${ax0},${my} ${bx0},${my} ${bx0},${by} L${bx1},${by} C${bx1},${my} ${ax1},${my} ${ax1},${ay} Z"/>`);
+    const cx0 = (ax0 + ax1) / 2, cx1 = (bx0 + bx1) / 2;
+    streams.push(`<path class="stream" style="--dur:${(1.1 + ((gid * 37) % 9) / 10).toFixed(2)}s" stroke-width="${clamp((ax1 - ax0) * 0.28, 1.6, 5).toFixed(1)}" d="M${cx0},${ay} C${cx0},${my} ${cx1},${my} ${cx1},${by}"/>`);
+  };
+  let px = poolX0;
+  for (const x of S) {
+    const amount = x.id === 'podmoga' ? m.kept : x.v;
+    if (amount <= 0) continue;
+    ribbon(x.x0, x.x0 + amount * k, yTop + bar, px, px + amount * k, yPool, color(x.c), water);
+    px += amount * k;
   }
-  const sel = state.filter?.day;
-  const note = sel ? `${shortDay(sel)}: ${daily[+sel.slice(8)].spent > 0 ? `${eur(daily[+sel.slice(8)].spent)} in ${daily[+sel.slice(8)].count} payment${daily[+sel.slice(8)].count === 1 ? '' : 's'}` : 'nothing spent'}. Showing that day below.` : 'Tap a day to see its payments.';
-  return `<section class="card" aria-label="Daily spending">
-    <div class="sec-head"><h2>Daily spending</h2>${d.streak >= 1 ? `<span class="streak">${ICON.flame}${d.streak}-day no-spend streak</span>` : ''}</div>
-    <div class="cal">${cells.join('')}</div>
-    <div class="cal-legend">
-      <span>Less <i class="sw" style="background:color-mix(in oklab,var(--accent) 16%,var(--surface-2))"></i><i class="sw" style="background:color-mix(in oklab,var(--accent) 36%,var(--surface-2))"></i><i class="sw" style="background:color-mix(in oklab,var(--accent) 62%,var(--surface-2))"></i><i class="sw" style="background:color-mix(in oklab,var(--accent) 90%,var(--surface-2))"></i> More</span>
-      <span><svg class="ok-i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>No spending</span>
-      ${dailyBudget ? `<span><i class="over-i"></i>Big day (over ${eur0(2 * dailyBudget)})</span>` : ''}
-    </div>
-    <p class="day-note" id="day-note">${note}</p>
-    ${rows.length ? `<details class="table-view"><summary>Daily numbers as a table</summary><div class="table-scroll"><table><thead><tr><th>Day</th><th>Payments</th><th>Spent</th></tr></thead><tbody>${rows.join('')}</tbody></table></div></details>` : ''}
-  </section>`;
+  // Podmoga that only passed through goes around the pool, straight to "passed on".
+  if (podS && podK && m.pass > 0) ribbon(podS.x1 - m.pass * k, podS.x1, yTop + bar, podK.x0, podK.x0 + m.pass * k, yBot, color(podS.c), color(podK.c));
+  px = poolX0;
+  for (const x of K) {
+    const amount = x.id === 'podout' ? m.loss : x.v;
+    if (amount <= 0) continue;
+    const bx0 = x.id === 'podout' ? x.x0 + m.pass * k : x.x0;
+    ribbon(px, px + amount * k, yPool + bar, bx0, bx0 + amount * k, yBot, water, color(x.c));
+    px += amount * k;
+  }
+  const nodes = [
+    ...S.map((x) => `<rect x="${x.x0}" y="${yTop}" width="${Math.max(2, x.x1 - x.x0)}" height="${bar}" rx="4" fill="${color(x.c)}"/>`),
+    `<rect x="${poolX0}" y="${yPool}" width="${Math.max(2, poolW)}" height="${bar}" rx="5" fill="${water}" style="filter:drop-shadow(0 0 10px ${water})"/>`,
+    poolW > 60 ? `<text x="${poolX0 + poolW / 2}" y="${yPool - 10}" fill="#eaf3ff" style="font:600 10px var(--f-mono);letter-spacing:.16em" text-anchor="middle">YOUR POOL</text>` : '',
+    ...K.map((x) => `<rect x="${x.x0}" y="${yBot}" width="${Math.max(2, x.x1 - x.x0)}" height="${bar}" rx="4" fill="${color(x.c)}"/>`),
+    ...K.filter((x) => x.x1 - x.x0 > 22 && x.emoji).map((x) => `<text x="${(x.x0 + x.x1) / 2}" y="${yBot + 30}" text-anchor="middle" style="font-size:15px">${x.emoji}</text>`),
+  ];
+  el.setAttribute('viewBox', `0 0 ${W} ${H + 20}`);
+  el.style.height = `${H + 20}px`;
+  el.innerHTML = `<defs>${defs.join('')}</defs>${ribbons.join('')}${reduceMotion ? '' : streams.join('')}${nodes.join('')}`;
 }
 
-function categories(d) {
-  const s = d.summary;
-  if (!s.byCategory.length) return '';
-  const max = s.byCategory[0][1];
-  return `<section class="card" aria-label="Spending by category">
-    <div class="sec-head"><h2>Where it went</h2><span class="tag">${eur0(s.spent)}</span></div>
-    <div class="cat-list">${s.byCategory.map(([id, v]) => {
-      const m = catMeta(id);
-      return `<button class="cat-row${state.filter?.cat === id ? ' is-active' : ''}" data-act="cat" data-cat="${esc(id)}" aria-pressed="${state.filter?.cat === id}">
-        <span class="sq" style="--c:${m.c}">${m.emoji}</span>
-        <span class="cat-main"><span class="cat-top"><span>${esc(m.name)}</span><strong>${eur(v)}</strong></span><span class="cat-bar"><i style="--w:${((100 * v) / max).toFixed(1)}%;--c:${m.c}"></i></span></span>
-        <span class="cat-pct">${s.spent > 0 ? Math.round((100 * v) / s.spent) : 0} %</span>
-      </button>`;
-    }).join('')}</div>
-  </section>`;
-}
+function renderJar() {
+  const d = state.view, cur = state.cur, sv = cur.savings, s = d.summary;
+  const goal = sv.goalAmount;
+  const pct = goal ? clamp(sv.total / goal, 0, 1) : sv.total > 0 ? 0.35 : 0;
+  jar.levelTarget = pct;
+  const remaining = goal ? Math.max(0, goal - sv.total) : 0;
+  const months = goal && remaining > 0 && sv.perMonth > 0 ? Math.ceil(remaining / sv.perMonth) : null;
+  const eta = months ? shiftMonth(cur.today.slice(0, 7), months) : null;
+  let line;
+  if (!goal) line = `<button class="cta-glass" data-act="settings">Name what you’re saving for</button>`;
+  else if (!remaining) line = `<div class="eta"><b>Full.</b> Time to name the next one.</div>`;
+  else if (months) line = `<div class="eta">At about ${eur0(sv.perMonth)} a month the jar is full by <b>${MONTH[+eta.slice(5) - 1]} ${eta.slice(0, 4)}</b>.</div>`;
+  else line = `<div class="eta">Move something to savings and I’ll tell you when it fills up.</div>`;
+  $('#jar-copy').innerHTML = `
+    <p class="big">${money(sv.total)}</p>
+    <p>${goal ? `of ${eur0(goal)}${sv.goalName ? ` for <b>${esc(sv.goalName)}</b>` : ''} · ${Math.round(pct * 100)} %` : 'saved so far'}</p>
+    ${s.saved ? `<span class="chip-gold">${eur0(s.saved, true)} in ${esc(d.name)}</span>` : ''}
+    ${line}`;
 
-function podmoga(d) {
-  const s = d.summary;
-  if (!s.podmogaIn && !s.podmogaOut) return '';
-  const net = s.podmogaNet, total = Math.max(s.podmogaIn, s.podmogaOut);
-  const keptW = net > 0 ? (100 * net) / total : 0;
-  const outW = (100 * Math.min(s.podmogaOut, s.podmogaIn || s.podmogaOut)) / total;
-  const share = s.podmogaIn ? Math.round((100 * Math.max(net, 0)) / s.podmogaIn) : 0;
-  return `<section class="card" aria-label="Podmoga jobs">
-    <div class="sec-head"><h2>Podmoga jobs</h2></div>
-    <div class="kv-big"><p class="big ${net >= 0 ? 'is-good' : 'is-bad'}">${money(net, true)}</p><span>${net >= 0 ? `kept, ${share} % of what came in` : 'lost on jobs this month'}</span></div>
-    <div class="flow" role="img" aria-label="${eur0(s.podmogaIn)} came in, ${eur0(s.podmogaOut)} passed on, ${eur0(net, true)} kept">
-      <i style="--w:${outW.toFixed(1)}%;--k:color-mix(in oklab,var(--ink-2) 35%,var(--surface))"></i>${keptW ? `<i style="--w:${keptW.toFixed(1)}%;--k:var(--good)"></i>` : ''}
-    </div>
-    <div class="flow-legend"><span><i style="--k:color-mix(in oklab,var(--ink-2) 35%,var(--surface))"></i>${eur0(s.podmogaOut)} passed on</span><span><i style="--k:var(--good)"></i>${eur0(Math.max(net, 0))} kept of ${eur0(s.podmogaIn)}</span></div>
-  </section>`;
-}
-
-function worth(d) {
   const spend = d.tx.filter((t) => t.kind === 'spend' && t.amount < 0);
-  if (!spend.length) return '';
   const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - t.amount, 0);
   const no = spend.filter((t) => t.worth === 0).reduce((a, t) => a - t.amount, 0);
   const all = spend.reduce((a, t) => a - t.amount, 0);
   const none = all - yes - no;
-  const w = (v) => ((100 * v) / all).toFixed(1);
-  const regretBy = {};
-  for (const t of spend) if (t.worth === 0) regretBy[t.label] = (regretBy[t.label] || 0) - t.amount;
-  const topRegret = Object.entries(regretBy).sort((a, b) => b[1] - a[1])[0];
-  const rated = yes + no;
-  let insight;
-  if (!rated) insight = 'Rate payments 👍 or 👎 when they come in. After a few weeks you’ll see what isn’t worth it.';
-  else if (!no) insight = `Everything you rated was worth it. <strong>Nice.</strong>`;
-  else insight = `You regret <strong>${Math.round((100 * no) / rated)} %</strong> of what you rated. Most of it: <strong>${esc(topRegret[0])}</strong> (${eur0(topRegret[1])}).`;
-  return `<section class="card" aria-label="Worth it or regret">
-    <div class="sec-head"><h2>Worth it?</h2></div>
-    <div class="flow" role="img" aria-label="${eur0(yes)} worth it, ${eur0(no)} regretted, ${eur0(none)} not rated">
-      ${yes ? `<i style="--w:${w(yes)}%;--k:var(--good)"></i>` : ''}${no ? `<i style="--w:${w(no)}%;--k:var(--bad)"></i>` : ''}${none ? `<i style="--w:${w(none)}%;--k:var(--line)"></i>` : ''}
-    </div>
-    <div class="flow-legend"><span><i style="--k:var(--good)"></i>👍 ${eur0(yes)}</span><span><i style="--k:var(--bad)"></i>👎 ${eur0(no)}</span><span><i style="--k:var(--line)"></i>Not rated ${eur0(none)}</span></div>
-    <p class="insight">${insight}</p>
-  </section>`;
+  const by = {};
+  for (const t of spend) if (t.worth === 0) by[t.label] = (by[t.label] || 0) - t.amount;
+  const topLeak = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
+  const w = (v) => ((100 * v) / Math.max(all, 1)).toFixed(1);
+  const text = no
+    ? `you’d take back in ${esc(d.name)}. Biggest leak: <b>${esc(topLeak[0])}</b> (${eur0(topLeak[1])}).`
+    : yes ? 'No regrets so far. Everything you rated was worth it.' : 'Rate payments 👍 or 👎 and the leaks show up here.';
+  $('#leaks').innerHTML = spend.length ? `<div class="leaks">
+      <h3>Leaks</h3>
+      <p class="amt">${eur0(no)}</p>
+      <p>${text}</p>
+      <div class="split" role="img" aria-label="${eur0(yes)} worth it, ${eur0(no)} regretted, ${eur0(none)} not rated">${yes ? `<i style="--w:${w(yes)}%;--c:var(--good)"></i>` : ''}${no ? `<i style="--w:${w(no)}%;--c:var(--bad)"></i>` : ''}${none ? `<i style="--w:${w(none)}%;--c:rgba(255,255,255,.14)"></i>` : ''}</div>
+      <div class="split-key"><span>👍 ${eur0(yes)}</span><span>👎 ${eur0(no)}</span><span>unrated ${eur0(none)}</span></div>
+      ${no && !reduceMotion ? '<div class="leak-drops" aria-hidden="true"><i style="left:4px;animation-delay:0s"></i><i style="left:20px;animation-delay:1.1s"></i><i style="left:12px;animation-delay:1.9s"></i></div>' : ''}
+    </div>` : '';
 }
 
-function txRow(t) {
-  const v = txVisual(t);
-  const what = t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'Needs a category') : KIND[t.kind].name;
-  const worthMark = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
-  const amtCls = t.kind === 'ignore' ? 'is-off' : t.amount > 0 ? 'is-in' : '';
-  return `<button class="tx" data-act="tx" data-n="${t.n}">
-    <span class="sq" style="--c:${v.c}">${v.icon}</span>
-    <span class="tx-main"><span class="tx-name">${esc(t.label)}</span><span class="tx-sub">${esc(what)} · ${t.ts.slice(11, 16)} · ${esc(t.method)}${worthMark}</span></span>
-    <span class="tx-amt ${amtCls}">${eur(t.amount, true)}</span>
-    ${t.kind === 'spend' && !t.category && t.amount < 0 ? '<i class="dot" aria-label="needs a category"></i>' : ''}
+function rowHTML(t) {
+  const v = visual(t), un = isUnsorted(t);
+  const what = t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name;
+  const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
+  return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
+    <span class="drop" style="--c:${v.c}"><span>${un ? '?' : v.icon}</span></span>
+    <span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${esc(what)} · ${t.ts.slice(11, 16)} · ${esc(t.method)}${worth}</span></span>
+    <span class="row-amt ${t.kind === 'ignore' ? 'off' : t.amount > 0 ? 'in' : ''}">${short(t.amount, true)}</span>
   </button>`;
 }
 
-function transactions(d) {
-  const f = state.filter;
+function renderLedger() {
+  const d = state.view, f = state.filter;
+  const unsortedCount = d.tx.filter(isUnsorted).length;
   let list = d.tx;
-  if (f?.cat) list = list.filter((t) => t.kind === 'spend' && (t.category || 'other') === f.cat);
-  if (f?.day) list = list.filter((t) => t.ts.startsWith(f.day));
-  const chip = f ? `<button class="filter-chip" data-act="clear-filter" aria-label="Show all transactions">${esc(f.cat ? catMeta(f.cat).name : shortDay(f.day))}${ICON.x}</button>` : `<span class="tag">${d.tx.length}</span>`;
-  let body;
-  if (!d.tx.length) {
-    body = `<div class="empty"><div class="empty-art">🌱</div><h3>${d.current ? 'Nothing yet this month' : 'Nothing this month'}</h3><p>${d.current ? 'Pay with Google Pay as usual; each payment shows up here about a minute later.' : 'No payments were recorded in this month.'}</p></div>`;
-  } else if (!list.length) {
-    body = `<div class="empty"><h3>No payments here</h3><p>Nothing matches this filter.</p></div>`;
-  } else {
-    const groups = [];
+  if (f === 'unsorted') list = list.filter(isUnsorted);
+  else if (f !== 'all') list = list.filter((t) => t.kind === 'spend' && (t.category || 'other') === f);
+  const chips = [['all', `All · ${d.tx.length}`], ...(unsortedCount ? [['unsorted', `To sort · ${unsortedCount}`]] : []), ...d.summary.byCategory.map(([c]) => [c, `${catMeta(c).emoji} ${catMeta(c).name}`])];
+  let body = '';
+  if (!d.tx.length) body = `<div class="empty"><b>${d.current ? 'Still water' : 'Nothing here'}</b>${d.current ? 'Pay as usual; each payment drops in about a minute later.' : 'No payments were recorded this month.'}</div>`;
+  else if (!list.length) body = `<div class="empty"><b>No drops here</b>Nothing matches this filter.</div>`;
+  else {
+    let day = '';
     for (const t of list) {
-      const day = t.ts.slice(0, 10);
-      if (!groups.length || groups[groups.length - 1].day !== day) groups.push({ day, items: [] });
-      groups[groups.length - 1].items.push(t);
+      const dd = t.ts.slice(0, 10);
+      if (dd !== day) {
+        day = dd;
+        const spent = list.filter((x) => x.ts.startsWith(dd) && x.kind === 'spend').reduce((a, x) => a - x.amount, 0);
+        body += `<div class="day-head"><span>${esc(dayLabel(dd, d.today))}</span><span>${spent > 0 ? short(spent) : ''}</span></div>`;
+      }
+      body += rowHTML(t);
     }
-    body = groups.map((g) => {
-      const spent = g.items.reduce((a, t) => (t.kind === 'spend' ? a - t.amount : a), 0);
-      return `<div class="tx-day"><span>${esc(dayLabel(g.day, d.today))}</span><span>${spent > 0 ? eur(spent) : ''}</span></div>${g.items.map(txRow).join('')}`;
-    }).join('');
   }
-  return `<section class="card" id="tx-card" aria-label="Transactions"><div class="sec-head"><h2>Transactions</h2>${chip}</div>${body}</section>`;
+  $('#ledger').innerHTML = `
+    <p class="eyebrow">−30 m · the bottom</p>
+    <h2 class="title" id="ledger-title">Every drop</h2>
+    ${unsortedCount ? `<button class="cta-glass" data-act="sort" style="margin-top:16px">Sort ${unsortedCount} payment${unsortedCount === 1 ? '' : 's'}</button>` : ''}
+    <div class="filters" role="toolbar" aria-label="Filter payments">${chips.map(([k, l]) => `<button class="filter" data-act="filter" data-f="${k}" aria-pressed="${f === k}">${esc(l)}</button>`).join('')}</div>
+    ${body}
+    <p class="bottom-line">You’ve reached the bottom of ${esc(d.name)}</p>`;
 }
 
-/* ---------- render ---------- */
-function countUp(el) {
-  const target = Number(el.dataset.count), signed = el.dataset.signed === '1';
-  if (reduceMotion || !Number.isFinite(target)) return;
-  const t0 = performance.now(), dur = 700;
-  const frame = (now) => {
-    const p = Math.min(1, (now - t0) / dur);
-    el.innerHTML = money(Math.round(target * (1 - Math.pow(1 - p, 3))), signed);
-    if (p < 1) requestAnimationFrame(frame);
-  };
-  requestAnimationFrame(frame);
-}
-
-function greet() {
+function renderAll() {
+  CATS = state.cur.categories;
   const h = new Date().getHours();
-  const part = h < 5 ? 'Night owl mode' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  const name = TG?.initDataUnsafe?.user?.first_name;
-  return name ? `${part}, ${name}` : part;
+  const part = h < 5 ? 'Late swim' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  $('#hello').innerHTML = `${esc(part)}<b>${esc(TG?.initDataUnsafe?.user?.first_name || 'Your pool')}</b>`;
+  renderToday();
+  renderMonth();
+  renderFlow();
+  renderJar();
+  renderLedger();
 }
 
-function render({ animate = false } = {}) {
-  const d = state.d;
-  CATS = d.categories;
-  $('#greet').textContent = greet();
-  $('#month').textContent = d.name + (d.month.slice(0, 4) !== d.today.slice(0, 4) ? ` ${d.month.slice(0, 4)}` : '');
-  $('#next').disabled = d.month >= state.latest;
-  const feed = $('#feed');
-  feed.innerHTML = [hero(d), tiles(d), nudge(d), savings(d), pace(d), calendar(d), categories(d), podmoga(d), worth(d), transactions(d)].join('');
-  if (!animate) feed.querySelectorAll(':scope > *').forEach((el) => (el.style.animation = 'none'));
-  drawPace(d);
-  if (animate) feed.querySelectorAll('[data-count]').forEach(countUp);
-  $('.fab').hidden = !d.current;
-}
-
-async function load(month, { animate = true } = {}) {
-  const feed = $('#feed');
-  if (state.d) feed.classList.add('is-loading');
+async function load() {
   try {
-    state.d = await api('/api/summary' + (month ? `?month=${month}` : ''));
-    state.latest = state.latest || state.d.month;
-    render({ animate });
+    state.cur = state.view = await api('/api/summary');
+    renderAll();
   } catch (e) {
-    feed.innerHTML = `<div class="state"><div class="empty-art">${tg ? '📡' : '💬'}</div><h2>${tg ? 'Can’t load your money' : 'Open this in Telegram'}</h2><p>${esc(e.message)}</p>${tg ? '<button class="btn btn-primary" data-act="retry">Try again</button>' : ''}</div>`;
-  } finally {
-    feed.classList.remove('is-loading');
+    $('#num-label').textContent = tg ? 'The pool is unreachable' : 'Open this from your Telegram bot';
+    num.dry.textContent = num.wet.textContent = '—';
+    $('#num-sub').textContent = e.message;
+    $('#deep-info').innerHTML = tg ? '<button class="cta-glass" data-act="retry">Try again</button>' : '';
+    requestAnimationFrame(measureNum);
   }
 }
+async function loadView(month) {
+  try {
+    state.view = month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
+    state.filter = 'all';
+    renderMonth(); renderFlow(); renderJar(); renderLedger();
+  } catch (e) { toast(e.message); }
+}
+function accept(d) {
+  if (d.month === state.cur.month) state.cur = d;
+  if (d.month === state.view.month) state.view = d;
+  renderAll();
+}
 
-/* ---------- sheet ---------- */
+/* =========================================================================
+   Sheets
+   ========================================================================= */
 const sheet = $('#sheet'), backdrop = $('#backdrop'), sheetBody = $('#sheet-body');
 let lastFocus = null;
 function openSheet(kind, html) {
   state.sheet = kind;
-  $('#toast').classList.remove('show');
   sheetBody.innerHTML = html;
   if (sheet.hidden) {
     lastFocus = document.activeElement;
@@ -954,8 +1195,8 @@ function openSheet(kind, html) {
     requestAnimationFrame(() => { sheet.classList.add('open'); backdrop.classList.add('open'); });
     tg?.BackButton?.show();
   }
-  const focusable = sheetBody.querySelector('input, [autofocus]') || sheetBody.querySelector('button');
-  setTimeout(() => focusable?.focus({ preventScroll: true }), 50);
+  const first = sheetBody.querySelector('input') || sheetBody.querySelector('button');
+  setTimeout(() => first?.focus({ preventScroll: true }), 60);
 }
 function closeSheet() {
   if (sheet.hidden) return;
@@ -964,11 +1205,9 @@ function closeSheet() {
   backdrop.classList.remove('open');
   sheet.style.transform = '';
   tg?.BackButton?.hide();
-  setTimeout(() => { sheet.hidden = backdrop.hidden = true; sheetBody.innerHTML = ''; }, reduceMotion ? 0 : 380);
+  setTimeout(() => { if (!state.sheet) { sheet.hidden = backdrop.hidden = true; sheetBody.innerHTML = ''; } }, reduceMotion ? 0 : 420);
   lastFocus?.focus?.({ preventScroll: true });
 }
-
-// Drag the grabber down to dismiss.
 (() => {
   let startY = null;
   const grab = $('#grabber');
@@ -977,78 +1216,80 @@ function closeSheet() {
   grab.addEventListener('pointerup', (e) => {
     if (startY === null) return;
     const dy = e.clientY - startY;
-    startY = null;
-    sheet.style.transition = '';
-    sheet.style.transform = '';
+    startY = null; sheet.style.transition = ''; sheet.style.transform = '';
     if (dy > 90) closeSheet();
   });
 })();
 
-function catTiles(selected, act, n) {
+const findTx = (n) => [...state.cur.tx, ...(state.view !== state.cur ? state.view.tx : [])].find((t) => t.n === Number(n));
+const today = () => state.cur.today;
+
+function tilesHTML(selected, act, n) {
   return Object.keys(CATS).map((id) => {
     const m = catMeta(id);
-    return `<button type="button" class="cat-tile" style="--c:${m.c}" data-act="${act}" data-cat="${id}" ${n ? `data-n="${n}"` : ''} aria-pressed="${selected === id}"><span class="emo">${m.emoji}</span>${esc(m.name)}</button>`;
+    return `<button type="button" class="tile" style="--c:${m.c}" data-act="${act}" data-cat="${id}" ${n ? `data-n="${n}"` : ''} aria-pressed="${selected === id}"><span class="em">${m.emoji}</span>${esc(m.name)}</button>`;
   }).join('');
 }
 
 function editorHTML(t) {
-  const v = txVisual(t);
+  const v = visual(t);
   const kinds = [t.amount > 0 ? 'income' : 'spend', 'podmoga', 'savings', 'ignore'];
-  return `<div class="sheet-head"><span class="sq" style="--c:${v.c}">${v.icon}</span>
-      <div class="sheet-title"><h2 id="sheet-title">${esc(t.label)}</h2><p>${esc(dayLabel(t.ts.slice(0, 10), state.d.today))} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p></div></div>
-    <p class="sheet-amount ${t.amount > 0 ? 'is-in' : ''}">${money(t.amount, true)}</p>
-    <p class="field-label" id="kind-label">What was it?</p>
-    <div class="seg" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
+  return `<div class="sh-head"><span class="drop" style="--c:${v.c}"><span>${v.icon}</span></span>
+      <div class="sh-title"><h2 id="sheet-title">${esc(t.label)}</h2><p>${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p></div></div>
+    <p class="sh-amount ${t.amount > 0 ? 'in' : ''}">${money(t.amount, true)}</p>
+    <p class="label" id="kind-label">What was it?</p>
+    <div class="seg" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
-    ${t.kind === 'spend' ? `<p class="field-label">Category</p><div class="cat-grid">${catTiles(t.category, 'set-cat', t.n)}</div>
-      <p class="field-label">Worth it?</p>
-      <div class="worth-row">
-        <button class="worth-btn is-yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="emo">👍</span>Worth it</button>
-        <button class="worth-btn is-no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="emo">👎</span>Regret</button>
+    ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
+      <p class="label">Worth it?</p>
+      <div class="worth">
+        <button type="button" class="yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="em">👍</span>Worth it</button>
+        <button type="button" class="no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="em">👎</span>Regret</button>
       </div>` : ''}
-    ${t.deletable ? `<div class="sheet-foot"><button class="btn-text danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
+    ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
 }
+
+const listSheetHTML = (title, list) => `<h2 class="sh-h" id="sheet-title">${esc(title)}</h2>
+  <div style="margin-top:10px">${list.length ? list.map(rowHTML).join('') : '<div class="empty"><b>Dry</b>Nothing spent.</div>'}</div>`;
 
 function sortHTML() {
   const q = state.sortQueue, i = state.sortIndex;
-  if (i >= q.length) {
-    return `<div class="done"><div class="done-art">✨</div><h2 id="sheet-title">All sorted</h2><p>Every payment has a category. Next time the same places sort themselves.</p><button class="btn btn-primary btn-block" data-act="close">Done</button></div>`;
-  }
+  if (i >= q.length) return `<div class="done"><div class="done-art">💧</div><h2 id="sheet-title">All sorted</h2><p>Every drop has a place. Next time the same places sort themselves.</p><button type="button" class="primary" data-act="close">Back to the water</button></div>`;
   const t = q[i];
-  return `<div class="sort-top"><h2 class="sheet-h" id="sheet-title">Sort payments</h2><div class="dots" aria-label="${i + 1} of ${q.length}">${q.map((_, k) => `<i class="${k === i ? 'on' : k < i ? 'done' : ''}"></i>`).join('')}</div></div>
-    <div class="sort-card"><span class="sq">💸</span><span class="tx-main"><span class="tx-name">${esc(t.label)}</span><span class="tx-sub">${esc(dayLabel(t.ts.slice(0, 10), state.d.today))} · ${t.ts.slice(11, 16)}</span></span><span class="amt">${eur(t.amount)}</span></div>
-    <p class="field-label">Pick a category</p>
-    <div class="cat-grid">${catTiles(null, 'sort-pick', t.n)}</div>
-    <div class="sheet-foot"><button class="btn-text" data-act="sort-skip">Skip this one</button></div>`;
+  return `<div class="sort-top"><h2 class="sh-h" id="sheet-title">Sort payments</h2><div class="dots" aria-label="${i + 1} of ${q.length}">${q.map((_, k) => `<i class="${k === i ? 'on' : k < i ? 'done' : ''}"></i>`).join('')}</div></div>
+    <div class="sort-card"><span class="drop" style="--c:var(--c-other)"><span>?</span></span><span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)}</span></span><span class="row-amt">${short(t.amount)}</span></div>
+    <p class="label">Pick a category</p>
+    <div class="tiles">${tilesHTML(null, 'sort-pick', t.n)}</div>
+    <div class="sh-foot"><button type="button" class="textbtn" data-act="sort-skip">Skip this one</button></div>`;
 }
 
 function cashHTML() {
   const dir = state.cashDir;
-  return `<h2 class="sheet-h" id="sheet-title">Add cash</h2>
+  return `<h2 class="sh-h" id="sheet-title">Add cash</h2>
     <form id="cash-form" novalidate>
-      <div class="seg" role="radiogroup" aria-label="Direction" style="margin-top:14px">
+      <div class="seg" role="radiogroup" aria-label="Direction" style="margin-top:16px">
         <button type="button" role="radio" aria-checked="${dir < 0}" data-act="cash-dir" data-dir="-1">Spent</button>
         <button type="button" role="radio" aria-checked="${dir > 0}" data-act="cash-dir" data-dir="1">Received</button>
       </div>
       <label class="amount-field"><input id="cash-amount" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Amount in euros" value="${esc(state.cashAmount || '')}"><span>€</span></label>
       <label class="field"><span class="field-name">What for</span><input class="input" id="cash-note" maxlength="80" placeholder="${dir < 0 ? 'Coffee, market, haircut…' : 'Gift, sold something…'}" value="${esc(state.cashNote || '')}"></label>
-      ${dir < 0 ? `<p class="field-label">Category</p><div class="cat-grid">${catTiles(state.cashCat, 'cash-cat')}</div>` : ''}
+      ${dir < 0 ? `<p class="label">Category</p><div class="tiles">${tilesHTML(state.cashCat, 'cash-cat')}</div>` : ''}
       <p class="form-error" id="cash-error" role="alert"></p>
-      <button class="btn btn-primary btn-block" type="submit" id="cash-submit">Add</button>
+      <button class="primary" type="submit" id="cash-submit">Drop it in</button>
     </form>`;
 }
 
 function settingsHTML() {
-  const d = state.d, sv = d.savings;
+  const d = state.cur, sv = d.savings;
   const v = (c) => (c ? NUM.format(c / 100).replace(/\s/g, '') : '');
-  return `<h2 class="sheet-h" id="sheet-title">Budget & goal</h2>
+  return `<h2 class="sh-h" id="sheet-title">Your pool</h2>
     <form id="settings-form" novalidate>
-      <label class="field"><span class="field-name">Monthly spending budget</span><span class="suffix"><input id="set-budget" inputmode="decimal" placeholder="600" value="${v(d.budget)}"><b>€</b></span><small id="budget-hint">${d.budget ? `About ${eur0(d.budget / d.days)} a day. Unspent money rolls over.` : 'You’ll get a daily allowance that rolls over.'}</small></label>
+      <label class="field"><span class="field-name">Monthly spending budget</span><span class="suffix"><input id="set-budget" inputmode="decimal" placeholder="600" value="${v(d.budget)}"><b>€</b></span><small>${d.budget ? `About ${eur0(d.budget / d.days)} a day. Water you don’t use flows into tomorrow.` : 'This fills your daily pool. Water you don’t use flows into tomorrow.'}</small></label>
       <label class="field"><span class="field-name">Saving for</span><input class="input" id="set-goal-name" maxlength="40" placeholder="Japan trip, new laptop…" value="${esc(sv.goalName || '')}"></label>
       <label class="field"><span class="field-name">Goal amount</span><span class="suffix"><input id="set-goal" inputmode="decimal" placeholder="2000" value="${v(sv.goalAmount)}"><b>€</b></span></label>
       <label class="field"><span class="field-name">Already in savings</span><span class="suffix"><input id="set-start" inputmode="decimal" placeholder="0" value="${v(sv.start)}"><b>€</b></span><small>What was in your savings account before the app started counting.</small></label>
       <p class="form-error" id="settings-error" role="alert"></p>
-      <button class="btn btn-primary btn-block" type="submit">Save</button>
+      <button class="primary" type="submit">Save</button>
     </form>`;
 }
 
@@ -1057,97 +1298,91 @@ let toastTimer;
 function toast(text) {
   const el = $('#toast');
   el.textContent = text;
-  el.classList.toggle('on-top', !!state.sheet); // keep it clear of an open sheet
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
-
 function confetti() {
   if (reduceMotion) return;
+  const colors = ['#38e8d6', '#ffd166', '#8f86ff', '#3ee0a1', '#e0598b'];
   const c = document.createElement('canvas');
   c.className = 'confetti';
   document.body.appendChild(c);
-  const ctx = c.getContext('2d');
-  const dpr = devicePixelRatio || 1;
-  c.width = innerWidth * dpr; c.height = innerHeight * dpr;
-  ctx.scale(dpr, dpr);
-  const css = getComputedStyle(root);
-  const colors = ['--accent', '--gold', '--good', '--c-home', '--c-eat'].map((k) => css.getPropertyValue(k).trim());
-  const bits = Array.from({ length: 90 }, () => ({
-    x: innerWidth / 2, y: innerHeight * 0.55, vx: (Math.random() - 0.5) * 12, vy: -Math.random() * 14 - 6,
-    r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.4, w: 6 + Math.random() * 6, h: 4 + Math.random() * 4,
-    c: colors[Math.floor(Math.random() * colors.length)],
-  }));
+  const ctx = c.getContext('2d'), dpr = devicePixelRatio || 1;
+  c.width = innerWidth * dpr; c.height = innerHeight * dpr; ctx.scale(dpr, dpr);
+  const bits = Array.from({ length: 80 }, () => ({ x: innerWidth / 2, y: innerHeight * 0.6, vx: (Math.random() - 0.5) * 11, vy: -Math.random() * 13 - 5, r: 2 + Math.random() * 4, c: colors[Math.floor(Math.random() * colors.length)] }));
   const t0 = performance.now();
-  const frame = (now) => {
+  const step = (now) => {
     ctx.clearRect(0, 0, innerWidth, innerHeight);
-    for (const b of bits) {
-      b.vy += 0.45; b.x += b.vx; b.y += b.vy; b.r += b.vr; b.vx *= 0.99;
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r); ctx.fillStyle = b.c; ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h); ctx.restore();
-    }
-    if (now - t0 < 1800) requestAnimationFrame(frame); else c.remove();
+    for (const b of bits) { b.vy += 0.4; b.x += b.vx; b.y += b.vy; ctx.fillStyle = b.c; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill(); }
+    if (now - t0 < 1700) requestAnimationFrame(step); else c.remove();
   };
-  requestAnimationFrame(frame);
+  requestAnimationFrame(step);
+}
+function splash(x01, strength = 26) {
+  pool.wave.poke(x01, strength);
+  haptic.soft();
 }
 
-/* ---------- actions ---------- */
-const findTx = (n) => state.d.tx.find((t) => t.n === Number(n));
-
+/* =========================================================================
+   Actions
+   ========================================================================= */
 async function mutate(path, body, done) {
   try {
-    state.d = await api(path, { ...body, month: state.d.month });
-    render();
+    accept(await api(path, body));
     done?.();
   } catch (e) {
     haptic.err();
     toast(e.message);
   }
 }
-
 function openEditor(n) {
   const t = findTx(n);
   if (t) openSheet('edit', editorHTML(t));
 }
-
 function applyLocal(n, patch) {
   const t = findTx(n);
+  if (!t) return;
   Object.assign(t, patch);
   if (state.sheet === 'edit') sheetBody.innerHTML = editorHTML(t);
 }
+function goTo(id) {
+  const el = id === 'jar' ? $('#jar-scene') : $(`#${id}`);
+  el?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+}
 
 const actions = {
-  prev: () => { state.filter = null; load(shiftMonth(state.d.month, -1), { animate: false }); },
-  next: () => { state.filter = null; load(shiftMonth(state.d.month, 1), { animate: false }); },
   retry: () => load(),
   settings: () => openSheet('settings', settingsHTML()),
   close: closeSheet,
-  'clear-filter': () => { state.filter = null; render(); },
-  cat: (el) => {
-    haptic.pick();
-    state.filter = state.filter?.cat === el.dataset.cat ? null : { cat: el.dataset.cat };
-    render();
-    if (state.filter) $('#tx-card').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-  },
+  immersive: () => { try { TG.isFullscreen ? TG.exitFullscreen() : TG.requestFullscreen(); } catch {} },
+  prev: () => loadView(shiftMonth(state.view.month, -1)),
+  next: () => loadView(shiftMonth(state.view.month, 1)),
+  filter: (el) => { haptic.pick(); state.filter = el.dataset.f; renderLedger(); },
   day: (el) => {
     haptic.pick();
-    state.filter = state.filter?.day === el.dataset.day ? null : { day: el.dataset.day };
-    render();
+    const day = el.dataset.day;
+    openSheet('list', listSheetHTML(shortDay(day), state.view.tx.filter((t) => t.ts.startsWith(day))));
+  },
+  cat: (el) => {
+    haptic.pick();
+    const c = el.dataset.cat, m = catMeta(c);
+    openSheet('list', listSheetHTML(`${m.emoji} ${m.name} in ${state.view.name}`, state.view.tx.filter((t) => t.kind === 'spend' && (t.category || 'other') === c)));
   },
   tx: (el) => { haptic.tap(); openEditor(el.dataset.n); },
   kind: (el) => {
     haptic.pick();
     const n = el.dataset.n, kind = el.dataset.kind;
     applyLocal(n, { kind, confirmed: true });
-    mutate('/api/tx', { n: Number(n), kind }, () => state.sheet === 'edit' && openEditor(n));
+    mutate('/api/tx', { n: Number(n), kind, month: state.view.month }, () => state.sheet === 'edit' && openEditor(n));
   },
   'set-cat': (el) => {
     haptic.pick();
-    const n = el.dataset.n, t = findTx(n);
-    applyLocal(n, { kind: 'spend', category: el.dataset.cat, confirmed: true });
-    mutate('/api/tx', { n: Number(n), category: el.dataset.cat }, () => {
+    const n = el.dataset.n, t = findTx(n), cat = el.dataset.cat;
+    applyLocal(n, { kind: 'spend', category: cat, confirmed: true });
+    mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => {
       haptic.ok();
-      toast(`${catMeta(el.dataset.cat).name}. ${t.label} will be sorted like this next time.`);
+      toast(`${catMeta(cat).name}. ${t.label} goes there from now on.`);
       if (state.sheet === 'edit') openEditor(n);
     });
   },
@@ -1156,19 +1391,15 @@ const actions = {
     const n = el.dataset.n, t = findTx(n);
     const worth = t.worth === Number(el.dataset.worth) ? null : Number(el.dataset.worth);
     applyLocal(n, { worth });
-    mutate('/api/tx', { n: Number(n), worth }, () => state.sheet === 'edit' && openEditor(n));
+    mutate('/api/tx', { n: Number(n), worth, month: state.view.month }, () => state.sheet === 'edit' && openEditor(n));
   },
   delete: (el) => {
     const t = findTx(el.dataset.n);
-    if (el.dataset.confirm !== '1') {
-      el.dataset.confirm = '1';
-      el.innerHTML = `${ICON.trash}Tap again to delete ${esc(eur(t.amount, true))}`;
-      return;
-    }
-    mutate('/api/delete', { n: t.n }, () => { haptic.ok(); closeSheet(); toast('Deleted'); });
+    if (el.dataset.confirm !== '1') { el.dataset.confirm = '1'; el.innerHTML = `${ICON.trash}Tap again to delete ${esc(eur(t.amount, true))}`; return; }
+    mutate('/api/delete', { n: t.n, month: state.view.month }, () => { haptic.ok(); closeSheet(); toast('Deleted'); });
   },
   sort: () => {
-    state.sortQueue = unsorted(state.d).slice().reverse();
+    state.sortQueue = state.view.tx.filter(isUnsorted).reverse();
     state.sortIndex = 0;
     openSheet('sort', sortHTML());
   },
@@ -1176,14 +1407,12 @@ const actions = {
     haptic.pick();
     const n = Number(el.dataset.n), cat = el.dataset.cat;
     el.setAttribute('aria-pressed', 'true');
-    api('/api/tx', { n, category: cat, month: state.d.month })
-      .then((d) => { state.d = d; render(); })
-      .catch((e) => toast(e.message));
+    api('/api/tx', { n, category: cat, month: state.view.month }).then(accept).catch((e) => toast(e.message));
     state.sortIndex++;
     setTimeout(() => {
       sheetBody.innerHTML = sortHTML();
       if (state.sortIndex >= state.sortQueue.length) { haptic.ok(); confetti(); }
-    }, 160);
+    }, 170);
   },
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
@@ -1202,21 +1431,99 @@ const actions = {
   'cash-cat': (el) => {
     haptic.pick();
     state.cashCat = state.cashCat === el.dataset.cat ? null : el.dataset.cat;
-    sheetBody.querySelectorAll('[data-act="cash-cat"]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === state.cashCat)));
+    $$('[data-act="cash-cat"]', sheetBody).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === state.cashCat)));
   },
 };
-
 function updateCashButton() {
   const cents = parseEuro($('#cash-amount')?.value);
   const btn = $('#cash-submit');
-  if (btn) btn.textContent = cents ? `Add ${eur(state.cashDir * cents, true)}` : 'Add';
+  if (btn) btn.textContent = cents ? `Drop in ${eur(state.cashDir * cents, true)}` : 'Drop it in';
 }
 
+/* ---------- drag a buoy into a category ---------- */
+const drag = { el: null, n: null, sx: 0, sy: 0, ox: 0, oy: 0, active: false, hot: null, justDragged: false };
+function showDrains() {
+  $('#drain-grid').innerHTML = Object.keys(CATS).map((id, i) => {
+    const m = catMeta(id);
+    return `<div class="drain" data-cat="${id}" style="--c:${m.c};--i:${i}"><span class="hole">${m.emoji}</span>${esc(m.name)}</div>`;
+  }).join('');
+  $('#drains').hidden = false;
+}
+document.addEventListener('pointerdown', (e) => {
+  const b = e.target.closest('.buoy[data-n]');
+  if (!b) return;
+  const r = b.getBoundingClientRect();
+  Object.assign(drag, { el: b, n: b.dataset.n, sx: e.clientX, sy: e.clientY, ox: e.clientX - r.left, oy: e.clientY - r.top, active: false, hot: null });
+  b.setPointerCapture(e.pointerId);
+});
+document.addEventListener('pointermove', (e) => {
+  if (!drag.el) return;
+  const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+  if (!drag.active && Math.hypot(dx, dy) > 8) {
+    drag.active = true;
+    drag.el.classList.add('is-dragging');
+    showDrains();
+    haptic.tap();
+  }
+  if (!drag.active) return;
+  const scene = $('#today').getBoundingClientRect();
+  drag.el.style.transform = `translate3d(${e.clientX - scene.left - drag.ox}px, ${e.clientY - scene.top - drag.oy}px, 0) scale(1.12) rotate(${clamp(dx * 0.05, -10, 10)}deg)`;
+  let best = null, bestD = 64;
+  for (const d of $$('.drain')) {
+    const r = d.querySelector('.hole').getBoundingClientRect();
+    const dist = Math.hypot(e.clientX - (r.left + r.width / 2), e.clientY - (r.top + r.height / 2));
+    if (dist < bestD) { bestD = dist; best = d; }
+  }
+  if (best !== drag.hot) {
+    drag.hot?.classList.remove('hot');
+    best?.classList.add('hot');
+    drag.hot = best;
+    if (best) haptic.pick();
+  }
+});
+function endDrag() {
+  if (!drag.el) return;
+  const { el, n, hot, active } = drag;
+  drag.el = null;
+  if (!active) return;
+  drag.justDragged = true;
+  setTimeout(() => (drag.justDragged = false), 60);
+  el.classList.remove('is-dragging');
+  $('#drains').hidden = true;
+  if (!hot) return;
+  const cat = hot.dataset.cat, t = findTx(n);
+  el.style.transition = 'opacity .3s';
+  el.style.opacity = '0';
+  splash(0.5, 32);
+  mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => { haptic.ok(); toast(`${catMeta(cat).emoji} ${catMeta(cat).name}. ${t?.label ?? 'It'} goes there from now on.`); });
+}
+document.addEventListener('pointerup', endDrag);
+document.addEventListener('pointercancel', endDrag);
+
+/* ---------- touch the water ---------- */
+const todayEl = $('#today');
+todayEl.addEventListener('pointerdown', (e) => {
+  if (e.target.closest('button')) return;
+  const r = pool.el.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width;
+  if (e.clientY - r.top > surfaceY(x) - 30) { pool.wave.poke(x, 14); haptic.soft(); }
+});
+todayEl.addEventListener('pointermove', (e) => {
+  if (e.buttons !== 1 || drag.el) return;
+  const r = pool.el.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width;
+  if (Math.abs(e.clientY - r.top - surfaceY(x)) < 60) pool.wave.poke(x, e.movementY * 0.5 + 2);
+});
+
 document.addEventListener('click', (e) => {
+  if (drag.justDragged) return;
+  const go = e.target.closest('[data-go]');
+  if (go) { haptic.tap(); goTo(go.dataset.go); return; }
+  const buoy = e.target.closest('.buoy[data-n]');
+  if (buoy) { haptic.tap(); openEditor(buoy.dataset.n); return; }
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
-  const fn = actions[el.dataset.act];
-  if (fn) fn(el);
+  actions[el.dataset.act]?.(el);
 });
 document.addEventListener('input', (e) => { if (e.target.id === 'cash-amount') updateCashButton(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
@@ -1227,7 +1534,7 @@ document.addEventListener('submit', (e) => {
     if (!cents) { haptic.err(); $('#cash-error').textContent = 'Enter how much, e.g. 4,50.'; return; }
     const body = { amount: state.cashDir * cents, note: $('#cash-note').value };
     if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
-    mutate('/api/cash', body, () => { haptic.ok(); closeSheet(); toast(`Added ${eur(body.amount, true)}`); });
+    mutate('/api/cash', body, () => { haptic.ok(); closeSheet(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
   }
   if (e.target.id === 'settings-form') {
     const read = (id) => {
@@ -1236,24 +1543,66 @@ document.addEventListener('submit', (e) => {
       const n = Number(raw);
       return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : NaN;
     };
-    const body = { budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value };
+    const body = { budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value, month: state.cur.month };
     if ([body.budget, body.goalAmount, body.savingsStart].some(Number.isNaN)) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50.'; return; }
-    mutate('/api/settings', body, () => { haptic.ok(); closeSheet(); toast('Saved'); });
+    mutate('/api/settings', body, () => { haptic.ok(); closeSheet(); toast('Saved'); splash(0.5, 30); });
   }
 });
 
+/* ---------- scroll: depth, gauge, what's on screen ---------- */
+const gauge = $('#gauge');
+const sceneIds = ['today', 'month', 'flow', 'jar-scene', 'ledger'];
+let gaugeTimer;
+function onScroll() {
+  const max = Math.max(1, root.scrollHeight - innerHeight);
+  root.style.setProperty('--d', clamp(scrollY / max, 0, 1).toFixed(3));
+  let on = 0;
+  sceneIds.forEach((id, i) => { if ($(`#${id}`).getBoundingClientRect().top < innerHeight * 0.45) on = i; });
+  $$('button', gauge).forEach((b, i) => b.classList.toggle('on', i === on));
+}
+addEventListener('scroll', () => {
+  requestAnimationFrame(onScroll);
+  gauge.classList.add('show');
+  clearTimeout(gaugeTimer);
+  gaugeTimer = setTimeout(() => gauge.classList.remove('show'), 900);
+}, { passive: true });
+new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (e.target.id === 'today') pool.visible = e.isIntersecting;
+    if (e.target.id === 'jar-scene') jar.visible = e.isIntersecting;
+  }
+}).observe($('#today'));
+const jarIO = new IntersectionObserver((entries) => { for (const e of entries) jar.visible = e.isIntersecting; });
+jarIO.observe($('#jar-scene'));
+
+function resize() {
+  sizeCanvas(pool);
+  sizeCanvas(jar);
+  amb.w = innerWidth; amb.h = innerHeight;
+  amb.el.width = innerWidth; amb.el.height = innerHeight;
+  if (!amb.parts.length) amb.parts = Array.from({ length: 34 }, () => ({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, r: 0.6 + Math.random() * 2.2, a: 0.05 + Math.random() * 0.18, sp: 0.15 + Math.random() * 0.45, f: 0.4 + Math.random(), ph: Math.random() * 6 }));
+  if (!jar.fizz.length) jar.fizz = Array.from({ length: 16 }, () => ({ x: 0.15 + Math.random() * 0.7, y: 9999, r: 0.8 + Math.random() * 1.6, sp: 0.3 + Math.random() * 0.6, ph: Math.random() * 6 }));
+  measureNum();
+  if (state.view) drawFlow(flowModel(state.view));
+}
 let resizeTimer;
-addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => state.d && render(), 150); });
+addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(resize, 120); });
 
 /* ---------- boot ---------- */
 if (TG) {
   TG.ready();
   TG.expand();
   try { TG.disableVerticalSwipes?.(); } catch {}
+  try { TG.setHeaderColor?.('#060a22'); TG.setBackgroundColor?.('#060a22'); TG.setBottomBarColor?.('#020716'); } catch {}
   TG.BackButton?.onClick(closeSheet);
-  TG.onEvent?.('themeChanged', applyTheme);
+  if (TG.isVersionAtLeast?.('8.0') && TG.requestFullscreen) $('#immersive').hidden = false;
 }
-applyTheme();
+seedPool();
+resize();
+startTilt();
+onScroll();
+requestAnimationFrame(frame);
+document.fonts?.ready.then(measureNum);
 load();
 </script>
 </body>
