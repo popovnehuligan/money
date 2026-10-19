@@ -67,7 +67,8 @@ jobs:
           # Same derivation as derivedSecret() in src/auth.ts, unless you set INGEST_SECRET yourself.
           key=${INGEST_SECRET:-$(node -e 'process.stdout.write(require("crypto").createHmac("sha256", process.env.TELEGRAM_TOKEN).update("money:ingest").digest("hex").slice(0, 40))')}
           echo "::add-mask::$key"
-          curl -fsS -X POST "$url/setup" -H "authorization: Bearer $key" | tee setup.json
+          # A brand-new workers.dev subdomain needs a few minutes before its DNS and certificate work.
+          curl -fsS --retry 30 --retry-delay 10 --retry-all-errors -X POST "$url/setup" -H "authorization: Bearer $key" | tee setup.json
           bot=$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("setup.json", "utf8")).bot || "")')
           {
             echo "### Deployed"
