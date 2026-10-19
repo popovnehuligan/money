@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Money</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  /* Telegram fills the --tg-theme-* variables, so the page follows your Telegram theme. */
+  :root {
+    --bg: var(--tg-theme-bg-color, #ffffff);
+    --card: var(--tg-theme-secondary-bg-color, #f1f2f4);
+    --text: var(--tg-theme-text-color, #15171a);
+    --hint: var(--tg-theme-hint-color, #868b94);
+    --accent: var(--tg-theme-button-color, #2f7cf6);
+    --accent-text: var(--tg-theme-button-text-color, #ffffff);
+    --good: #2e9e5b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px 16px 40px; background: var(--bg); color: var(--text); font: 15px/1.4 -apple-system, system-ui, Roboto, sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  header button { width: 40px; height: 36px; border: 0; border-radius: 10px; background: var(--card); color: var(--text); font-size: 18px; }
+  header button:disabled { opacity: .3; }
+  h1 { margin: 0; font-size: 18px; }
+  h2 { margin: 22px 0 8px; font-size: 13px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--hint); }
+  .hero { margin-bottom: 10px; padding: 18px; border-radius: 16px; background: var(--accent); color: var(--accent-text); }
+  .hero small { display: block; opacity: .85; }
+  .hero .big { font-size: 34px; font-weight: 700; letter-spacing: -.5px; }
+  .bar { height: 8px; margin-top: 10px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, .3); }
+  .bar i { display: block; height: 100%; background: var(--accent-text); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .card { padding: 12px; border-radius: 14px; background: var(--card); }
+  .card small { display: block; font-size: 12px; color: var(--hint); }
+  .card b { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip { padding: 6px 12px; border-radius: 999px; background: var(--card); font-size: 13px; }
+  .cat { margin-bottom: 10px; font-size: 14px; }
+  .cat div { display: flex; justify-content: space-between; }
+  .track { height: 6px; margin-top: 4px; border-radius: 3px; background: var(--card); }
+  .track i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
+  .day { margin: 14px 0 2px; font-size: 12px; color: var(--hint); }
+  .row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--card); }
+  .row .ico { width: 26px; text-align: center; font-size: 18px; }
+  .row .who { flex: 1; min-width: 0; }
+  .row .who div { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .row .who small { color: var(--hint); }
+  .row .amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pos { color: var(--good); }
+  .muted { color: var(--hint); }
+  #home { width: 100%; margin-top: 24px; padding: 12px; border: 0; border-radius: 12px; background: var(--card); color: var(--text); font-size: 15px; }
+</style>
+</head>
+<body>
+<header>
+  <button id="prev" aria-label="Previous month">‹</button>
+  <h1 id="title">Money</h1>
+  <button id="next" aria-label="Next month">›</button>
+</header>
+<main id="main"><p class="muted">Loading…</p></main>
+<button id="home" hidden>📱 Add to home screen</button>
+
+<script>
+  const app = window.Telegram && Telegram.WebApp;
+  if (app) { app.ready(); app.expand(); }
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const eur = (c, signed) =>
+    (c < 0 ? '−' : signed && c > 0 ? '+' : '') +
+    (Math.abs(c) / 100).toLocaleString('sk-SK', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  const shift = (m, n) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
+  const ICON = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', ignore: '🚫' };
+  const KIND = { income: 'Income', savings: 'Savings', podmoga: 'Podmoga', ignore: 'Not counted' };
+
+  let shown = null;
+  let latest = null;
+
+  async function load(month) {
+    const res = await fetch('/api/summary' + (month ? '?month=' + month : ''), { headers: { 'x-init-data': app ? app.initData : '' } });
+    const data = await res.json();
+    if (!res.ok) { $('main').innerHTML = '<p class="muted">' + esc(data.error) + '</p>'; return; }
+    shown = data.month;
+    latest = latest || data.month;
+    render(data);
+  }
+
+  function render(d) {
+    const s = d.summary;
+    $('title').textContent = d.name + ' ' + d.month.slice(0, 4);
+    $('next').disabled = d.month >= latest;
+
+    const hero = d.safe
+      ? `<small>Safe to spend today</small><div class="big">${eur(d.safe.left)}</div>
+         <small>${eur(s.spent)} of ${eur(d.budget)} spent this month</small>
+         <div class="bar"><i style="width:${Math.min(100, Math.round((100 * s.spent) / d.budget))}%"></i></div>`
+      : `<small>Left over${d.current ? ' so far' : ''}</small><div class="big">${eur(s.left, true)}</div>
+         <small>${d.current && d.budget === null ? 'Set /budget in the bot to get a daily allowance' : 'income − spending − savings'}</small>`;
+
+    const chips = [];
+    if (d.streak >= 1) chips.push(`🔥 ${d.streak}-day no-spend streak`);
+    if (s.podmogaIn || s.podmogaOut) chips.push(`🔁 Podmoga ${eur(s.podmogaIn)} in · ${eur(s.podmogaOut)} out`);
+    if (s.regret > 0) chips.push(`👎 Regretted ${eur(s.regret)} (${Math.round((100 * s.regret) / s.spent)} %)`);
+
+    const top = s.byCategory.length ? s.byCategory[0][1] : 0;
+    const cats = s.byCategory
+      .map(([c, v]) => `<div class="cat"><div><span>${esc(d.categories[c] || '📦 Other')}</span><b>${eur(v)}</b></div>
+        <div class="track"><i style="width:${Math.max(2, Math.round((100 * v) / top))}%"></i></div></div>`)
+      .join('');
+
+    let day = '';
+    const rows = d.tx.map((t) => {
+      const head = t.ts.slice(0, 10) !== day ? `<div class="day">${Number(t.ts.slice(8, 10))}. ${Number(t.ts.slice(5, 7))}.</div>` : '';
+      day = t.ts.slice(0, 10);
+      const what = t.kind === 'spend' ? d.categories[t.category] || 'No category' : KIND[t.kind];
+      const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
+      return `${head}<div class="row"><span class="ico">${ICON[t.kind]}</span>
+        <span class="who"><div>${esc(t.label)}</div><small>${esc(what)}${worth}</small></span>
+        <span class="amt ${t.amount > 0 ? 'pos' : ''}">${eur(t.amount, true)}</span></div>`;
+    }).join('');
+
+    $('main').innerHTML = `
+      <section class="hero">${hero}</section>
+      <section class="grid">
+        <div class="card"><small>Real income</small><b>${eur(s.realIncome)}</b></div>
+        <div class="card"><small>Spent</small><b>${eur(s.realSpent)}</b></div>
+        <div class="card"><small>Saved 🌱</small><b>${eur(s.saved)}</b></div>
+        <div class="card"><small>Podmoga net</small><b>${eur(s.podmogaNet, true)}</b></div>
+      </section>
+      ${chips.length ? `<div class="chips">${chips.map((c) => `<span class="chip">${c}</span>`).join('')}</div>` : ''}
+      ${cats ? `<h2>Where it went</h2>${cats}` : ''}
+      <h2>Transactions</h2>
+      ${rows || '<p class="muted">Nothing yet this month.</p>'}`;
+  }
+
+  $('prev').onclick = () => shown && load(shift(shown, -1));
+  $('next').onclick = () => shown && load(shift(shown, 1));
+  if (app && app.addToHomeScreen && app.isVersionAtLeast && app.isVersionAtLeast('8.0')) {
+    $('home').hidden = false;
+    $('home').onclick = () => app.addToHomeScreen();
+  }
+  load();
+</script>
+</body>
+</html>

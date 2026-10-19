@@ -1,0 +1,20 @@
+name = "money"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+
+# 06:00 UTC = 07:00/08:00 in Bratislava: morning "safe to spend" message,
+# plus the monthly wrap-up on the 1st.
+[triggers]
+crons = ["0 6 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "money"
+# Replaced in CI from the D1_DATABASE_ID repository variable (see README).
+database_id = "__D1_DATABASE_ID__"
+migrations_dir = "migrations"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
