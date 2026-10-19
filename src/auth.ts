@@ -10,6 +10,14 @@ async function hmac(key: BufferSource, data: string): Promise<ArrayBuffer> {
 
 const hex = (buf: ArrayBuffer) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
+/**
+ * Webhook and ingest secrets derived from the bot token, so the token is the only
+ * secret you manage. Anyone holding the token controls the bot anyway.
+ */
+export async function derivedSecret(botToken: string, purpose: 'ingest' | 'webhook'): Promise<string> {
+  return hex(await hmac(enc.encode(botToken), `money:${purpose}`)).slice(0, 40);
+}
+
 /** The Telegram user id that opened the Mini App, or null if initData is forged or too old. */
 export async function telegramUserId(initData: string, botToken: string, maxAgeSeconds = 7 * 86400, now = Date.now()): Promise<string | null> {
   const params = new URLSearchParams(initData);

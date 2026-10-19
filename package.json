@@ -7,10 +7,12 @@
     "db:local": "wrangler d1 migrations apply money --local",
     "deploy": "wrangler d1 migrations apply money --remote && wrangler deploy",
     "typecheck": "tsc --noEmit",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "preview": "node scripts/preview.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261006.1",
+    "esbuild": "0.28.1",
     "typescript": "5.9.3",
     "wrangler": "4.148.0"
   }

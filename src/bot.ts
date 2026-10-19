@@ -1,8 +1,9 @@
-import { CATEGORIES, KINDS, isKind } from './classify.ts';
-import { deleteTx, getBudget, getTx, setSetting, updateTx, type Env, type Tx } from './db.ts';
+import { BadInput, applyChoice } from './actions.ts';
+import { CATEGORIES, KINDS } from './classify.ts';
+import { deleteTx, getBudget, getSetting, getTx, setSetting, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
-import { edit, eur, send, tg, txKeyboard, txText } from './telegram.ts';
+import { edit, eur, send, tg, txKeyboard, txText, type Keyboard } from './telegram.ts';
 import { addMonths, daysInMonth, localStamp, monthOf } from './time.ts';
 
 interface Chat {
@@ -13,47 +14,78 @@ export interface Update {
   callback_query?: { id: string; data?: string; message?: { message_id: number; chat: Chat } };
 }
 
-const HELP = `💶 <b>Money bot</b>
-Card payments from b-mail appear here by themselves. Tap to sort them:
+const HELP = `💶 <b>How it works</b>
+Card and Google Pay payments appear here about a minute after you pay. Tap to sort them:
 • a category and 👍/👎 for spending
 • 🔁 Podmoga for job money you only pass on (only the net counts)
 • 🏦 Savings for moves to your savings account
 I remember your choice for the same shop or account next time.
 
-Cash: just type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received).
+Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), or use + in the dashboard.
 
-/today: today's allowance
-/month: this month so far (/month last for the previous one)
-/budget 600: monthly spending budget
-/gaps off: stop asking about unexplained balance changes
-The 📊 menu button opens the dashboard.`;
+/today  today's allowance
+/month  this month so far (/month last for the previous one)
+/budget 600  monthly spending budget
+/gaps off  stop asking about unexplained balance changes`;
 
 const CASH = /^([+-]?)\s*(\d+(?:[.,]\d{1,2})?)\s*€?\s*(.*)$/s;
+
+export async function dashboardButton(env: Env): Promise<Keyboard | undefined> {
+  const base = await getSetting(env.DB, 'base_url');
+  return base ? [[{ text: '📊 Open dashboard', web_app: { url: `${base}/app` } }]] : undefined;
+}
+
+/** First /start after setup makes that chat the owner; the bot ignores everyone else from then on. */
+async function welcome(env: Env): Promise<void> {
+  const base = await getSetting(env.DB, 'base_url');
+  const forwarder = base ? `${base}/forwarder.gs?key=${env.INGEST_SECRET}` : null;
+  await send(
+    env,
+    `👋 <b>You're in.</b> This bot now talks only to you.
+
+<b>One last step: send your b-mails here</b>
+1. On a computer, open this link and copy everything:
+${forwarder ?? '(run the Deploy workflow first, then send /start again)'}
+2. Go to <a href="https://script.google.com/home/projects/create">script.google.com</a> signed in to the Gmail that gets your b-mails, paste it over the sample code and save.
+3. Pick <b>install</b> in the function menu, press Run and allow access.
+
+From then on b-mails skip your inbox (they go to the label <i>b-mail</i>) and each payment shows up here.`,
+    await dashboardButton(env),
+  );
+  await send(env, HELP);
+}
 
 export async function handleUpdate(env: Env, u: Update): Promise<void> {
   if (u.callback_query) return onButton(env, u.callback_query);
   const m = u.message;
   if (!m?.text) return;
+  const text = m.text.trim();
+
   if (!env.CHAT_ID) {
-    // First run: tell the owner which id to put into the CHAT_ID secret.
-    await tg(env, 'sendMessage', { chat_id: m.chat.id, text: `Your chat id is ${m.chat.id}. Save it as the CHAT_ID secret and redeploy.` });
+    if (!text.startsWith('/start')) return;
+    await setSetting(env.DB, 'owner_chat', String(m.chat.id));
+    await welcome({ ...env, CHAT_ID: String(m.chat.id) });
     return;
   }
-  if (String(m.chat.id) !== env.CHAT_ID) return;
+  if (String(m.chat.id) !== env.CHAT_ID) {
+    await tg(env, 'sendMessage', { chat_id: m.chat.id, text: 'This is a private bot.' });
+    return;
+  }
 
-  const text = m.text.trim();
   const [cmd, arg] = text.split(/\s+/);
   switch (cmd.split('@')[0]) {
     case '/start':
+      await welcome(env);
+      return;
     case '/help':
-      await send(env, HELP);
+      await send(env, HELP, await dashboardButton(env));
       return;
     case '/today':
-      await send(env, await morningText(env));
+      await send(env, await morningText(env), await dashboardButton(env));
       return;
     case '/month': {
       const month = monthOf(localStamp());
-      await send(env, await wrapText(env, arg === 'last' ? addMonths(month, -1) : month));
+      await send(env, await wrapText(env, arg === 'last' ? addMonths(month, -1) : month), await dashboardButton(env));
       return;
     }
     case '/budget': {
@@ -105,33 +137,31 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
     await answer('This entry no longer exists.');
     return;
   }
-
-  if (action === 'd') {
-    await deleteTx(env.DB, t.n);
-    await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: q.message.message_id });
-    await answer('Deleted');
-    return;
-  }
-
-  let patch: Partial<Tx>;
-  let toast = '';
   const who = t.merchant ?? 'this'; // toasts are plain text, no escaping
-  if (action === 'c' && value in CATEGORIES) {
-    patch = { kind: 'spend', category: value, confirmed: 1 };
-    toast = `${CATEGORIES[value]}. Next time ${who} goes there automatically.`;
-  } else if (action === 'k' && isKind(value)) {
-    patch = { kind: value, confirmed: 1 };
-    toast = value === 'podmoga' ? 'Podmoga: only the net of in minus out counts.' : `${KINDS[value]}. I’ll remember this for ${who}.`;
-  } else if (action === 'w') {
-    const worth = Number(value);
-    patch = { worth: t.worth === worth ? null : worth };
-  } else {
-    await answer();
-    return;
-  }
 
-  await updateTx(env.DB, t.n, patch);
-  const updated = { ...t, ...patch };
-  await edit(env, q.message.message_id, txText(updated, await footerFor(env, updated)), txKeyboard(updated));
-  await answer(toast);
+  try {
+    if (action === 'd') {
+      await deleteTx(env.DB, t.n);
+      await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: q.message.message_id });
+      await answer('Deleted');
+    } else if (action === 'e') {
+      await edit(env, q.message.message_id, txText(t, await footerFor(env, t)), txKeyboard(t, true));
+      await answer();
+    } else if (action === 'c') {
+      await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { category: value });
+      await answer(`${CATEGORIES[value]}. Next time ${who} goes there automatically.`);
+    } else if (action === 'k') {
+      await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
+      await answer(value === 'podmoga' ? 'Podmoga: only the net of in minus out counts.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+    } else if (action === 'w') {
+      const worth = Number(value);
+      await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { worth: t.worth === worth ? null : worth });
+      await answer();
+    } else {
+      await answer();
+    }
+  } catch (e) {
+    if (!(e instanceof BadInput)) throw e;
+    await answer(e.message);
+  }
 }

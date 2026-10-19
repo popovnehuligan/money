@@ -2,13 +2,21 @@ import type { Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
-export interface Env {
+/** Bindings and secrets as configured in Cloudflare. Only TELEGRAM_TOKEN is required. */
+export interface RawEnv {
   DB: D1Database;
   TELEGRAM_TOKEN: string;
-  TELEGRAM_SECRET: string; // checked on every Telegram webhook call
-  INGEST_SECRET: string; // shared with the Apps Script forwarder
-  CHAT_ID: string; // your Telegram chat; everyone else is ignored
+  TELEGRAM_SECRET?: string; // checked on every Telegram webhook call; derived from the token if unset
+  INGEST_SECRET?: string; // shared with the Gmail forwarder; derived from the token if unset
+  CHAT_ID?: string; // your Telegram chat; normally set by sending /start once
   OWN_IBANS?: string; // comma-separated IBANs of your own accounts, never taken as the counterparty
+}
+
+/** RawEnv with every default filled in (see withDefaults in index.ts). */
+export interface Env extends RawEnv {
+  TELEGRAM_SECRET: string;
+  INGEST_SECRET: string;
+  CHAT_ID: string; // '' until someone sends /start
 }
 
 export interface Tx {
@@ -112,4 +120,19 @@ export const setSetting = (db: D1Database, key: string, value: string) =>
 export async function getBudget(db: D1Database): Promise<number | null> {
   const v = await getSetting(db, 'budget');
   return v === null ? null : Number(v);
+}
+
+export async function getSettings(db: D1Database): Promise<Record<string, string>> {
+  const { results } = await db.prepare('SELECT key, value FROM settings').all<{ key: string; value: string }>();
+  return Object.fromEntries(results.map((r) => [r.key, r.value]));
+}
+
+export const deleteSetting = (db: D1Database, key: string) => db.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
+
+/** Euro cents moved into savings per month, newest first, for the months that have any. */
+export async function savedByMonth(db: D1Database): Promise<{ month: string; saved: number }[]> {
+  const { results } = await db
+    .prepare("SELECT substr(ts, 1, 7) AS month, -SUM(amount) AS saved FROM tx WHERE kind = 'savings' GROUP BY month ORDER BY month DESC")
+    .all<{ month: string; saved: number }>();
+  return results;
 }

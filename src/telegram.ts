@@ -1,7 +1,7 @@
 import { CATEGORIES, KINDS, defaultKind, type Kind } from './classify.ts';
 import type { Env, Tx } from './db.ts';
 
-type Button = { text: string; callback_data: string };
+type Button = { text: string; callback_data: string } | { text: string; web_app: { url: string } };
 export type Keyboard = Button[][];
 
 export async function tg<T = unknown>(env: Env, method: string, body: object): Promise<T | undefined> {
@@ -59,16 +59,29 @@ export function txText(t: Tx, footer?: string): string {
   return lines.join('\n');
 }
 
-export function txKeyboard(t: Tx): Keyboard {
+/**
+ * Unsorted payments get the full keyboard. Once you've picked a kind or category the
+ * message collapses to one summary button (tap to change) plus 👍/👎, so the chat stays calm.
+ */
+export function txKeyboard(t: Tx, expanded = false): Keyboard {
   const tick = (on: boolean, text: string) => (on ? `✓ ${text}` : text);
   const rows: Keyboard = [];
+  const worthRow = (): Button[] => [
+    { text: tick(t.worth === 1, '👍 Worth it'), callback_data: `w:1:${t.n}` },
+    { text: tick(t.worth === 0, '👎 Regret'), callback_data: `w:0:${t.n}` },
+  ];
+
+  if (t.confirmed && !expanded) {
+    const label = t.kind === 'spend' ? CATEGORIES[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind];
+    rows.push([{ text: `${label} · change`, callback_data: `e:1:${t.n}` }]);
+    if (t.kind === 'spend') rows.push(worthRow());
+    return rows;
+  }
+
   if (t.kind === 'spend') {
     const cats = Object.entries(CATEGORIES).map(([id, label]) => ({ text: tick(t.category === id, label), callback_data: `c:${id}:${t.n}` }));
     for (let i = 0; i < cats.length; i += 4) rows.push(cats.slice(i, i + 4));
-    rows.push([
-      { text: tick(t.worth === 1, '👍 Worth it'), callback_data: `w:1:${t.n}` },
-      { text: tick(t.worth === 0, '👎 Regret'), callback_data: `w:0:${t.n}` },
-    ]);
+    rows.push(worthRow());
   }
   const kinds: Kind[] = [defaultKind(t.amount), 'podmoga', 'savings', 'ignore'];
   rows.push(kinds.map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` })));

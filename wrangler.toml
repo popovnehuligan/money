@@ -16,5 +16,5 @@ migrations_dir = "migrations"
 
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["**/*.html", "**/*.gs"]
 fallthrough = true

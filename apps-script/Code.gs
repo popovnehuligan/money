@@ -1,21 +1,30 @@
-// Gmail → Money Worker forwarder for Tatra banka b-mail e-mails.
-// Free: runs inside your Google account every minute. Setup steps are in README.md.
-//
-// Script properties (Project settings → Script properties):
-//   WORKER_URL     https://money.<your-subdomain>.workers.dev/ingest
-//   INGEST_SECRET  the same value as the INGEST_SECRET GitHub secret
+// Gmail → Money forwarder for Tatra banka b-mail e-mails.
+// Free: runs inside your Google account every minute. Get your own copy from the
+// link the bot sends after /start: it comes with these two values filled in.
+const WORKER_URL = '__WORKER_URL__';
+const INGEST_SECRET = '__INGEST_SECRET__';
 
-// Which e-mails are b-mails. CHECK THIS against one real b-mail (open it, look at "from").
+// Which e-mails are b-mails. If nothing arrives in Telegram, open one real b-mail
+// and check its sender against this.
 const QUERY = 'from:tatrabanka.sk';
+
+// Forwarded b-mails are moved out of the inbox, marked read and kept under this label.
+const LABEL = 'b-mail';
 
 const TZ = 'Europe/Bratislava';
 const DAY = 24 * 3600 * 1000;
 
-/** Run once by hand: checks for new b-mails every minute from now on. */
+/**
+ * Run once: forwards new b-mails every minute from now on, and imports the last
+ * 180 days in the background (without Telegram pings) so the dashboard has history.
+ */
 function install() {
   ScriptApp.getProjectTriggers().forEach((t) => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger('forwardNew').timeBased().everyMinutes(1).create();
-  PropertiesService.getScriptProperties().setProperty('LAST_MS', String(Date.now() - DAY));
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty('LAST_MS', String(Date.now()));
+  props.deleteProperty('BACKFILL_MS');
+  backfill();
 }
 
 /** Called by the trigger. Mails older than 6 hours are stored without a Telegram ping. */
@@ -31,15 +40,12 @@ function forwardNew() {
   props.setProperty('SENT_IDS', JSON.stringify(sent.concat(delivered.map((m) => m.getId())).slice(-100)));
 }
 
-/**
- * Optional, run by hand once: imports the last 180 days silently (no Telegram pings),
- * a week at a time, oldest first. Run it again until the log says it's done.
- */
+/** Imports history a week at a time, oldest first; re-schedules itself until it's done. */
 function backfill() {
   const props = PropertiesService.getScriptProperties();
   const end = Number(props.getProperty('LAST_MS') || Date.now());
   const startedAt = Date.now();
-  let from = Number(props.getProperty('BACKFILL_MS') || Date.now() - 180 * DAY);
+  let from = Number(props.getProperty('BACKFILL_MS') || end - 180 * DAY);
   while (from < end && Date.now() - startedAt < 4 * 60 * 1000) {
     const to = Math.min(from + 7 * DAY, end);
     const messages = find_(from, to);
@@ -52,7 +58,13 @@ function backfill() {
     from = to;
   }
   props.setProperty('BACKFILL_MS', String(from));
-  console.log(from >= end ? 'Backfill done.' : `Imported up to ${new Date(from)}. Run backfill again to continue.`);
+  ScriptApp.getProjectTriggers().filter((t) => t.getHandlerFunction() === 'backfill').forEach((t) => ScriptApp.deleteTrigger(t));
+  if (from < end) {
+    ScriptApp.newTrigger('backfill').timeBased().after(60 * 1000).create();
+    console.log(`Imported up to ${new Date(from)}; continuing in a minute.`);
+  } else {
+    console.log('History imported.');
+  }
 }
 
 /** b-mails with fromMs <= date < toMs, oldest first. */
@@ -69,18 +81,19 @@ function find_(fromMs, toMs = Infinity) {
   return messages.sort((a, b) => a.getDate() - b.getDate());
 }
 
-/** Posts mails to the Worker in order; stops at the first failure. Returns the ones delivered. */
+/**
+ * Posts mails to the Worker in order and tucks each delivered one away under LABEL.
+ * Stops at the first failure. Returns the ones delivered.
+ */
 function send_(messages, silentBeforeMs, deadline = Date.now() + 4 * 60 * 1000) {
-  const props = PropertiesService.getScriptProperties();
-  const url = props.getProperty('WORKER_URL');
-  const secret = props.getProperty('INGEST_SECRET');
+  const label = GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
   const delivered = [];
   for (const m of messages) {
     if (Date.now() > deadline) break; // Apps Script stops runs at 6 minutes
-    const res = UrlFetchApp.fetch(url, {
+    const res = UrlFetchApp.fetch(WORKER_URL, {
       method: 'post',
       contentType: 'application/json',
-      headers: { Authorization: `Bearer ${secret}` },
+      headers: { Authorization: `Bearer ${INGEST_SECRET}` },
       payload: JSON.stringify({
         id: m.getId(),
         date: Utilities.formatDate(m.getDate(), TZ, "yyyy-MM-dd'T'HH:mm"),
@@ -94,6 +107,7 @@ function send_(messages, silentBeforeMs, deadline = Date.now() + 4 * 60 * 1000) 
       console.error(`Worker answered ${res.getResponseCode()}: ${res.getContentText()}`);
       break; // retried on the next run, nothing is skipped
     }
+    m.getThread().addLabel(label).markRead().moveToArchive();
     delivered.push(m);
   }
   return delivered;
