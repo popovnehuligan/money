@@ -42,7 +42,7 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 
 You choose a kind or category once, in the chat or the dashboard. After that, payments to the same shop, IBAN or person are sorted the same way automatically. Once a payment is sorted, its chat message collapses to a single "change" button.
 
-**Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" as eating out when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. Rules live in the database, not in this public repo, because they contain names.
+**Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" into ☕ Cafés & bars when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. Rules live in the database, not in this public repo, because they contain names.
 
 A rule with `passOnFrom` pairs someone else's money with the bill it pays, for example a parent who pays for your therapy: `{"match":["dr novak"],"passOnFrom":["parent's name"],"category":"health"}`. Money from the parent is 🔁 Passed on. A payment to the therapist is also 🔁 Passed on while some of the parent's money from the last 60 days is still waiting. If none is, you paid it yourself, so it counts as 💊 Health spending.
 

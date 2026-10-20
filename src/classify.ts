@@ -17,7 +17,7 @@ export const KINDS: Record<Kind, string> = {
 
 export const CATEGORIES: Record<string, string> = {
   food: '🛒 Groceries',
-  eat: '🍔 Eating out',
+  eat: '☕ Cafés & bars',
   transport: '🚕 Transport',
   fun: '🎉 Fun',
   home: '🏠 Home & bills',
@@ -45,7 +45,7 @@ export function keyFor(merchant?: string, iban?: string): string | undefined {
 /**
  * Your own sorting rules, kept in the `rules` setting (not in this public repo), e.g.
  * [{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]: payments up to 9 €
- * to a name containing "cafe hub" that are a multiple of 1.50 € are eating out. Other
+ * to a name containing "cafe hub" that are a multiple of 1.50 € go to cafés & bars. Other
  * payments to that name are left for you to sort instead of reusing the earlier choice.
  *
  * With `passOnFrom`, a rule pairs someone else's money with the bill it pays, e.g.
