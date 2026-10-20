@@ -86,6 +86,12 @@ export async function txBetween(db: D1Database, from: string, to: string): Promi
   return results;
 }
 
+/** 🔁 Passed on payments since `from`, to pair someone's money with the bills it pays. */
+export async function passedOnSince(db: D1Database, from: string): Promise<Pick<Tx, 'amount' | 'merchant' | 'note'>[]> {
+  const { results } = await db.prepare("SELECT amount, merchant, note FROM tx WHERE kind = 'podmoga' AND ts >= ?").bind(from).all<Pick<Tx, 'amount' | 'merchant' | 'note'>>();
+  return results;
+}
+
 export const txInMonth = (db: D1Database, month: string): Promise<StatTx[]> => txBetween(db, `${month}-01`, `${addMonths(month, 1)}-01`);
 
 export async function spendDaysSince(db: D1Database, day: string): Promise<Set<string>> {

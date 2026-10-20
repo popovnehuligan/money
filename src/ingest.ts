@@ -1,8 +1,9 @@
-import { applyRules, defaultKind, keyFor, parseRules } from './classify.ts';
-import { getSetting, insertTx, insertUnparsed, latestBmail, learned, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, defaultKind, keyFor, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
+import { getSetting, insertTx, insertUnparsed, latestBmail, learned, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { esc, send, txKeyboard, txText } from './telegram.ts';
+import { addDays, dayOf } from './time.ts';
 
 export interface IngestMessage {
   id: string; // Gmail message id, used to skip duplicates
@@ -17,10 +18,20 @@ export interface IngestMessage {
  * merchant/counterparty. Null if already stored.
  */
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined)): Promise<Tx | null> {
-  const rule = applyRules(parseRules(await getSetting(env.DB, 'rules')), t.amount, t.merchant, t.note);
-  if (rule) return insertTx(env.DB, { ...t, key: key ?? null, kind: 'spend', category: rule === 'ask' ? null : rule });
+  const store = (kind: Kind, category: string | null) => insertTx(env.DB, { ...t, key: key ?? null, kind, category });
+  const rules = parseRules(await getSetting(env.DB, 'rules'));
+
+  const pass = passOnRule(rules, t.amount, t.merchant, t.note);
+  if (pass && t.amount > 0) return store('podmoga', null);
+  if (pass) {
+    const waiting = waitingToPassOn(pass, await passedOnSince(env.DB, addDays(dayOf(t.ts), -60)));
+    return waiting >= -t.amount ? store('podmoga', null) : store('spend', pass.category);
+  }
+
+  const rule = applyRules(rules, t.amount, t.merchant, t.note);
+  if (rule) return store('spend', rule === 'ask' ? null : rule);
   const prior = key ? await learned(env.DB, key) : null;
-  return insertTx(env.DB, { ...t, key: key ?? null, kind: prior?.kind ?? defaultKind(t.amount), category: prior?.category ?? null });
+  return store(prior?.kind ?? defaultKind(t.amount), prior?.category ?? null);
 }
 
 export async function notify(env: Env, t: Tx, header?: string): Promise<void> {
