@@ -1,5 +1,5 @@
-import { applyRules, defaultKind, isRepayment, keyFor, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { getSetting, insertTx, insertUnparsed, latestBmail, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, defaultKind, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
+import { debtNames, getSetting, insertTx, insertUnparsed, latestBmail, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { esc, send, txKeyboard, txText } from './telegram.ts';
@@ -19,7 +19,7 @@ export interface IngestMessage {
  * Null if already stored.
  */
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined)): Promise<Tx | null> {
-  const store = (kind: Kind, category: string | null) => insertTx(env.DB, { ...t, key: key ?? null, kind, category });
+  const store = (kind: Kind, category: string | null, debt?: string) => insertTx(env.DB, { ...t, key: key ?? null, kind, category, debt });
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
   const pass = passOnRule(rules, t.amount, t.merchant, t.note);
@@ -30,7 +30,8 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   }
 
   const debts = parseDebts(await getSetting(env.DB, 'debts'));
-  if (debts.length && isRepayment(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note)) return store('loan', null);
+  const repaid = debts.length ? repaymentOf(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note) : undefined;
+  if (repaid) return store('loan', null, repaid.name);
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
   if (rule) return store('spend', rule === 'ask' ? null : rule);
@@ -40,7 +41,7 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
 
 export async function notify(env: Env, t: Tx, header?: string): Promise<void> {
   const text = txText(t, await footerFor(env, t));
-  const id = await send(env, header ? `${header}\n\n${text}` : text, txKeyboard(t));
+  const id = await send(env, header ? `${header}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB)));
   if (id) await updateTx(env.DB, t.n, { tg_msg: id });
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRules, isRepayment, owed, owedText, parseDebts, parseRules, passOnRule, waitingToPassOn } from '../src/classify.ts';
+import { applyRules, debtFor, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 
@@ -52,9 +52,25 @@ test('a loan counts down with repayments and up with more borrowing', () => {
 });
 
 test('payments to someone you owe are repayments until it is paid off', () => {
-  assert.equal(isRepayment(debts, [], -4000, 'KOVAC Maria'), true);
-  assert.equal(isRepayment(debts, [], 4000, 'KOVAC Maria'), false); // money from them is something else
-  assert.equal(isRepayment(debts, [], -4000, 'LIDL SK'), false);
-  assert.equal(isRepayment(debts, [{ amount: -10000, merchant: 'KOVAC Maria', note: null }], -500, 'KOVAC Maria'), false);
-  assert.equal(isRepayment(parseDebts('[{"name":"Mom","match":[],"amount":10000}]'), [], -4000, 'KOVAC Maria'), false); // name not known yet
+  assert.equal(repaymentOf(debts, [], -4000, 'KOVAC Maria')?.name, 'Mom');
+  assert.equal(repaymentOf(debts, [], 4000, 'KOVAC Maria'), undefined); // money from them is something else
+  assert.equal(repaymentOf(debts, [], -4000, 'LIDL SK'), undefined);
+  assert.equal(repaymentOf(debts, [{ amount: -10000, merchant: 'KOVAC Maria', note: null }], -500, 'KOVAC Maria'), undefined);
+  assert.equal(repaymentOf(parseDebts('[{"name":"Mom","match":[],"amount":10000}]'), [], -4000, 'KOVAC Maria'), undefined); // name not known yet
+});
+
+const two = parseDebts('[{"name":"Mom","match":["kovac maria"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]');
+
+test('with two loans, a payment goes to the one you picked, else the name it mentions', () => {
+  assert.equal(debtFor(two, { amount: -2000, merchant: 'SMITH Ben', note: null, debt: 'Ben' })?.name, 'Ben');
+  assert.equal(debtFor(two, { amount: -2000, merchant: 'KOVAC Maria', note: null })?.name, 'Mom');
+  assert.equal(debtFor(two, { amount: -2000, merchant: 'SMITH Ben', note: null }), undefined); // unknown: wait for a pick
+  assert.deepEqual(owed(two, [{ amount: -2000, merchant: 'SMITH Ben', note: null }]).map((o) => o.owed), [10000, 17520]);
+});
+
+test("picking a loan for a bank payment teaches the lender's bank name", () => {
+  const learned = learnLender(two, 'Ben', 'SMITH Ben');
+  assert.deepEqual(learned.map((d) => d.match), [['kovac maria'], ['SMITH Ben']]);
+  assert.equal(repaymentOf(learned, [], -3000, 'SMITH Ben')?.name, 'Ben');
+  assert.deepEqual(learnLender(learned, 'Mom', 'SMITH Ben').map((d) => d.match), [['kovac maria', 'SMITH Ben'], []]); // moved, not copied
 });

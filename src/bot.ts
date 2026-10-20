@@ -1,6 +1,6 @@
 import { BadInput, applyChoice } from './actions.ts';
 import { CATEGORIES, KINDS, owed, owedText, parseDebts } from './classify.ts';
-import { deleteTx, getBudget, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
+import { debtNames, deleteTx, getBudget, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
@@ -166,7 +166,7 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: q.message.message_id });
       await answer('Deleted');
     } else if (action === 'e') {
-      await edit(env, q.message.message_id, txText(t, await footerFor(env, t)), txKeyboard(t, true));
+      await edit(env, q.message.message_id, txText(t, await footerFor(env, t)), txKeyboard(t, true, await debtNames(env.DB)));
       await answer();
     } else if (action === 'c') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { category: value });
@@ -174,6 +174,10 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
       await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+    } else if (action === 'b') {
+      const name = (await debtNames(env.DB))[Number(value)];
+      await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { debt: name });
+      await answer(t.source === 'bmail' ? `Paying back ${name}. Next time ${who} counts toward it automatically.` : `Paying back ${name}.`);
     } else if (action === 'w') {
       const worth = Number(value);
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { worth: t.worth === worth ? null : worth });

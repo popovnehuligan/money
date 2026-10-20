@@ -81,10 +81,11 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
     confirmed: category || (kind && kind !== defaultKind(amount)) ? 1 : 0,
     source: method === 'cash' ? 'manual' : 'bmail',
     tg_msg: null,
+    debt: null,
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
-const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', debts: '[{"name":"Mom","match":["mom"],"amount":10000}]' };
+const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
 function summary(month = TODAY.slice(0, 7)) {
@@ -123,6 +124,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.category !== undefined && body.category in CATEGORIES) Object.assign(t, { kind: 'spend', category: body.category, confirmed: 1 });
       if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
       if (body.worth !== undefined) t.worth = body.worth;
+      if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
       return json(summary(t.ts.slice(0, 7)));
     }
     case '/api/delete':

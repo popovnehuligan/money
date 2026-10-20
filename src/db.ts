@@ -1,4 +1,4 @@
-import type { Kind } from './classify.ts';
+import { parseDebts, type Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
@@ -37,27 +37,28 @@ export interface Tx {
   confirmed: number;
   source: string;
   tg_msg: number | null;
+  debt: string | null; // which loan a 🤝 Loan payment belongs to
 }
 
-export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg'> & { raw: string | null };
+export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt'> & { raw: string | null; debt?: string | null };
 
-const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg';
+const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt';
 
 /** Returns the stored row, or null if this ext_id was already imported. */
 export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
   return db
     .prepare(
-      `INSERT INTO tx (ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, source, raw)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tx (ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, source, raw, debt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(ext_id) DO NOTHING RETURNING ${COLS}`,
     )
-    .bind(t.ext_id, t.ts, t.amount, t.currency, t.balance, t.merchant, t.iban, t.note, t.method, t.key, t.kind, t.category, t.source, t.raw)
+    .bind(t.ext_id, t.ts, t.amount, t.currency, t.balance, t.merchant, t.iban, t.note, t.method, t.key, t.kind, t.category, t.source, t.raw, t.debt ?? null)
     .first<Tx>();
 }
 
 export const getTx = (db: D1Database, n: number) => db.prepare(`SELECT ${COLS} FROM tx WHERE n = ?`).bind(n).first<Tx>();
 
-type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg'>>;
+type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt'>>;
 
 export async function updateTx(db: D1Database, n: number, patch: Patch): Promise<void> {
   const keys = Object.keys(patch) as (keyof Patch)[];
@@ -92,9 +93,12 @@ export async function passedOnSince(db: D1Database, from: string): Promise<Pick<
   return results;
 }
 
+/** Names of your loans, for the "which loan?" buttons. */
+export const debtNames = async (db: D1Database) => parseDebts(await getSetting(db, 'debts')).map((d) => d.name);
+
 /** Every 🤝 Loan payment, to work out what's still owed. */
-export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note'>[]> {
-  const { results } = await db.prepare("SELECT amount, merchant, note FROM tx WHERE kind = 'loan'").all<Pick<Tx, 'amount' | 'merchant' | 'note'>>();
+export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>[]> {
+  const { results } = await db.prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan'").all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>>();
   return results;
 }
 

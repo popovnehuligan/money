@@ -1,5 +1,5 @@
-import { CATEGORIES, isKind } from './classify.ts';
-import { updateTx, type Env, type Tx } from './db.ts';
+import { CATEGORIES, isKind, learnLender, parseDebts } from './classify.ts';
+import { getSetting, setSetting, updateTx, type Env, type Tx } from './db.ts';
 import { footerFor } from './reports.ts';
 import { edit, txKeyboard, txText } from './telegram.ts';
 
@@ -9,6 +9,7 @@ export interface Choice {
   kind?: string;
   category?: string;
   worth?: number | null;
+  debt?: string; // which loan a 🤝 Loan payment pays back (a name from the debts setting)
 }
 
 /**
@@ -29,8 +30,15 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
     if (c.worth !== null && c.worth !== 0 && c.worth !== 1) throw new BadInput('worth must be 1, 0 or null');
     patch.worth = c.worth;
   }
+  let debts = parseDebts(await getSetting(env.DB, 'debts'));
+  if (c.debt !== undefined) {
+    if (!debts.some((d) => d.name === c.debt)) throw new BadInput(`Unknown loan "${c.debt}"`);
+    Object.assign(patch, { kind: 'loan', debt: c.debt, confirmed: 1 });
+    // A bank payment's counterparty is the lender: later payments to them sort themselves.
+    if (t.source === 'bmail') await setSetting(env.DB, 'debts', JSON.stringify((debts = learnLender(debts, c.debt, t.merchant))));
+  }
   await updateTx(env.DB, t.n, patch);
   const updated = { ...t, ...patch };
-  if (updated.tg_msg) await edit(env, updated.tg_msg, txText(updated, await footerFor(env, updated)), txKeyboard(updated));
+  if (updated.tg_msg) await edit(env, updated.tg_msg, txText(updated, await footerFor(env, updated)), txKeyboard(updated, false, debts.map((d) => d.name)));
   return updated;
 }

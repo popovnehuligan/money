@@ -32,3 +32,10 @@ test('"change" expands the full keyboard again; manual entries can be deleted', 
 test('money coming in only gets the kinds, two per row', () => {
   assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
 });
+
+test('a loan payment asks which loan when there are two', () => {
+  const loan = tx({ amount: -2000, kind: 'loan', confirmed: 1 });
+  assert.deepEqual(texts(txKeyboard(loan, false, ['Mom', 'Ben'])), [['🤝 Loan · change'], ['Mom', 'Ben']]);
+  assert.deepEqual(texts(txKeyboard({ ...loan, debt: 'Ben' }, false, ['Mom', 'Ben'])), [['🤝 Loan · change'], ['Mom', '✓ Ben']]);
+  assert.deepEqual(texts(txKeyboard(loan, false, ['Mom'])), [['🤝 Loan · change']]); // one loan: nothing to ask
+});

@@ -120,12 +120,16 @@ export function parseDebts(json: string | null): Debt[] {
   }
 }
 
-/** The debt a payment is about: the one whose names it mentions, else (for 🤝 Loan payments) the first. */
-export function debtFor(debts: Debt[], ...names: Name[]): Debt | undefined {
-  return debts.find((d) => d.match.length && mentions(d.match, names)) ?? debts[0];
-}
+type LoanTx = { amount: number; merchant: string | null; note: string | null; debt?: string | null };
 
-type LoanTx = { amount: number; merchant: string | null; note: string | null };
+/**
+ * The loan a 🤝 Loan payment belongs to: the one you picked, else the one whose bank name
+ * it mentions, else the only loan there is. Undefined while it's ambiguous (you haven't picked).
+ */
+export function debtFor(debts: Debt[], t: LoanTx): Debt | undefined {
+  if (t.debt) return debts.find((d) => d.name === t.debt);
+  return debts.find((d) => d.match.length && mentions(d.match, [t.merchant, t.note])) ?? (debts.length === 1 ? debts[0] : undefined);
+}
 
 export interface Owed {
   name: string;
@@ -138,7 +142,8 @@ export interface Owed {
 export function owed(debts: Debt[], loans: LoanTx[]): Owed[] {
   const sums = new Map(debts.map((d) => [d, { name: d.name, borrowed: d.amount, paid: 0, owed: 0 }]));
   for (const t of loans) {
-    const s = sums.get(debtFor(debts, t.merchant, t.note)!);
+    const d = debtFor(debts, t);
+    const s = d && sums.get(d);
     if (!s) continue;
     if (t.amount > 0) s.borrowed += t.amount;
     else s.paid -= t.amount;
@@ -153,9 +158,18 @@ export function owedText(o: Owed, eur: (cents: number) => string): string {
   return `${name}: <b>${eur(o.owed)}</b> to go · ${eur(o.paid)} of ${eur(o.borrowed)} paid back`;
 }
 
-/** A payment to someone you still owe is a repayment. */
-export function isRepayment(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): boolean {
-  if (amount >= 0) return false;
+/** A payment to someone you still owe is a repayment of that loan. */
+export function repaymentOf(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): Debt | undefined {
+  if (amount >= 0) return undefined;
   const d = debts.find((x) => x.match.length && mentions(x.match, names));
-  return !!d && owed([d], loans.filter((t) => debtFor(debts, t.merchant, t.note) === d))[0].owed > 0;
+  return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
+}
+
+/** Picking a loan for a bank payment teaches its counterparty's name to that loan (and only that one). */
+export function learnLender(debts: Debt[], name: string, bankName: string | null): Debt[] {
+  if (!bankName) return debts;
+  return debts.map((d) => {
+    const others = d.match.filter((m) => fold(m) !== fold(bankName));
+    return { ...d, match: d.name === name ? [...others, bankName] : others };
+  });
 }

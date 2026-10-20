@@ -22,9 +22,10 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
     }
     case 'loan': {
       const debts = parseDebts(await getSetting(env.DB, 'debts'));
-      const d = debtFor(debts, t.merchant, t.note);
-      if (!d) return 'Tell me what you owe with /owe, e.g. /owe Mom 100';
-      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x.merchant, x.note) === d);
+      if (!debts.length) return 'Tell me what you owe with /owe, e.g. /owe Mom 100';
+      const d = debtFor(debts, t);
+      if (!d) return 'Which loan is this? Pick it below.';
+      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === d);
       return owedText(owed([d], loans)[0], eur);
     }
     case 'podmoga':

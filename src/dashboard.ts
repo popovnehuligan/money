@@ -74,6 +74,7 @@ export function dashboard(o: DashboardInput) {
       label: t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
       method: METHOD[t.method] ?? t.method,
       deletable: t.source !== 'bmail',
+      debt: t.debt,
     })),
   };
 }

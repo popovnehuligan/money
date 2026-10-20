@@ -434,6 +434,7 @@ const NUM0 = new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 });
 const sign = (c, signed) => (c < 0 ? '−' : signed && c > 0 ? '+' : '');
 const eur = (c, signed) => sign(c, signed) + NUM.format(Math.abs(c) / 100) + ' €';
 const eur0 = (c, signed) => sign(c, signed) + NUM0.format(Math.round(Math.abs(c) / 100)) + ' €';
+const eurExact = (c) => (c % 100 ? eur(c) : eur0(c)); // loans: keep the cents you owe
 const short = (c, signed) => sign(c, signed) + NUM.format(Math.abs(c) / 100);
 function money(c, signed) {
   const [int, dec] = NUM.format(Math.abs(c) / 100).split(',');
@@ -944,9 +945,9 @@ function renderJar() {
     const w = (v) => ((100 * v) / Math.max(o.borrowed, 1)).toFixed(1);
     if (o.owed <= 0) return `<div class="debt"><p class="amt">🎉</p><p><b>${esc(o.name)}</b> is paid back in full.</p></div>`;
     return `<div class="debt">
-        <p class="amt">${eur0(o.owed)}</p>
-        <p>still owed to <b>${esc(o.name)}</b>. ${o.paid ? `${eur0(o.paid)} of ${eur0(o.borrowed)} paid back.` : 'Tap 🤝 Loan on a payment to them and this counts down.'}</p>
-        <div class="split" role="img" aria-label="${eur0(o.paid)} paid back, ${eur0(o.owed)} to go">${o.paid ? `<i style="--w:${w(o.paid)}%;--c:var(--loan)"></i>` : ''}<i style="--w:${w(o.owed)}%;--c:rgba(255,255,255,.14)"></i></div>
+        <p class="amt">${eurExact(o.owed)}</p>
+        <p>still owed to <b>${esc(o.name)}</b>. ${o.paid ? `${eurExact(o.paid)} of ${eurExact(o.borrowed)} paid back.` : 'Tap 🤝 Loan on a payment to them and this counts down.'}</p>
+        <div class="split" role="img" aria-label="${eurExact(o.paid)} paid back, ${eurExact(o.owed)} to go">${o.paid ? `<i style="--w:${w(o.paid)}%;--c:var(--loan)"></i>` : ''}<i style="--w:${w(o.owed)}%;--c:rgba(255,255,255,.14)"></i></div>
       </div>`;
   }).join('')}</div>` : '';
 
@@ -1109,6 +1110,8 @@ function editorHTML(t) {
     <p class="label" id="kind-label">What was it?</p>
     <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
+    ${t.kind === 'loan' && state.view.debts?.length > 1 ? `<p class="label" id="debt-label">Which loan?</p>
+      <div class="seg" role="radiogroup" aria-labelledby="debt-label">${state.view.debts.map((o) => `<button type="button" role="radio" aria-checked="${t.debt === o.name}" data-act="debt" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)}</button>`).join('')}</div>` : ''}
     ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
       <p class="label">Worth it?</p>
       <div class="worth">
@@ -1244,6 +1247,12 @@ const actions = {
     const n = el.dataset.n, kind = el.dataset.kind;
     applyLocal(n, { kind, confirmed: true });
     mutate('/api/tx', { n: Number(n), kind, month: state.view.month }, () => state.sheet === 'edit' && openEditor(n));
+  },
+  debt: (el) => {
+    haptic.pick();
+    const n = el.dataset.n, debt = el.dataset.debt;
+    applyLocal(n, { kind: 'loan', debt, confirmed: true });
+    mutate('/api/tx', { n: Number(n), debt, month: state.view.month }, () => { toast(`Paying back ${debt}.`); if (state.sheet === 'edit') openEditor(n); });
   },
   'set-cat': (el) => {
     haptic.pick();
