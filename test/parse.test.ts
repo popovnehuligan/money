@@ -63,6 +63,12 @@ test('ATM withdrawal', () => {
   assert.equal(tx?.method, 'atm');
 });
 
+test('bank newsletters are not payments', () => {
+  const body =
+    'Máme pre Vás zľavy a benefity\nNezobrazuje sa Vám tento e-mail správne? Kliknite sem <http://links.content.tatranews.sk/servlet/MailView>\nZľava 100 € pri platbe kartou u partnera.';
+  assert.equal(parseBmail('Máme pre Vás zľavy a benefity', body), null);
+});
+
 test('messages without an amount or a direction are left for a human', () => {
   assert.equal(parseBmail('Nový výpis', 'Váš výpis za september je pripravený.'), null);
   assert.equal(parseBmail('Info', 'Suma 20,00 EUR'), null);

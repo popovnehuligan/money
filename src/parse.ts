@@ -38,6 +38,9 @@ const NOTE_LABELS = ['sprava pre prijemcu', 'sprava', 'poznamka', 'popis', 'info
 
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g;
 
+// Newsletters from the bank mention amounts and "kartou" too; b-mails are plain notifications.
+const NEWSLETTER = /tatranews|nezobrazuje sa vam|odhlasit|unsubscribe|newsletter/;
+
 interface Money {
   cents: number;
   sign: string;
@@ -90,6 +93,7 @@ function direction(folded: string): 1 | -1 | 0 {
 export function parseBmail(subject: string, body: string): ParsedTx | null {
   const text = `${subject}\n${body}`.normalize('NFC').replace(/\r/g, '');
   const folded = fold(text);
+  if (NEWSLETTER.test(folded)) return null;
   const money = findMoney(text);
 
   let amount: Money | undefined;
