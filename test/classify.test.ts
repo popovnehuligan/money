@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRules, parseRules, passOnRule, waitingToPassOn } from '../src/classify.ts';
+import { applyRules, isRepayment, owed, owedText, parseDebts, parseRules, passOnRule, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 
@@ -38,4 +38,23 @@ test('a bill is passed on only while their money is waiting', () => {
   assert.equal(waitingToPassOn(rule, [mom]), 3500);
   assert.equal(waitingToPassOn(rule, [mom, session]), 0); // already passed on: a second session is yours
   assert.equal(waitingToPassOn(rule, [job]), 0); // podmoga money doesn't pay for therapy
+});
+
+const debts = parseDebts('[{"name":"Mom","match":["kovac maria"],"amount":10000}]');
+const eur = (c: number) => `${c / 100} €`;
+
+test('a loan counts down with repayments and up with more borrowing', () => {
+  const repaid = { amount: -4000, merchant: 'KOVAC Maria', note: null };
+  assert.deepEqual(owed(debts, [repaid]), [{ name: 'Mom', borrowed: 10000, paid: 4000, owed: 6000 }]);
+  assert.equal(owed(debts, [repaid, { amount: 2000, merchant: 'KOVAC Maria', note: null }])[0].owed, 8000);
+  assert.equal(owedText(owed(debts, [repaid])[0], eur), 'Mom: <b>60 €</b> to go · 40 € of 100 € paid back');
+  assert.equal(owedText(owed(debts, [{ ...repaid, amount: -10000 }])[0], eur), '🎉 Mom is paid back in full.');
+});
+
+test('payments to someone you owe are repayments until it is paid off', () => {
+  assert.equal(isRepayment(debts, [], -4000, 'KOVAC Maria'), true);
+  assert.equal(isRepayment(debts, [], 4000, 'KOVAC Maria'), false); // money from them is something else
+  assert.equal(isRepayment(debts, [], -4000, 'LIDL SK'), false);
+  assert.equal(isRepayment(debts, [{ amount: -10000, merchant: 'KOVAC Maria', note: null }], -500, 'KOVAC Maria'), false);
+  assert.equal(isRepayment(parseDebts('[{"name":"Mom","match":[],"amount":10000}]'), [], -4000, 'KOVAC Maria'), false); // name not known yet
 });

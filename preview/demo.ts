@@ -2,7 +2,7 @@
 // the Worker's /api routes, so the dashboard can be looked at without deploying.
 // It reuses the real dashboard/statistics code, so the numbers behave like production.
 // Not part of the Worker bundle.
-import { CATEGORIES, defaultKind, isKind, type Kind } from '../src/classify.ts';
+import { CATEGORIES, defaultKind, isKind, owed, parseDebts, type Kind } from '../src/classify.ts';
 import { dashboard, readSettings } from '../src/dashboard.ts';
 import type { Tx } from '../src/db.ts';
 import { noSpendStreak } from '../src/stats.ts';
@@ -36,6 +36,7 @@ const OCTOBER: Row[] = [
   ['14', '20:10', -26.4, 'CINEMA CITY', 'spend', 'fun', 1],
   ['15', '07:30', -50, 'Savings account', 'savings', undefined, undefined, 'transfer'],
   ['15', '18:20', -17.85, 'BILLA 0456', 'spend', 'food'],
+  ['16', '20:00', -40, 'Mom', 'loan', undefined, undefined, 'transfer'],
   ['19', '08:41', -3.8, 'Kafíčko na rohu', 'spend', undefined, undefined, 'cash'],
   ['19', '09:12', -7.6, 'BOLT.EU/O/2410', 'spend'],
   ['15', '19:05', -13.2, 'TESCO EXPRESS', 'spend'],
@@ -83,7 +84,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
-const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000' };
+const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', debts: '[{"name":"Mom","match":["mom"],"amount":10000}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
 function summary(month = TODAY.slice(0, 7)) {
@@ -100,6 +101,7 @@ function summary(month = TODAY.slice(0, 7)) {
     settings: readSettings(settings),
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
+    debts: owed(parseDebts(settings.debts), txs.filter((t) => t.kind === 'loan')),
   });
 }
 

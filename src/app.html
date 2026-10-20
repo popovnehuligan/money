@@ -33,6 +33,7 @@
   --good: #3ee0a1;
   --bad: #ff7076;
   --podmoga: #8f86ff;
+  --loan: #6cc4ff;
   --water: 56 232 214;
   --c-food: #3987e5; --c-eat: #e0662e; --c-transport: #1fae7c; --c-fun: #d79a12;
   --c-home: #e0598b; --c-health: #3fae3f; --c-shop: #9085e9; --c-other: #7c8bb0;
@@ -228,6 +229,12 @@ svg { display: block; }
 .leaks .amt { margin: 4px 0; font: 700 32px/1 var(--f-ui); letter-spacing: -.04em; }
 .leaks p { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 30ch; }
 .leaks p b { color: var(--ink); }
+.debts { margin-top: 30px; padding: 18px; border-radius: 22px; background: var(--glass-2); }
+.debts h3 { margin: 0; font: 600 14px var(--f-ui); color: var(--loan); }
+.debt + .debt { margin-top: 18px; }
+.debt .amt { margin: 4px 0; font: 700 32px/1 var(--f-ui); letter-spacing: -.04em; }
+.debt p { margin: 0; color: var(--ink-2); font-size: 14px; }
+.debt p b { color: var(--ink); }
 .split { display: flex; gap: 3px; height: 8px; margin-top: 14px; }
 .split i { display: block; height: 100%; border-radius: 4px; width: var(--w); background: var(--c); }
 .split-key { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px 14px; font: 500 13px var(--f-ui); font-variant-numeric: tabular-nums; color: var(--ink-2); }
@@ -297,6 +304,7 @@ svg { display: block; }
 .sh-amount .dec { font-size: .4em; letter-spacing: -.01em; opacity: .7; margin-left: .06em; }
 .label { margin: 20px 0 9px; font: 600 14px var(--f-ui); color: var(--ink-2); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 18px; background: rgba(0, 0, 0, .25); }
+.seg.kinds { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
 .seg button { padding: 10px 2px; border-radius: 14px; font-size: 13px; font-weight: 600; text-align: center; color: var(--ink-2); white-space: nowrap; transition: background .2s, color .2s, transform .15s; }
 .seg button[aria-checked="true"] { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
 .seg button:active { transform: scale(.95); }
@@ -394,6 +402,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
   <section class="scene" id="jar-scene" aria-labelledby="jar-title">
     <h2 class="title" id="jar-title">Savings jar</h2>
     <div class="jar-stage"><canvas id="jar" aria-hidden="true"></canvas><div class="jar-copy" id="jar-copy"></div></div>
+    <div id="debts"></div>
     <div id="leaks"></div>
   </section>
   <section class="scene" id="ledger" aria-labelledby="ledger-title"></section>
@@ -473,6 +482,7 @@ const KIND = {
   spend: { icon: '💸', name: 'Spend', c: 'var(--c-other)', hint: 'Counts as spending. Pick a category; next time this place is sorted for you.' },
   income: { icon: '💰', name: 'Income', c: 'var(--good)', hint: 'Counts as income.' },
   podmoga: { icon: '🔁', name: 'Passed on', c: 'var(--podmoga)', hint: 'Money you only pass on: podmoga jobs, or someone’s money for a bill. Only what you keep, in minus out, counts.' },
+  loan: { icon: '🤝', name: 'Loan', c: 'var(--loan)', hint: 'Borrowed or paid back. Not income or spending: it changes what you owe.' },
   savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
@@ -930,6 +940,16 @@ function renderJar() {
     ${s.saved ? `<span class="chip-gold">${eur0(s.saved, true)} in ${esc(d.name)}</span>` : ''}
     ${line}`;
 
+  $('#debts').innerHTML = d.debts?.length ? `<div class="debts"><h3>Paying back</h3>${d.debts.map((o) => {
+    const w = (v) => ((100 * v) / Math.max(o.borrowed, 1)).toFixed(1);
+    if (o.owed <= 0) return `<div class="debt"><p class="amt">🎉</p><p><b>${esc(o.name)}</b> is paid back in full.</p></div>`;
+    return `<div class="debt">
+        <p class="amt">${eur0(o.owed)}</p>
+        <p>still owed to <b>${esc(o.name)}</b>. ${o.paid ? `${eur0(o.paid)} of ${eur0(o.borrowed)} paid back.` : 'Tap 🤝 Loan on a payment to them and this counts down.'}</p>
+        <div class="split" role="img" aria-label="${eur0(o.paid)} paid back, ${eur0(o.owed)} to go">${o.paid ? `<i style="--w:${w(o.paid)}%;--c:var(--loan)"></i>` : ''}<i style="--w:${w(o.owed)}%;--c:rgba(255,255,255,.14)"></i></div>
+      </div>`;
+  }).join('')}</div>` : '';
+
   const spend = d.tx.filter((t) => t.kind === 'spend' && t.amount < 0);
   const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - t.amount, 0);
   const no = spend.filter((t) => t.worth === 0).reduce((a, t) => a - t.amount, 0);
@@ -1082,12 +1102,12 @@ function tilesHTML(selected, act, n) {
 
 function editorHTML(t) {
   const v = visual(t);
-  const kinds = [t.amount > 0 ? 'income' : 'spend', 'podmoga', 'savings', 'ignore'];
+  const kinds = [t.amount > 0 ? 'income' : 'spend', 'podmoga', 'savings', 'loan', 'ignore'];
   return `<div class="sh-head"><span class="drop" style="--c:${v.c}"><span>${v.icon}</span></span>
       <div class="sh-title"><h2 id="sheet-title">${esc(t.label)}</h2><p>${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p></div></div>
     <p class="sh-amount ${t.amount > 0 ? 'in' : ''}">${money(t.amount, true)}</p>
     <p class="label" id="kind-label">What was it?</p>
-    <div class="seg" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
+    <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
     ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
       <p class="label">Worth it?</p>

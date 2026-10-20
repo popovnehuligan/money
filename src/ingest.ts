@@ -1,5 +1,5 @@
-import { applyRules, defaultKind, keyFor, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { getSetting, insertTx, insertUnparsed, latestBmail, learned, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, defaultKind, isRepayment, keyFor, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
+import { getSetting, insertTx, insertUnparsed, latestBmail, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { esc, send, txKeyboard, txText } from './telegram.ts';
@@ -14,8 +14,9 @@ export interface IngestMessage {
 }
 
 /**
- * Stores a transaction, sorted by your rules first, else by your last choice for the same
- * merchant/counterparty. Null if already stored.
+ * Stores a transaction, sorted by your rules first (pass-on pairs, repayments to someone
+ * you owe, name rules), else by your last choice for the same merchant/counterparty.
+ * Null if already stored.
  */
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined)): Promise<Tx | null> {
   const store = (kind: Kind, category: string | null) => insertTx(env.DB, { ...t, key: key ?? null, kind, category });
@@ -27,6 +28,9 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
     const waiting = waitingToPassOn(pass, await passedOnSince(env.DB, addDays(dayOf(t.ts), -60)));
     return waiting >= -t.amount ? store('podmoga', null) : store('spend', pass.category);
   }
+
+  const debts = parseDebts(await getSetting(env.DB, 'debts'));
+  if (debts.length && isRepayment(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note)) return store('loan', null);
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
   if (rule) return store('spend', rule === 'ask' ? null : rule);

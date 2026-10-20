@@ -13,6 +13,7 @@ const COMMANDS = [
   { command: 'today', description: "Today's allowance" },
   { command: 'month', description: 'This month so far' },
   { command: 'budget', description: 'Set the monthly budget, e.g. /budget 600' },
+  { command: 'owe', description: 'What you still owe, e.g. /owe Mom 100' },
   { command: 'help', description: 'How this works' },
 ];
 

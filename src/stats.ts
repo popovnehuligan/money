@@ -18,17 +18,19 @@ export interface Summary {
   podmogaNet: number;
   realIncome: number; // income + podmoga net when positive
   realSpent: number; // spending + podmoga net when negative
-  left: number; // realIncome - realSpent - saved
+  loans: number; // borrowed minus paid back (negative when you paid back more)
+  left: number; // realIncome - realSpent - saved + loans
   regret: number; // spending you marked 👎
   byCategory: [string, number][]; // biggest first
 }
 
 export function summarize(txs: StatTx[]): Summary {
-  let income = 0, spent = 0, saved = 0, podmogaIn = 0, podmogaOut = 0, regret = 0;
+  let income = 0, spent = 0, saved = 0, podmogaIn = 0, podmogaOut = 0, loans = 0, regret = 0;
   const cats = new Map<string, number>();
   for (const t of txs) {
     if (t.kind === 'income') income += t.amount;
     else if (t.kind === 'savings') saved -= t.amount;
+    else if (t.kind === 'loan') loans += t.amount;
     else if (t.kind === 'podmoga') {
       if (t.amount > 0) podmogaIn += t.amount;
       else podmogaOut -= t.amount;
@@ -52,7 +54,8 @@ export function summarize(txs: StatTx[]): Summary {
     podmogaNet,
     realIncome,
     realSpent,
-    left: realIncome - realSpent - saved,
+    loans,
+    left: realIncome - realSpent - saved + loans,
     regret,
     byCategory: [...cats].filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]),
   };

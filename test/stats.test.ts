@@ -41,6 +41,14 @@ test('savings transfers are saved, not spent', () => {
   assert.deepEqual(s.byCategory, [['food', 2500], ['eat', 2000]]);
 });
 
+test('loans are neither income nor spending, but they move what is left', () => {
+  const s = summarize([tx('2026-10-01T08:00', 150000, 'income'), tx('2026-10-20T09:00', -4000, 'loan'), tx('2026-10-21T09:00', -2000, 'spend', { category: 'food' })]);
+  assert.equal(s.realIncome, 150000);
+  assert.equal(s.realSpent, 2000);
+  assert.equal(s.loans, -4000);
+  assert.equal(s.left, 150000 - 2000 - 4000);
+});
+
 test('ignored transfers do not count anywhere', () => {
   const s = summarize([tx('2026-10-01T08:00', -20000, 'ignore')]);
   assert.equal(s.realSpent + s.realIncome + s.saved, 0);

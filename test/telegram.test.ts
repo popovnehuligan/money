@@ -11,9 +11,9 @@ const texts = (kb: ReturnType<typeof txKeyboard>) => kb.map((row) => row.map((b)
 
 test('unsorted payments get categories, rating and kinds', () => {
   const kb = texts(txKeyboard(tx()));
-  assert.equal(kb.length, 5); // 2 category rows, worth row, 2 kind rows
+  assert.equal(kb.length, 6); // 2 category rows, worth row, 3 kind rows
   assert.deepEqual(kb[0], ['🛒', '☕', '🚕', '🎉']);
-  assert.deepEqual(kb.slice(3), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🚫 Ignore']]);
+  assert.deepEqual(kb.slice(3), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
 });
 
 test('sorted payments collapse to one summary button plus rating', () => {
@@ -24,11 +24,11 @@ test('sorted payments collapse to one summary button plus rating', () => {
 
 test('"change" expands the full keyboard again; manual entries can be deleted', () => {
   const kb = texts(txKeyboard(tx({ category: 'transport', confirmed: 1, source: 'manual' }), true));
-  assert.equal(kb.length, 6);
+  assert.equal(kb.length, 7);
   assert.deepEqual(kb[0], ['🛒', '☕', '✓ 🚕', '🎉']);
-  assert.deepEqual(kb[5], ['🗑 Delete']);
+  assert.deepEqual(kb[6], ['🗑 Delete']);
 });
 
 test('money coming in only gets the kinds, two per row', () => {
-  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🚫 Ignore']]);
+  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
 });

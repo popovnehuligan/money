@@ -46,7 +46,7 @@ export function eur(cents: number, signed = false): string {
   return `${sign}${NUM.format(Math.abs(cents) / 100)} €`;
 }
 
-const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', ignore: '🚫' };
+const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', ignore: '🚫' };
 
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
@@ -89,8 +89,8 @@ export function txKeyboard(t: Tx, expanded = false): Keyboard {
     for (let i = 0; i < cats.length; i += 4) rows.push(cats.slice(i, i + 4));
     rows.push(worthRow());
   }
-  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
-  rows.push(kinds.slice(0, 2), kinds.slice(2));
+  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
+  rows.push(kinds.slice(0, 2), kinds.slice(2, 4), kinds.slice(4));
   if (t.source !== 'bmail') rows.push([{ text: '🗑 Delete', callback_data: `d:0:${t.n}` }]);
   return rows;
 }

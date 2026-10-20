@@ -1,7 +1,8 @@
 import { BadInput, applyChoice } from './actions.ts';
-import { CATEGORIES, KINDS } from './classify.ts';
-import { deleteTx, getBudget, getSetting, getTx, setSetting, type Env } from './db.ts';
+import { CATEGORIES, KINDS, owed, owedText, parseDebts } from './classify.ts';
+import { deleteTx, getBudget, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
+import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
 import { edit, eur, send, tg, txKeyboard, txText, type Keyboard } from './telegram.ts';
 import { addMonths, daysInMonth, localStamp, monthOf } from './time.ts';
@@ -19,6 +20,7 @@ Card and Google Pay payments appear here about a minute after you pay. Tap to so
 • a category and 👍/👎 for spending: ${Object.values(CATEGORIES).join(' · ')}
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
 • 🏦 Savings for moves to your savings account
+• 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
 I remember your choice for the same shop or account next time.
 
 Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), or use + in the dashboard.
@@ -26,6 +28,7 @@ Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), o
 /today  today's allowance
 /month  this month so far (/month last for the previous one)
 /budget 600  monthly spending budget
+/owe  what you still owe (/owe Mom 100 to set it)
 /gaps off  stop asking about unexplained balance changes`;
 
 const CASH = /^([+-]?)\s*(\d+(?:[.,]\d{1,2})?)\s*€?\s*(.*)$/s;
@@ -100,6 +103,24 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
       await send(env, `Budget set: ${eur(cents)} a month, about ${eur(Math.floor(cents / daysInMonth(monthOf(localStamp()))))} a day. Unspent money rolls over to the next days.`);
       return;
     }
+    case '/owe': {
+      // "/owe" lists what you owe; "/owe Mom 100" says you owe Mom 100 € now.
+      const debts = parseDebts(await getSetting(env.DB, 'debts'));
+      const loans = await loanPayments(env.DB);
+      const m = text.match(/^\/owe(?:@\S+)?\s+(.+?)\s+(\d+(?:[.,]\d{1,2})?)\s*€?$/);
+      if (m) {
+        const now = Math.round(Number(m[2].replace(',', '.')) * 100);
+        let d = debts.find((x) => fold(x.name) === fold(m[1]));
+        if (!d) debts.push((d = { name: m[1], match: [], amount: 0 }));
+        d.amount += now - owed(debts, loans)[debts.indexOf(d)].owed;
+        await setSetting(env.DB, 'debts', JSON.stringify(debts));
+        await send(env, `${owedText(owed(debts, loans)[debts.indexOf(d)], eur)}\nTap 🤝 Loan on a payment to them and it counts down.`);
+        return;
+      }
+      const list = owed(debts, loans);
+      await send(env, list.length ? list.map((o) => owedText(o, eur)).join('\n') : 'You don’t owe anyone. Add a loan: /owe Mom 100');
+      return;
+    }
     case '/gaps':
       await setSetting(env.DB, 'gaps', arg === 'off' ? 'off' : 'on');
       await send(env, arg === 'off' ? 'OK, I won’t flag unexplained balance changes.' : 'OK, I’ll flag unexplained balance changes.');
@@ -152,7 +173,7 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await answer(`${CATEGORIES[value]}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
-      await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+      await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
     } else if (action === 'w') {
       const worth = Number(value);
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { worth: t.worth === worth ? null : worth });

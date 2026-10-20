@@ -1,5 +1,5 @@
-import { CATEGORIES } from './classify.ts';
-import { firstDay, getBudget, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
+import { CATEGORIES, debtFor, owed, owedText, parseDebts } from './classify.ts';
+import { firstDay, getBudget, getSetting, loanPayments, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
 import { noSpendStreak, safeToSpend, summarize } from './stats.ts';
 import { eur } from './telegram.ts';
 import { addDays, addMonths, dayOf, localStamp, monthName, monthOf } from './time.ts';
@@ -19,6 +19,13 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
       return safe.left >= 0
         ? `Left for today: <b>${eur(safe.left)}</b>`
         : `Over today's ${eur(safe.allowance)} by <b>${eur(-safe.left)}</b>, so the next days get a bit less`;
+    }
+    case 'loan': {
+      const debts = parseDebts(await getSetting(env.DB, 'debts'));
+      const d = debtFor(debts, t.merchant, t.note);
+      if (!d) return 'Tell me what you owe with /owe, e.g. /owe Mom 100';
+      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x.merchant, x.note) === d);
+      return owedText(owed([d], loans)[0], eur);
     }
     case 'podmoga':
       return `Passed on in ${name}: ${eur(s.podmogaIn)} in, ${eur(s.podmogaOut)} out → net <b>${eur(s.podmogaNet, true)}</b>`;

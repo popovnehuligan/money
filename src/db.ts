@@ -92,6 +92,12 @@ export async function passedOnSince(db: D1Database, from: string): Promise<Pick<
   return results;
 }
 
+/** Every 🤝 Loan payment, to work out what's still owed. */
+export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note'>[]> {
+  const { results } = await db.prepare("SELECT amount, merchant, note FROM tx WHERE kind = 'loan'").all<Pick<Tx, 'amount' | 'merchant' | 'note'>>();
+  return results;
+}
+
 export const txInMonth = (db: D1Database, month: string): Promise<StatTx[]> => txBetween(db, `${month}-01`, `${addMonths(month, 1)}-01`);
 
 export async function spendDaysSince(db: D1Database, day: string): Promise<Set<string>> {

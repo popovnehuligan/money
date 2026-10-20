@@ -1,7 +1,8 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
+import { owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSettings, getTx, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSettings, getTx, loanPayments, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, type Env } from './db.ts';
 import { record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -11,13 +12,14 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans] = await Promise.all([
     txBetween(env.DB, `${month}-01`, `${addMonths(month, 1)}-01`),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
     savedByMonth(env.DB),
     firstDay(env.DB),
     spendDaysSince(env.DB, since),
+    loanPayments(env.DB),
   ]);
   return dashboard({
     month,
@@ -27,6 +29,7 @@ async function summary(env: Env, asked?: string | null) {
     settings: readSettings(settings),
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
+    debts: owed(parseDebts(settings.debts ?? null), loans),
   });
 }
 
