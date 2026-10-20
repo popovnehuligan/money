@@ -16,7 +16,7 @@ export interface Update {
 
 const HELP = `💶 <b>How it works</b>
 Card and Google Pay payments appear here about a minute after you pay. Tap to sort them:
-• a category and 👍/👎 for spending
+• a category and 👍/👎 for spending: ${Object.values(CATEGORIES).join(' · ')}
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
 • 🏦 Savings for moves to your savings account
 I remember your choice for the same shop or account next time.

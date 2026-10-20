@@ -62,9 +62,12 @@ export function txText(t: Tx, footer?: string): string {
 /**
  * Unsorted payments get the full keyboard. Once you've picked a kind or category the
  * message collapses to one summary button (tap to change) plus 👍/👎, so the chat stays calm.
+ *
+ * Telegram makes buttons only as wide as the message, so rows hold at most two labels,
+ * categories are emoji only, and a ticked label drops its emoji to make room for ✓.
  */
 export function txKeyboard(t: Tx, expanded = false): Keyboard {
-  const tick = (on: boolean, text: string) => (on ? `✓ ${text}` : text);
+  const tick = (on: boolean, text: string) => (on ? `✓ ${text.replace(/^\S+\s/, '')}` : text);
   const rows: Keyboard = [];
   const worthRow = (): Button[] => [
     { text: tick(t.worth === 1, '👍 Worth it'), callback_data: `w:1:${t.n}` },
@@ -79,12 +82,15 @@ export function txKeyboard(t: Tx, expanded = false): Keyboard {
   }
 
   if (t.kind === 'spend') {
-    const cats = Object.entries(CATEGORIES).map(([id, label]) => ({ text: tick(t.category === id, label), callback_data: `c:${id}:${t.n}` }));
+    const cats = Object.entries(CATEGORIES).map(([id, label]) => {
+      const emoji = label.split(' ')[0];
+      return { text: t.category === id ? `✓ ${emoji}` : emoji, callback_data: `c:${id}:${t.n}` };
+    });
     for (let i = 0; i < cats.length; i += 4) rows.push(cats.slice(i, i + 4));
     rows.push(worthRow());
   }
-  const kinds: Kind[] = [defaultKind(t.amount), 'podmoga', 'savings', 'ignore'];
-  rows.push(kinds.map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` })));
+  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
+  rows.push(kinds.slice(0, 2), kinds.slice(2));
   if (t.source !== 'bmail') rows.push([{ text: '🗑 Delete', callback_data: `d:0:${t.n}` }]);
   return rows;
 }
