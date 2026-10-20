@@ -1,9 +1,34 @@
-// These samples are INVENTED to look like typical Slovak bank notifications.
-// No real b-mail was available when this was written: replace them with real,
-// redacted b-mails (and adjust src/parse.ts) as soon as you have some.
+// The first two samples follow a REAL Tatra banka b-mail, with the account, name and
+// numbers replaced. The rest are invented to cover other wordings banks use.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseBmail } from '../src/parse.ts';
+
+const TATRA = (change: string, amount: string, balance: string) =>
+  `Dear client,\r\n\r\nat 20/10/2026, 14:28 the balance on your account SK0000000000000000000000 was ${change} by ${amount} EUR.\r\n` +
+  `Ledger balance:                           ${balance} EUR\r\nActual balance:                           ${balance} EUR\r\nDispo balance:                            ${balance} EUR\r\n\r\n` +
+  `Transaction description: Platba 1100/000000-1234567890\r\nCounterparty account: NOVAK Jan\r\n\r\nBest regards\r\n\r\nTATRA BANKA, a.s.\r\n\r\nhttp://www.tatrabanka.sk\r\n\r\n` +
+  `Please delete all read bmail messages.The history of the account is in the movements via internet banking, therefore you do not need to reconstruct it from old bmail messages.\r\n`;
+
+test('Tatra b-mail: debit', () => {
+  const tx = parseBmail('Debit on your account (ID=201026/000000-2)', TATRA('decreased', '1.50', '29.79'));
+  assert.deepEqual(tx, {
+    amount: -150,
+    currency: 'EUR',
+    balance: 2979,
+    merchant: 'NOVAK Jan',
+    ibans: [], // the IBAN in the text is your own account, not the other party
+    note: 'Platba 1100/000000-1234567890',
+    method: 'transfer',
+    ts: '2026-10-20T14:28',
+  });
+});
+
+test('Tatra b-mail: credit', () => {
+  const tx = parseBmail('Credit on your account (ID=201026/000000-3)', TATRA('increased', '1 250.00', '1 279.79'));
+  assert.equal(tx?.amount, 125000);
+  assert.equal(tx?.balance, 127979);
+});
 
 test('card payment with balance on the same line', () => {
   const tx = parseBmail(

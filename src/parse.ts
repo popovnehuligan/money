@@ -1,10 +1,11 @@
 // Parser for Tatra banka b-mail notification e-mails.
 //
-// Written WITHOUT a real b-mail sample, so it is deliberately loose: it looks
-// for amounts, Slovak/English direction words and "Label: value" lines rather
-// than one exact template. Anything it can't read lands in the `unparsed` table
-// and in Telegram, so nothing is lost silently. Once real (redacted) samples
-// exist, tighten this and add them to test/parse.test.ts.
+// Tatra's template (seen in a real b-mail, redacted in test/parse.test.ts):
+// "at 20/10/2026, 14:28 the balance on your account SK.. was decreased by 1.50 EUR."
+// followed by balances, "Transaction description:" and "Counterparty account:".
+// Beyond that it stays loose (amounts, Slovak/English direction words, "Label: value"
+// lines), because card payments may use other wording. Anything it can't read lands
+// in the `unparsed` table and in Telegram, so nothing is lost silently.
 
 export type Method = 'card' | 'transfer' | 'atm' | 'other';
 
@@ -30,13 +31,17 @@ const AMOUNT_FIRST = new RegExp(`([+\\-−]?)\\s?${NUMBER}\\s?${CURRENCY}(?![A-Z
 const CURRENCY_FIRST = new RegExp(`${CURRENCY}\\s?([+\\-−]?)\\s?${NUMBER}`, 'g');
 
 const BALANCE_CUE = /zostatok|balance|disponib/;
-const CREDIT_CUE = /\bkredit\b|prijat|prichadzaj|pripis|vratenie|refund|incoming|credited/;
-const DEBIT_CUE = /\bdebet\b|odchadzaj|platba kart|zaplat|vyber|odpis|uhrad|debited|outgoing|card payment|purchase|withdrawal|nakup/;
+// "was decreased by 1.50 EUR" / "bol znížený o 1,50 EUR" right before the amount.
+const CHANGE_CUE = /(decreased|znizen|increased|zvysen)\w*\s+(?:by|o)\s*$/;
+const CREDIT_CUE = /\bkredit\b|credit on your|prijat|prichadzaj|pripis|vratenie|refund|incoming|credited/;
+const DEBIT_CUE = /\bdebet\b|debit on your|odchadzaj|platba kart|zaplat|vyber|odpis|uhrad|debited|outgoing|card payment|purchase|withdrawal|nakup/;
 
-const MERCHANT_LABELS = ['obchodnik', 'miesto', 'prevadzka', 'merchant', 'prijemca', 'nazov prijemcu', 'platitel', 'nazov platitela', 'protistrana', 'nazov protiuctu', 'payee', 'payer', 'from', 'to'];
-const NOTE_LABELS = ['sprava pre prijemcu', 'sprava', 'poznamka', 'popis', 'informacia pre prijemcu', 'referencia', 'reference', 'message', 'variabilny symbol', 'vs'];
+const MERCHANT_LABELS = ['obchodnik', 'miesto', 'prevadzka', 'merchant', 'prijemca', 'nazov prijemcu', 'platitel', 'nazov platitela', 'protistrana', 'nazov protiuctu', 'counterparty', 'protiucet', 'payee', 'payer', 'from', 'to'];
+const NOTE_LABELS = ['transaction description', 'sprava pre prijemcu', 'sprava', 'poznamka', 'popis', 'informacia pre prijemcu', 'referencia', 'reference', 'message', 'variabilny symbol', 'vs'];
 
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g;
+// "the balance on your account SK.." names your own account, not the other party.
+const OWN_ACCOUNT = /(your account|vasom ucte|vas ucet|vasho uctu)\s*$/;
 
 // Newsletters from the bank mention amounts and "kartou" too; b-mails are plain notifications.
 const NEWSLETTER = /tatranews|nezobrazuje sa vam|odhlasit|unsubscribe|newsletter/;
@@ -73,7 +78,7 @@ function labelled(lines: string[], labels: string[]): string | undefined {
 }
 
 function findDate(text: string): string | undefined {
-  const m = text.match(/(\d{1,2})\.\s?(\d{1,2})\.\s?(\d{4})(?:[^\d\n]{1,12}(\d{1,2}):(\d{2}))?/);
+  const m = text.match(/(\d{1,2})[./]\s?(\d{1,2})[./]\s?(\d{4})(?:[^\d\n]{1,12}(\d{1,2}):(\d{2}))?/);
   if (!m) return undefined;
   const [, day, month, year, hour = '0', minute = '0'] = m;
   if (+day < 1 || +day > 31 || +month < 1 || +month > 12 || +hour > 23 || +minute > 59) return undefined;
@@ -97,16 +102,25 @@ export function parseBmail(subject: string, body: string): ParsedTx | null {
   const money = findMoney(text);
 
   let amount: Money | undefined;
-  let balance: Money | undefined;
+  let change: 1 | -1 | 0 = 0;
+  const balances: { money: Money; actual: boolean }[] = [];
   money.forEach((m, i) => {
     // Only look back to the previous amount, so "Suma 5 EUR, zostatok 100 EUR" labels each correctly.
     const context = folded.slice(Math.max(i ? money[i - 1].end : 0, m.start - 50), m.start);
-    if (BALANCE_CUE.test(context)) balance ??= m;
-    else if (!amount || (amount.currency !== 'EUR' && m.currency === 'EUR')) amount = m;
+    const moved = context.match(CHANGE_CUE);
+    if (moved && !change) {
+      amount = m;
+      change = /decreased|znizen/.test(moved[1]) ? -1 : 1;
+    } else if (BALANCE_CUE.test(context)) balances.push({ money: m, actual: /actual|aktualn/.test(context) });
+    else if (!change && (!amount || (amount.currency !== 'EUR' && m.currency === 'EUR'))) amount = m;
   });
   if (!amount) return null;
+  // Prefer "Actual balance": it already includes card payments that are still pending.
+  const balance = (balances.find((b) => b.actual) ?? balances[0])?.money;
 
-  const ibans = [...text.matchAll(IBAN)].map((m) => m[0].replace(/ /g, ''));
+  const ibans = [...text.matchAll(IBAN)]
+    .filter((m) => !OWN_ACCOUNT.test(fold(text.slice(Math.max(0, m.index - 30), m.index))))
+    .map((m) => m[0].replace(/ /g, ''));
   const method: Method = /bankomat|\batm\b|vyber hotovost|cash withdrawal/.test(folded)
     ? 'atm'
     : /kart|\bcard\b|google pay|apple pay|\bpos\b/.test(folded)
@@ -115,13 +129,12 @@ export function parseBmail(subject: string, body: string): ParsedTx | null {
         ? 'transfer'
         : 'other';
 
-  let sign = amount.sign === '-' ? -1 : amount.sign === '+' ? 1 : direction(folded);
+  let sign = change || (amount.sign === '-' ? -1 : amount.sign === '+' ? 1 : direction(folded));
   if (sign === 0 && (method === 'card' || method === 'atm')) sign = -1;
   if (sign === 0) return null;
 
   const lines = text.split('\n');
-  let merchant = labelled(lines, MERCHANT_LABELS);
-  if (merchant && merchant.replace(/ /g, '').match(/^[A-Z]{2}\d{2}[A-Z0-9]+$/)) merchant = undefined;
+  let merchant = labelled(lines, MERCHANT_LABELS)?.replace(IBAN, '').trim();
   if (!merchant) {
     const m = folded.match(/\b(?:u obchodnika|v prevadzke|at)\s+([^\n,;]+?)(?=\s+(?:dna|on|v sume|suma)\b|\s+\d{1,2}\.\d{1,2}\.|[,;\n]|$)/);
     if (m && m.index !== undefined) {
