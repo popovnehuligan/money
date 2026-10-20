@@ -31,10 +31,10 @@ export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'dup
     if (isNew && !msg.silent) {
       await send(
         env,
-        `🤔 I couldn't read this b-mail, so it isn't counted:\n<b>${esc(msg.subject)}</b>\n${esc(msg.body.slice(0, 400))}\n\nIf it was a payment, type it in, e.g. <code>12.50 lidl</code>.`,
+        `🤔 I couldn't read this e-mail from Tatra banka, so it isn't counted (it stays in your inbox):\n<b>${esc(msg.subject)}</b>\n${esc(msg.body.slice(0, 400))}\n\nIf it was a payment, type it in, e.g. <code>12.50 lidl</code>.`,
       );
     }
-    return isNew ? 'unparsed' : 'duplicate';
+    return 'unparsed'; // the forwarder only archives mails that were read as payments
   }
 
   const own = (env.OWN_IBANS ?? '').split(',').map((s) => s.replace(/\s/g, '')).filter(Boolean);

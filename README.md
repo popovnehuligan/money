@@ -75,7 +75,7 @@ Only the first three steps need you; the deploy does the rest.
 5. **Gmail**: on a computer, open that link and copy everything.
    - Go to [script.google.com](https://script.google.com/home/projects/create) **while signed in to the Gmail that receives your b-mails**, paste it over the sample code and save.
    - Choose `install` in the function menu, press Run and allow access.
-   - It forwards new b-mails every minute and moves them out of your inbox into the label **b-mail**, so they never clutter your normal view. In the background it also imports the last 180 days without pinging you.
+   - It forwards new e-mails from Tatra banka every minute. The ones read as payments move out of your inbox into the label **b-mail**, so they never clutter your normal view; anything else from the bank (statements, notices) stays in the inbox. In the background it also imports the last 180 days without pinging you.
    - If nothing arrives, check the sender of a real b-mail against `QUERY` at the top of the script.
 6. **Tatra banka**: in the app go to Nastavenia → b-mail and turn on **e-mail** notifications to that Gmail for card payments, incoming payments and outgoing payments, with no minimum amount. As far as I could find, e-mail and push are free and SMS costs extra.
 

@@ -4,11 +4,12 @@
 const WORKER_URL = '__WORKER_URL__';
 const INGEST_SECRET = '__INGEST_SECRET__';
 
-// Which e-mails are b-mails. If nothing arrives in Telegram, open one real b-mail
-// and check its sender against this.
-const QUERY = 'from:tatrabanka.sk';
+// Which e-mails to send to the Worker: anything from Tatra banka. If nothing arrives
+// in Telegram, open one real b-mail and check its sender against this.
+const QUERY = '{from:tatrabanka.sk from:"Tatra banka"}';
 
-// Forwarded b-mails are moved out of the inbox, marked read and kept under this label.
+// E-mails the Worker reads as payments are moved out of the inbox, marked read and
+// kept under this label. Anything else from the bank (statements, notices) stays put.
 const LABEL = 'b-mail';
 
 const TZ = 'Europe/Bratislava';
@@ -82,8 +83,8 @@ function find_(fromMs, toMs = Infinity) {
 }
 
 /**
- * Posts mails to the Worker in order and tucks each delivered one away under LABEL.
- * Stops at the first failure. Returns the ones delivered.
+ * Posts mails to the Worker in order and tucks each one it read as a payment away
+ * under LABEL. Stops at the first failure. Returns the ones delivered.
  */
 function send_(messages, silentBeforeMs, deadline = Date.now() + 4 * 60 * 1000) {
   const label = GmailApp.getUserLabelByName(LABEL) || GmailApp.createLabel(LABEL);
@@ -107,7 +108,7 @@ function send_(messages, silentBeforeMs, deadline = Date.now() + 4 * 60 * 1000) 
       console.error(`Worker answered ${res.getResponseCode()}: ${res.getContentText()}`);
       break; // retried on the next run, nothing is skipped
     }
-    m.getThread().addLabel(label).markRead().moveToArchive();
+    if (JSON.parse(res.getContentText()).status !== 'unparsed') m.getThread().addLabel(label).markRead().moveToArchive();
     delivered.push(m);
   }
   return delivered;
