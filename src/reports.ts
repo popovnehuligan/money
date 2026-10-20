@@ -21,7 +21,7 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
         : `Over today's ${eur(safe.allowance)} by <b>${eur(-safe.left)}</b>, so the next days get a bit less`;
     }
     case 'podmoga':
-      return `Podmoga in ${name}: ${eur(s.podmogaIn)} in, ${eur(s.podmogaOut)} out → net <b>${eur(s.podmogaNet, true)}</b>`;
+      return `Passed on in ${name}: ${eur(s.podmogaIn)} in, ${eur(s.podmogaOut)} out → net <b>${eur(s.podmogaNet, true)}</b>`;
     case 'savings':
       return `Saved in ${name}: <b>${eur(s.saved)}</b> 🌱`;
     case 'income':
@@ -66,7 +66,7 @@ export async function wrapText(env: Env, month: string): Promise<string> {
   const lines = [
     `📊 <b>${monthName(month)} wrap-up</b>`,
     '',
-    `💰 Real income: <b>${eur(s.realIncome)}</b>${s.podmogaNet ? ` (podmoga net ${eur(s.podmogaNet, true)})` : ''}`,
+    `💰 Real income: <b>${eur(s.realIncome)}</b>${s.podmogaNet ? ` (passed-on net ${eur(s.podmogaNet, true)})` : ''}`,
     `💸 Spent: <b>${eur(s.realSpent)}</b>${vs}`,
     `🏦 Saved: <b>${eur(s.saved)}</b>`,
     `➡️ Left over: <b>${eur(s.left, true)}</b>`,

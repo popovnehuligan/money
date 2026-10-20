@@ -1,4 +1,4 @@
-import { defaultKind, keyFor } from './classify.ts';
+import { applyRules, defaultKind, keyFor, parseRules } from './classify.ts';
 import { getSetting, insertTx, insertUnparsed, latestBmail, learned, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
@@ -12,8 +12,13 @@ export interface IngestMessage {
   silent?: boolean; // backfill: store, but don't ping Telegram
 }
 
-/** Stores a transaction, reusing your last choice for the same merchant/counterparty. Null if already stored. */
+/**
+ * Stores a transaction, sorted by your rules first, else by your last choice for the same
+ * merchant/counterparty. Null if already stored.
+ */
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined)): Promise<Tx | null> {
+  const rule = applyRules(parseRules(await getSetting(env.DB, 'rules')), t.amount, t.merchant, t.note);
+  if (rule) return insertTx(env.DB, { ...t, key: key ?? null, kind: 'spend', category: rule === 'ask' ? null : rule });
   const prior = key ? await learned(env.DB, key) : null;
   return insertTx(env.DB, { ...t, key: key ?? null, kind: prior?.kind ?? defaultKind(t.amount), category: prior?.category ?? null });
 }

@@ -17,7 +17,7 @@ export interface Update {
 const HELP = `💶 <b>How it works</b>
 Card and Google Pay payments appear here about a minute after you pay. Tap to sort them:
 • a category and 👍/👎 for spending
-• 🔁 Podmoga for job money you only pass on (only the net counts)
+• 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
 • 🏦 Savings for moves to your savings account
 I remember your choice for the same shop or account next time.
 
@@ -152,7 +152,7 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await answer(`${CATEGORIES[value]}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
-      await answer(value === 'podmoga' ? 'Podmoga: only the net of in minus out counts.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+      await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
     } else if (action === 'w') {
       const worth = Number(value);
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { worth: t.worth === worth ? null : worth });

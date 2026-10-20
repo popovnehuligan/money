@@ -472,7 +472,7 @@ const ICON = {
 const KIND = {
   spend: { icon: '💸', name: 'Spend', c: 'var(--c-other)', hint: 'Counts as spending. Pick a category; next time this place is sorted for you.' },
   income: { icon: '💰', name: 'Income', c: 'var(--good)', hint: 'Counts as income.' },
-  podmoga: { icon: '🔁', name: 'Podmoga', c: 'var(--podmoga)', hint: 'Job money you pass on. Only what you keep, in minus out, counts as income.' },
+  podmoga: { icon: '🔁', name: 'Passed on', c: 'var(--podmoga)', hint: 'Money you only pass on: podmoga jobs, or someone’s money for a bill. Only what you keep, in minus out, counts.' },
   savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
@@ -895,7 +895,7 @@ function renderFlow() {
   if (s.podmogaIn || s.podmogaOut) {
     const kept = Math.max(s.podmogaNet, 0), top = Math.max(s.podmogaIn, s.podmogaOut, 1);
     pod = `<div class="pod">
-      <h3>Podmoga</h3>
+      <h3>Passed on</h3>
       <p>${eur0(s.podmogaIn)} came in, ${eur0(s.podmogaOut)} went out. ${s.podmogaNet >= 0 ? `You kept <b>${eur0(kept)}</b>.` : `You lost <b>${eur0(-s.podmogaNet)}</b>.`}</p>
       <div class="split" role="img" aria-label="${eur0(Math.min(s.podmogaIn, s.podmogaOut))} passed on, ${eur0(kept)} kept"><i style="--w:${((100 * Math.min(s.podmogaIn, s.podmogaOut)) / top).toFixed(1)}%;--c:rgba(255,255,255,.18)"></i>${kept ? `<i style="--w:${((100 * kept) / top).toFixed(1)}%;--c:var(--good)"></i>` : ''}</div>
     </div>`;

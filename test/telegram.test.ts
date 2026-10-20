@@ -12,13 +12,13 @@ const texts = (kb: ReturnType<typeof txKeyboard>) => kb.map((row) => row.map((b)
 test('unsorted payments get categories, rating and kinds', () => {
   const kb = texts(txKeyboard(tx()));
   assert.equal(kb.length, 4); // 2 category rows, worth row, kind row
-  assert.deepEqual(kb[3], ['✓ 💸 Spend', '🔁 Podmoga', '🏦 Savings', '🚫 Ignore']);
+  assert.deepEqual(kb[3], ['✓ 💸 Spend', '🔁 Passed on', '🏦 Savings', '🚫 Ignore']);
 });
 
 test('sorted payments collapse to one summary button plus rating', () => {
   const kb = texts(txKeyboard(tx({ category: 'transport', confirmed: 1, worth: 1 })));
   assert.deepEqual(kb, [['🚕 Transport · change'], ['✓ 👍 Worth it', '👎 Regret']]);
-  assert.deepEqual(texts(txKeyboard(tx({ kind: 'podmoga', confirmed: 1 }))), [['🔁 Podmoga · change']]);
+  assert.deepEqual(texts(txKeyboard(tx({ kind: 'podmoga', confirmed: 1 }))), [['🔁 Passed on · change']]);
 });
 
 test('"change" expands the full keyboard again; manual entries can be deleted', () => {
