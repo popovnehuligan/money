@@ -2,7 +2,7 @@
 // numbers replaced. The rest are invented to cover other wordings banks use.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBmail } from '../src/parse.ts';
+import { parseBalanceNotice, parseBmail } from '../src/parse.ts';
 
 const TATRA = (change: string, amount: string, balance: string) =>
   `Dear client,\r\n\r\nat 20/10/2026, 14:28 the balance on your account SK0000000000000000000000 was ${change} by ${amount} EUR.\r\n` +
@@ -28,6 +28,41 @@ test('Tatra b-mail: credit', () => {
   const tx = parseBmail('Credit on your account (ID=201026/000000-3)', TATRA('increased', '1 250.00', '1 279.79'));
   assert.equal(tx?.amount, 125000);
   assert.equal(tx?.balance, 127979);
+});
+
+const balances = (eur: string) =>
+  `Ledger balance:                          ${eur} EUR\r\nActual balance:                          ${eur} EUR\r\nDispo balance:                           ${eur} EUR\r\n\r\n`;
+
+test('Tatra b-mail: card payment takes the shop from the description', () => {
+  const tx = parseBmail(
+    'Debit on your account (ID=211026/000000-2)',
+    `Dear client,\r\n\r\nat 21/10/2026, 07:20 the balance on your account SK0000000000000000000000 was decreased by 9.15 EUR.\r\n${balances('280.64')}Transaction description: Platba kartou 4405**0000, EasyPark Slovakia s..\r\n\r\nBest regards`,
+  );
+  assert.equal(tx?.amount, -915);
+  assert.equal(tx?.balance, 28064);
+  assert.equal(tx?.merchant, 'EasyPark Slovakia s'); // not "21/10/2026"
+  assert.equal(tx?.note, 'Platba kartou 4405**0000, EasyPark Slovakia s..');
+  assert.equal(tx?.method, 'card');
+  assert.equal(tx?.ts, '2026-10-21T07:20');
+  assert.equal(tx?.savings, undefined);
+});
+
+test('Tatra b-mail: a round-up into savings is money leaving your account, without its balance', () => {
+  const tx = parseBmail(
+    'Account savings credit (ID=211026/000000-2)',
+    `Dear client,\r\n\r\nat 21/10/2026, 10:44 the balance on your savings Novak Jan Savings was increased by 1.06 EUR.\r\n${balances('8.18')}Transaction description: Sporenie kartou\r\n\r\nBest regards`,
+  );
+  assert.equal(tx?.amount, -106);
+  assert.equal(tx?.balance, undefined); // 8.18 € is the savings account, not your main one
+  assert.equal(tx?.savings, true);
+  assert.equal(tx?.note, 'Sporenie kartou');
+});
+
+test('Tatra b-mail: the daily balance notice is not a payment', () => {
+  const body = `Dear client,\r\n\r\nat 21/10/2026, 07:00 the balances on your account SK0000000000000000000000 were:\r\n${balances('1 289.79')}Best regards`;
+  assert.equal(parseBmail('Account balance (ID=211026/00000-2)', body), null);
+  assert.equal(parseBalanceNotice('Account balance (ID=211026/00000-2)', body), 128979);
+  assert.equal(parseBalanceNotice('Výpis z účtu', 'Váš výpis je pripravený.'), null);
 });
 
 test('card payment with balance on the same line', () => {

@@ -18,6 +18,7 @@ export interface ParsedTx {
   note?: string;
   method: Method;
   ts?: string; // local "YYYY-MM-DDTHH:MM" when the message states it
+  savings?: boolean; // money moved between your account and your savings (e.g. card round-ups)
 }
 
 /** Lowercase and strip diacritics so "Prijatá platba" matches "prijata platba". */
@@ -42,6 +43,12 @@ const NOTE_LABELS = ['transaction description', 'sprava pre prijemcu', 'sprava',
 const IBAN = /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b/g;
 // "the balance on your account SK.." names your own account, not the other party.
 const OWN_ACCOUNT = /(your account|vasom ucte|vas ucet|vasho uctu)\s*$/;
+
+// "the balance on your savings … was increased by 1.06 EUR": round-ups into your savings.
+// That's money leaving your main account, and the balances are the savings account's.
+const SAVINGS_CUE = /balance on your savings|account savings (?:credit|debit)|vasom sporeni|sporiac/;
+// "Platba kartou 4405**6255, EasyPark Slovakia s.." / "Card payment 4405**6255, LIDL": the shop.
+const CARD_DESCRIPTION = /^(?:platba kartou|card payment|nakup kartou)\s+\S*\d\S*,\s*(.+)$/i;
 
 // Newsletters from the bank mention amounts and "kartou" too; b-mails are plain notifications.
 const NEWSLETTER = /tatranews|nezobrazuje sa vam|odhlasit|unsubscribe|newsletter/;
@@ -134,23 +141,36 @@ export function parseBmail(subject: string, body: string): ParsedTx | null {
   if (sign === 0) return null;
 
   const lines = text.split('\n');
+  const note = labelled(lines, NOTE_LABELS);
   let merchant = labelled(lines, MERCHANT_LABELS)?.replace(IBAN, '').trim();
+  if (!merchant) merchant = note?.match(CARD_DESCRIPTION)?.[1].replace(/\.+$/, '').trim();
   if (!merchant) {
     const m = folded.match(/\b(?:u obchodnika|v prevadzke|at)\s+([^\n,;]+?)(?=\s+(?:dna|on|v sume|suma)\b|\s+\d{1,2}\.\d{1,2}\.|[,;\n]|$)/);
-    if (m && m.index !== undefined) {
+    // Tatra's "at 21/10/2026, 07:20 the balance…" is a date, not a shop.
+    if (m && m.index !== undefined && !/^\d/.test(m[1])) {
       const start = m.index + m[0].length - m[1].length;
       merchant = text.slice(start, start + m[1].length).trim();
     }
   }
 
+  const savings = SAVINGS_CUE.test(folded);
   return {
-    amount: sign * amount.cents,
+    amount: (savings ? -sign : sign) * amount.cents,
     currency: amount.currency,
-    balance: balance && balance.currency === 'EUR' ? (balance.sign === '-' ? -balance.cents : balance.cents) : undefined,
+    balance: !savings && balance && balance.currency === 'EUR' ? (balance.sign === '-' ? -balance.cents : balance.cents) : undefined,
     merchant: merchant || undefined,
     ibans,
-    note: labelled(lines, NOTE_LABELS),
+    note,
     method,
     ts: findDate(text),
+    ...(savings && { savings: true }),
   };
+}
+
+/** The daily "Account balance" b-mail: no payment, just your balance. Its "Actual balance", else null. */
+export function parseBalanceNotice(subject: string, body: string): number | null {
+  const text = `${subject}\n${body}`.normalize('NFC').replace(/\r/g, '');
+  if (!/balances on your account .* were|zostatky na vasom ucte/.test(fold(text))) return null;
+  const m = text.match(/actual balance:\s*([\d .,]+)\s*EUR/i) ?? text.match(/balance:\s*([\d .,]+)\s*EUR/i);
+  return m ? Math.round(Number(m[1].replace(/[ .](?=\d{3}\b)/g, '').replace(/\s/g, '').replace(',', '.')) * 100) : null;
 }

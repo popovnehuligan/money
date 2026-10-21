@@ -78,8 +78,18 @@ export const learned = (db: D1Database, key: string) =>
     .bind(key)
     .first<Pick<Tx, 'kind' | 'category'>>();
 
+/** The latest b-mail that told us your main account's balance. */
 export const latestBmail = (db: D1Database) =>
-  db.prepare(`SELECT ${COLS} FROM tx WHERE source = 'bmail' ORDER BY ts DESC, n DESC LIMIT 1`).first<Tx>();
+  db.prepare(`SELECT ${COLS} FROM tx WHERE source = 'bmail' AND balance IS NOT NULL ORDER BY ts DESC, n DESC LIMIT 1`).first<Tx>();
+
+/** Sum of the bank movements stored after one transaction and before another (by arrival). */
+export async function movedBetween(db: D1Database, afterN: number, beforeN: number): Promise<number> {
+  const row = await db
+    .prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM tx WHERE source IN ('bmail', 'gap') AND n > ? AND n < ?")
+    .bind(afterN, beforeN)
+    .first<{ s: number }>();
+  return row?.s ?? 0;
+}
 
 /** Transactions with from <= ts < to (both "YYYY-MM-DD…" strings). */
 export async function txBetween(db: D1Database, from: string, to: string): Promise<Tx[]> {

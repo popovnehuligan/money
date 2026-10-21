@@ -1,6 +1,6 @@
 import { applyRules, defaultKind, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { debtNames, getSetting, insertTx, insertUnparsed, latestBmail, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
-import { parseBmail } from './parse.ts';
+import { debtNames, getSetting, insertTx, insertUnparsed, latestBmail, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { esc, send, txKeyboard, txText } from './telegram.ts';
 import { addDays, dayOf } from './time.ts';
@@ -18,8 +18,9 @@ export interface IngestMessage {
  * you owe, name rules), else by your last choice for the same merchant/counterparty.
  * Null if already stored.
  */
-export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined)): Promise<Tx | null> {
+export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined), kind?: Kind): Promise<Tx | null> {
   const store = (kind: Kind, category: string | null, debt?: string) => insertTx(env.DB, { ...t, key: key ?? null, kind, category, debt });
+  if (kind) return store(kind, null);
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
   const pass = passOnRule(rules, t.amount, t.merchant, t.note);
@@ -45,8 +46,10 @@ export async function notify(env: Env, t: Tx, header?: string): Promise<void> {
   if (id) await updateTx(env.DB, t.n, { tg_msg: id });
 }
 
-export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'duplicate' | 'unparsed'> {
+export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'duplicate' | 'unparsed' | 'balance'> {
   const parsed = parseBmail(msg.subject, msg.body);
+  // The 07:00 "Account balance" b-mail has no payment in it: archive it without a ping.
+  if (!parsed && parseBalanceNotice(msg.subject, msg.body) !== null) return 'balance';
   if (!parsed) {
     const isNew = await insertUnparsed(env.DB, msg.id, msg.date, msg.subject, msg.body);
     if (isNew && !msg.silent) {
@@ -60,7 +63,9 @@ export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'dup
 
   const own = (env.OWN_IBANS ?? '').split(',').map((s) => s.replace(/\s/g, '')).filter(Boolean);
   const prev = await latestBmail(env.DB);
-  const tx = await record(env, {
+  const tx = await record(
+    env,
+    {
     ext_id: msg.id,
     ts: parsed.ts ?? msg.date,
     amount: parsed.amount,
@@ -72,14 +77,18 @@ export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'dup
     method: parsed.method,
     source: 'bmail',
     raw: `${msg.subject}\n${msg.body}`,
-  });
+    },
+    undefined,
+    parsed.savings ? 'savings' : undefined,
+  );
   if (!tx) return 'duplicate';
 
-  // b-mail skips some movements (standing orders, fees). If the balance moved more than
-  // this payment explains, record the difference so it can be sorted (e.g. as 🏦 Savings).
+  // b-mail skips some movements (standing orders, fees). If the balance moved more than the
+  // bank movements since the last known balance explain, record the difference so it can be
+  // sorted (e.g. as 🏦 Savings). Movements without a balance (round-ups into savings) count too.
   // Keyed by amount, so a recurring "−100 € gap" you marked as savings is recognised next time.
   if (tx.balance !== null && prev?.balance != null && prev.ts <= tx.ts && (await getSetting(env.DB, 'gaps')) !== 'off') {
-    const gap = tx.balance - (prev.balance + tx.amount);
+    const gap = tx.balance - (prev.balance + (await movedBetween(env.DB, prev.n, tx.n)) + tx.amount);
     if (gap !== 0) {
       const g = await record(
         env,
