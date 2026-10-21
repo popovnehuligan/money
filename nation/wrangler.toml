@@ -1,0 +1,8 @@
+# Read-along cards and quizzes for the talk "Who writes the nation?" (the QR codes in its slides).
+# Not part of the finance tracker: a static Worker of its own, deployed by .github/workflows/nation.yml.
+name = "nation"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[assets]
+directory = "./public"

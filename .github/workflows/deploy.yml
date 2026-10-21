@@ -5,6 +5,7 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths-ignore: ["nation/**", ".github/workflows/nation.yml"] # the talk site has its own workflow
   workflow_dispatch:
 
 jobs:

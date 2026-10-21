@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Who Writes the Nation? · Cards &amp; quizzes</title>
+<meta name="description" content="Read-along cards and three self-test quizzes for the talk “Who writes the nation?” on state-building and political identity in Russia.">
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>
+/* Layout: one poster-coloured card per slide (same colour fields as the deck), chip strip to jump, prev/next rail; Test me swaps the card for one of three quizzes */
+:root{
+  --bg:#E6E0D4; --fg:#15130F; --muted:#5A544A; --line:rgba(21,19,15,.18);
+  --red:#F04A2A; --cream:#F0E8D8; --cobalt:#2638E0; --mustard:#F2C230; --ink:#15130F; --brick:#B8301A;
+  --display:'Oswald','Arial Narrow',Impact,sans-serif;
+  --body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0F0E0C; --fg:#F0E8D8; --muted:#A39B8B; --line:rgba(240,232,216,.18); color-scheme:dark }
+}
+:root[data-theme="dark"]{ --bg:#0F0E0C; --fg:#F0E8D8; --muted:#A39B8B; --line:rgba(240,232,216,.18); color-scheme:dark }
+
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--body);
+  padding-block:28px 56px;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));
+  padding-right:max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap{ max-width:820px; margin:0 auto; display:flex; flex-direction:column; gap:20px }
+header{ display:flex; flex-direction:column; gap:14px }
+.kicker{ margin:0; font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted) }
+h1{ margin:0; font-family:var(--display); font-weight:700; text-transform:uppercase; font-size:clamp(40px, 9vw, 72px); line-height:.9; letter-spacing:-.01em; text-wrap:balance }
+
+.ra{ margin:0; font-family:var(--mono); font-size:13px; line-height:1.4; letter-spacing:.06em; padding:10px 14px; background:var(--fg); color:var(--bg) }
+.tools{ display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center }
+.seg{ display:inline-flex; border:2px solid var(--fg) }
+.seg button{ font-family:var(--mono); font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:9px 14px; background:transparent; color:var(--fg); border:0; cursor:pointer }
+.seg button + button{ border-left:2px solid var(--fg) }
+.seg button[aria-pressed="true"]{ background:var(--fg); color:var(--bg) }
+.testbtn{ font-family:var(--mono); font-size:13px; font-weight:500; letter-spacing:.08em; text-transform:uppercase; padding:9px 16px; background:var(--red); color:var(--ink); border:2px solid var(--fg); cursor:pointer }
+.testbtn:hover{ background:var(--fg); color:var(--bg) }
+
+/* slide colour fields, shared by chips, cards and quiz cards */
+.c-red    { --c-bg:var(--red);     --c-fg:var(--ink);   --c-acc:var(--ink);     --c-title:var(--cream); --c-rule:rgba(21,19,15,.35) }
+.c-cream  { --c-bg:var(--cream);   --c-fg:var(--ink);   --c-acc:var(--brick);   --c-title:var(--ink);   --c-rule:rgba(21,19,15,.22) }
+.c-cobalt { --c-bg:var(--cobalt);  --c-fg:var(--cream); --c-acc:var(--mustard); --c-title:var(--cream); --c-rule:rgba(242,194,48,.55) }
+.c-mustard{ --c-bg:var(--mustard); --c-fg:var(--ink);   --c-acc:var(--ink);     --c-title:var(--ink);   --c-rule:rgba(21,19,15,.35) }
+.c-ink    { --c-bg:var(--ink);     --c-fg:var(--cream); --c-acc:var(--red);     --c-title:var(--cream); --c-rule:rgba(240,74,42,.55) }
+
+.chips{ display:flex; flex-wrap:wrap; gap:6px }
+.chip{ width:40px; height:40px; border:0; cursor:pointer; background:var(--c-bg); color:var(--c-fg); box-shadow:inset 0 0 0 1px var(--line); font-family:var(--display); font-weight:700; font-size:17px; font-variant-numeric:tabular-nums }
+.chip[aria-current="true"]{ outline:3px solid var(--fg); outline-offset:2px }
+
+button:focus-visible{ outline:3px dashed var(--fg); outline-offset:3px }
+.card button:focus-visible, .qcard button:focus-visible{ outline-color:var(--c-fg) }
+
+#stage{ touch-action:pan-y }
+.card, .qcard{ background:var(--c-bg); color:var(--c-fg); box-shadow:0 0 0 1px var(--line); padding:clamp(20px, 4.5vw, 44px); display:flex; flex-direction:column; gap:22px; scroll-margin-top:16px }
+.top{ display:flex; gap:18px; align-items:flex-end }
+.num{ font-family:var(--display); font-weight:700; font-size:clamp(72px, 16vw, 128px); line-height:.8; letter-spacing:-.02em; color:var(--c-title); font-variant-numeric:tabular-nums }
+.meta{ display:flex; flex-direction:column; gap:8px; min-width:0; padding-bottom:4px }
+.sec{ margin:0; font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--c-acc) }
+.card h2{ margin:0; font-family:var(--display); font-weight:700; text-transform:uppercase; font-size:clamp(26px, 5.4vw, 42px); line-height:.95; color:var(--c-title); text-wrap:balance; overflow-wrap:anywhere }
+.rows{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column }
+.row{ display:grid; grid-template-columns:92px minmax(0,1fr); gap:16px; padding-block:14px; border-top:2px solid var(--c-rule) }
+.row:last-child{ border-bottom:2px solid var(--c-rule) }
+.lab{ font-family:var(--mono); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--c-acc); padding-top:5px }
+.cell{ min-width:0; display:flex; flex-direction:column; align-items:flex-start; gap:10px }
+.txt{ margin:0; font-size:17px; line-height:1.5 }
+.next{ font-family:var(--mono); font-size:12px; letter-spacing:.1em; text-transform:uppercase; padding:4px 8px; background:var(--c-fg); color:var(--c-bg) }
+
+.nav{ display:flex; align-items:center; justify-content:space-between; gap:12px }
+.navbtn{ font-family:var(--mono); font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:12px 18px; border:2px solid var(--fg); background:transparent; color:var(--fg); cursor:pointer }
+.navbtn:hover:not(:disabled){ background:var(--fg); color:var(--bg) }
+.navbtn:disabled{ opacity:.35; cursor:default }
+.count{ font-family:var(--display); font-weight:700; font-size:28px; font-variant-numeric:tabular-nums }
+.hint{ margin:0; font-family:var(--mono); font-size:12px; letter-spacing:.06em; color:var(--muted) }
+.all{ display:flex; flex-direction:column; gap:16px }
+
+/* quiz */
+.quiz{ display:flex; flex-direction:column; gap:14px }
+.qhead{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between }
+.qprompt{ margin:0; font-family:var(--body); font-weight:600; font-size:clamp(20px, 3.6vw, 26px); line-height:1.3; text-wrap:balance }
+.opts{ display:flex; flex-direction:column; gap:10px }
+.opt{ display:grid; grid-template-columns:28px minmax(0,1fr); gap:12px; align-items:start; text-align:left; font-family:var(--body); font-size:17px; line-height:1.4; padding:14px 16px; background:transparent; color:var(--c-fg); border:2px solid var(--c-fg); cursor:pointer }
+.opt .k{ font-family:var(--mono); font-size:14px; padding-top:2px }
+.opt:hover:not(:disabled){ background:var(--c-fg); color:var(--c-bg) }
+.opt:disabled{ cursor:default }
+.opt.is-right{ background:var(--c-fg); color:var(--c-bg) }
+.opt.is-wrong{ border-style:dashed; text-decoration:line-through }
+.opt.is-dim{ opacity:.55 }
+.feedback{ display:flex; flex-direction:column; gap:12px; padding-top:16px; border-top:2px solid var(--c-rule) }
+.verdict{ margin:0; font-family:var(--mono); font-size:13px; letter-spacing:.1em; text-transform:uppercase; color:var(--c-acc) }
+.expl{ margin:0; font-size:17px; line-height:1.5 }
+.qbtns{ display:flex; flex-wrap:wrap; gap:10px }
+.qbtn{ font-family:var(--mono); font-size:13px; letter-spacing:.08em; text-transform:uppercase; padding:12px 16px; border:2px solid var(--c-fg); background:var(--c-fg); color:var(--c-bg); cursor:pointer }
+.qbtn.ghost{ background:transparent; color:var(--c-fg) }
+.qscore{ margin:0; font-family:var(--display); font-weight:700; font-size:clamp(88px, 18vw, 150px); line-height:.85; color:var(--c-title); font-variant-numeric:tabular-nums }
+.qsum{ margin:0; font-size:19px; line-height:1.45; font-weight:500 }
+.missed{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column }
+.missed li{ display:flex; flex-direction:column; align-items:flex-start; gap:8px; padding-block:12px; border-top:2px solid var(--c-rule) }
+.missed li:last-child{ border-bottom:2px solid var(--c-rule) }
+.missed p{ margin:0; font-size:16px; line-height:1.45 }
+
+@media (max-width:560px){
+  .row{ grid-template-columns:minmax(0,1fr); gap:6px }
+  .lab{ padding-top:0 }
+  .txt, .opt, .expl{ font-size:16px }
+}
+@media (prefers-reduced-motion: no-preference){
+  .enter{ animation:enter .22s ease-out }
+  @keyframes enter{ from{ transform:translateX(var(--dir, 14px)); opacity:.5 } to{ transform:none; opacity:1 } }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="kicker">Who writes the nation? · BISLA country project · 15 slides</p>
+    <h1>Rehearsal cards</h1>
+    <p class="ra" id="ra" hidden>Read-along mode · the big number matches the slide on screen · swipe or tap Next as the talk moves on</p>
+    <div class="tools">
+      <div class="seg" role="group" aria-label="View">
+        <button id="view-card" type="button">One card</button>
+        <button id="view-all" type="button">All cards</button>
+      </div>
+      <button class="testbtn" id="test" type="button">Test me →</button>
+    </div>
+    <nav class="chips" id="chips" aria-label="Jump to slide"></nav>
+  </header>
+  <main>
+    <div id="stage"></div>
+    <div id="all" class="all" hidden></div>
+    <div id="quiz" class="quiz" aria-live="polite" hidden></div>
+  </main>
+  <div class="nav" id="nav">
+    <button class="navbtn" id="prev" type="button">← Prev</button>
+    <span class="count" id="count">01 / 15</span>
+    <button class="navbtn" id="next" type="button">Next →</button>
+  </div>
+  <p class="hint" id="hint">← → or swipe to move · Space for the next card</p>
+</div>
+
+<script>
+const SLIDES = [
+  {n:"01", short:"Cover", c:"red", sec:"Frame", title:"Who writes the nation?", b:[
+    "My project asks who decides what it means to belong to the Russian nation in a country of more than 190 ethnic groups.",
+    "My answer is that the state writes the nation, not society, and that it uses war to do it.",
+    "I read Russia through Charles Tilly and Barrington Moore, from the Soviet Union to the 2036 national-policy strategy.",
+    "Let me start with one number that shows how political even counting the nation is."]},
+  {n:"02", short:"Census", c:"cream", sec:"Frame", title:"Same census, two Russias", b:[
+    "The 2021 census can make Russia look either 72% or 81% ethnically Russian.",
+    "It depends on whether you divide by all 147 million residents or only by the 131 million who answered the nationality question.",
+    "16.6 million people left the question blank, and experts believe minorities such as the Tatars were undercounted.",
+    "If even counting the nation is political, the real question is how the state shapes it, which brings me to my research question."]},
+  {n:"03", short:"Question", c:"cobalt", sec:"Frame", title:"Question & argument", b:[
+    "I ask how Russia’s state- and nation-building changed after 1991 compared with the USSR, and how identity became a weapon of war.",
+    "My argument is that war rebuilds the state (Tilly) and that, without an independent business class, the state defines the nation from above (Moore).",
+    "The result is a civic label around an ethnic Russian core, which I trace through four snapshots: the USSR, the 1990s, the 2000s and since 2014.",
+    "To build this argument I need two theories, starting with Charles Tilly."]},
+  {n:"04", short:"Tilly", c:"mustard", sec:"Theory", title:"Tilly: war makes states", b:[
+    "Tilly’s core idea is that war makes states, because fighting forces rulers to extract men and money and to build institutions for it.",
+    "He compares states to a protection racket that sells protection from threats it helps create.",
+    "He also shows that moving from indirect rule through local elites to direct rule from the centre triggers nationalism.",
+    "Tilly explains how states are built, while Moore explains who gets to shape them."]},
+  {n:"05", short:"Moore", c:"cream", sec:"Theory", title:"Moore: no bourgeoisie, no democracy", b:[
+    "Moore argues that a country’s class structure decides its regime, summed up as “no bourgeoisie, no democracy”.",
+    "Russia took his third route, from peasant revolution to communism, and after 1991 its new owners were created and then disciplined by the state.",
+    "With no independent class to negotiate a civic nation, the state defines the nation itself, which in my reading pushes Russia toward his second route.",
+    "To see what changed after 1991, we first need the Soviet baseline."]},
+  {n:"06", short:"Fifth line", c:"ink", sec:"Russia 1922–2020", title:"Пятая графа — the fifth line", b:[
+    "The Soviet Union did not erase ethnicity; it made it official.",
+    "Nations received their own republics, schools and elites, and from 1932 every passport recorded nationality in the “fifth line”.",
+    "In Tilly’s terms this was indirect rule through ethnic elites held together by one party, so when the party collapsed in 1991 the country split along ethnic borders.",
+    "The new Russia inherited its own ethnic republics and had to decide how to rule them."]},
+  {n:"07", short:"1990s", c:"red", sec:"Russia 1922–2020", title:"1990s: rule by treaty", b:[
+    "In the 1990s a weak Moscow bargained with the regions instead of commanding them.",
+    "Yeltsin told Tatarstan to take as much sovereignty as it could swallow, and Moscow signed separate treaties with dozens of regions, which is indirect rule again.",
+    "Where bargaining failed, in Chechnya, Moscow used force and lost, while the nation was defined in civic terms and new passports dropped the nationality line.",
+    "The next decade reversed all of this, and once again it started with a war."]},
+  {n:"08", short:"2000s", c:"cream", sec:"Russia 1922–2020", title:"2000s: the vertical of power", b:[
+    "Under Putin, the second Chechen war launched the rebuilding of direct rule, the “vertical of power”.",
+    "Presidential envoys were placed over the 89 regions, governors were appointed instead of elected after Beslan, and the regional treaties expired.",
+    "The Yukos case in 2003 showed business that property depends on the Kremlin, so the nation stayed civic but was now defined by the Kremlin alone.",
+    "In the 2010s the Kremlin began to change not only who rules, but who the nation is."]},
+  {n:"09", short:"Two words", c:"cobalt", sec:"Russia 1922–2020", title:"Rossiyskiy vs. russkiy", b:[
+    "Russian has two words for “Russian”: rossiyskiy, belonging to the state, and russkiy, ethnically Russian.",
+    "From 2012 the ethnic meaning moved to the centre, as Putin called Russians the “state-forming people” and minority-language classes became optional.",
+    "Crimea was annexed in 2014 to protect “compatriots”, and in 2020 the constitution wrote “state-forming people” into Article 68.",
+    "Once the nation has an ethnic core, it can be used beyond Russia’s borders."]},
+  {n:"10", short:"Weapon", c:"ink", sec:"Identity as a weapon", title:"The racket, exported", b:[
+    "Russia turned its identity politics outward in four steps: make citizens, protect them, rewrite their nation and absorb the land.",
+    "Passports in Abkhazia and South Ossetia led to the 2008 war with Georgia, and the defence of “compatriots” justified taking Crimea in 2014.",
+    "Putin’s 2021 essay called Russians and Ukrainians “one people”, and the 2022 annexations completed what is Tilly’s protection racket, exported.",
+    "After the annexations, the state wrote this project into an official plan."]},
+  {n:"11", short:"Strategy 2036", c:"mustard", sec:"Identity as a weapon", title:"Strategy 2036: identity with KPIs", b:[
+    "The 2025 national-policy strategy turns identity into a measurable target: 95% “all-Russian civic identity” by 2036.",
+    "It defines Russia as a “civilisation-state” held together by Russians as the “state-forming people”.",
+    "It lists occupied Ukrainian regions as targets of integration, so the nation is now managed like a plan written from above.",
+    "Every plan has a cost, so the next question is who pays for this one."]},
+  {n:"12", short:"Who pays", c:"ink", sec:"Identity as a weapon", title:"The periphery pays", b:[
+    "Tilly says states extract resources to make war, and in this war the key resource is soldiers.",
+    "Confirmed war deaths are 476 per 100,000 residents in Tuva and 400 in Buryatia, compared with 27 in Moscow.",
+    "Inside those regions ethnic Russians and minorities die at similar rates, so the real line runs between a protected centre and a poor periphery.",
+    "Before concluding, I want to give the Kremlin’s side a fair hearing."]},
+  {n:"13", short:"Other side", c:"cream", sec:"Verdict", title:"The Kremlin’s case vs. the record", b:[
+    "The Kremlin says Russia is a multinational nation of equal citizens.",
+    "It points to the constitution, the 2020 Constitutional Court ruling, the republics’ own languages and the claim that centralisation prevented another Chechnya.",
+    "The record shows one people and one language ranked first, far fewer Tatars counted, lost regional autonomy and war costs concentrated on the periphery.",
+    "With both sides heard, I can now pull the argument together."]},
+  {n:"14", short:"Conclusion", c:"red", sec:"Verdict", title:"Written from above, enforced by war", b:[
+    "Russia’s path runs from indirect rule with official ethnicity in the USSR to direct rule with an ethnic core since 2014.",
+    "Tilly explains how it happened: wars rebuilt central control and then the nation.",
+    "Moore explains why it happened: with no independent class to negotiate, the state writes the nation itself.",
+    "In short, Russia’s nation is “drafted” in Moscow, written there and conscripted from there, and with that I would welcome your questions."]},
+  {n:"15", short:"Questions", c:"ink", sec:"Verdict", title:"Questions? · Sources", b:[
+    "Thank you; these are the sources behind the argument.",
+    "The theory comes from Moore’s 1966 book and three works by Charles Tilly from 1985, 1990 and 1994.",
+    "The Russian evidence comes from the constitution, the 2025 strategy decree, Putin’s 2021 essay, the 2021 census, a FIIA analysis and the Mediazona and BBC casualty data.",
+    "I’m happy to take your questions now."]}
+];
+
+const QUIZZES = [
+  { name:"The argument", c:"cobalt", qs:[
+    { s:"03", q:"What is the research question of the talk?",
+      a:"How Russia’s state- and nation-building changed after 1991 compared with the USSR, and how identity became a weapon of war",
+      d:["Whether Russia will become a democracy by 2036","Why the Soviet Union collapsed in 1991","How Russia’s economy depends on oil exports"],
+      why:"The question compares post-1991 Russia with the USSR and asks how identity turned into a weapon." },
+    { s:"04", q:"According to Tilly, how are states built?",
+      a:"Through war, which forces rulers to extract men and money and build institutions to do it",
+      d:["Through trade agreements between independent cities","Through elections that give rulers legitimacy","Through a shared religion that unites the population"],
+      why:"For Tilly, preparing for and fighting wars is what builds the state’s institutions." },
+    { s:"04", q:"What does Tilly mean by the “protection racket”?",
+      a:"States sell protection from threats they help create",
+      d:["States protect minorities from the majority","States buy protection from stronger allies","States protect their markets from foreign competition"],
+      why:"The state creates or inflates a threat, then charges for protection from it." },
+    { s:"04", q:"In Tilly’s terms, what triggers nationalism?",
+      a:"Moving from indirect rule through local elites to direct rule from the centre",
+      d:["Moving from direct rule back to indirect rule","Holding a national census","Joining an international alliance"],
+      why:"Direct rule makes cultural differences matter for daily life, which provokes nationalism at the centre and the edges." },
+    { s:"05", q:"Which phrase sums up Barrington Moore’s argument?",
+      a:"“No bourgeoisie, no democracy”",
+      d:["“No war, no state”","“No peasants, no revolution”","“No nation, no state”"],
+      why:"Moore links democracy to a strong and independent bourgeoisie." },
+    { s:"05", q:"Which of Moore’s three routes did Russia originally take?",
+      a:"Peasant revolution leading to communism",
+      d:["Bourgeois revolution leading to democracy","Revolution from above leading to fascism","Gradual reform leading to constitutional monarchy"],
+      why:"Russia and China are Moore’s examples of the route from peasant revolution to communism." },
+    { s:"05", q:"Why, according to the talk, was no civic nation negotiated after 1991?",
+      a:"The new owners were created and then disciplined by the state, so no independent class existed",
+      d:["Citizens voted against a civic nation in a referendum","Western countries blocked the negotiations","The Soviet constitution made it illegal"],
+      why:"Owners made by loans-for-shares and disciplined in the Yukos case could not bargain with the state." },
+    { s:"03", q:"What is the overall thesis about Russia’s nation?",
+      a:"A civic label wrapped around an ethnic Russian core",
+      d:["An ethnic label wrapped around a civic core","A purely civic nation of equal citizens","A federation of fully sovereign nations"],
+      why:"The civic word stays on the outside, but the core of the nation has become ethnic." }
+  ]},
+  { name:"Russia, 1922–2020", c:"red", qs:[
+    { s:"06", q:"What was the Soviet “fifth line”?",
+      a:"The nationality entry in every internal passport, from 1932",
+      d:["The fifth article of the Soviet constitution","The fifth level of the Communist Party hierarchy","A list of the five official Soviet languages"],
+      why:"From 1932 every internal passport recorded a person’s nationality." },
+    { s:"06", q:"How did the Soviet Union treat ethnicity?",
+      a:"It made ethnicity official, with its own republics, schools and local elites",
+      d:["It erased ethnicity and banned national languages","It ignored ethnicity completely","It gave every ethnic group full independence"],
+      why:"The USSR institutionalised ethnicity rather than erasing it." },
+    { s:"07", q:"Who told Tatarstan to “take as much sovereignty as you can swallow”?",
+      a:"Boris Yeltsin, in 1990",
+      d:["Vladimir Putin, in 2000","Mikhail Gorbachev, in 1985","Dmitry Medvedev, in 2008"],
+      why:"Yeltsin said it in Kazan in August 1990, while competing with Gorbachev for the regions." },
+    { s:"07", q:"What did the new Russian passports of 1997 change?",
+      a:"They dropped the nationality line",
+      d:["They added a line for religion","They allowed only Russian spellings of names","They recorded who belongs to the “state-forming people”"],
+      why:"Removing the nationality line was a signal of a civic, non-ethnic nation." },
+    { s:"08", q:"Which war launched the rebuilding of direct rule under Putin?",
+      a:"The second Chechen war, from 1999",
+      d:["The war with Georgia in 2008","The first Chechen war in 1994","The full-scale war on Ukraine in 2022"],
+      why:"The 1999 war started the “vertical of power”, exactly as Tilly would predict." },
+    { s:"08", q:"What did the Yukos case of 2003 show Russian business?",
+      a:"That property depends on the Kremlin",
+      d:["That courts reliably protect private property","That foreign investors control Russian oil","That regions can freely tax big companies"],
+      why:"Khodorkovsky’s arrest showed that property is held at the Kremlin’s pleasure." },
+    { s:"09", q:"What does “rossiyskiy” mean, compared with “russkiy”?",
+      a:"Rossiyskiy means belonging to the Russian state; russkiy means ethnically Russian",
+      d:["Rossiyskiy means ethnically Russian; russkiy means belonging to the state","Rossiyskiy means Russian-speaking; russkiy means born in Russia","Rossiyskiy means Orthodox; russkiy means secular"],
+      why:"Rossiyskiy is the civic word tied to the state, russkiy is the ethnic one." },
+    { s:"09", q:"Where did the phrase “state-forming people” enter the constitution in 2020?",
+      a:"Article 68, on the state language",
+      d:["Article 1, on the name of the state","Article 15, on international law","Article 81, on presidential terms"],
+      why:"The amended Article 68 calls Russian the language of the state-forming people." }
+  ]},
+  { name:"Weapon, numbers, verdict", c:"mustard", qs:[
+    { s:"02", q:"Why can ethnic Russians be either 72% or 81% of the 2021 census?",
+      a:"It depends on dividing by all residents or only by those who answered the nationality question",
+      d:["The census was held twice in 2021","Crimea is counted in one figure but not the other","One of the figures counts only adults"],
+      why:"105.6 million divided by 147.2 million is 71.7%, but divided by the 130.6 million who answered it is 80.8%." },
+    { s:"02", q:"How many residents left the nationality question blank in 2021?",
+      a:"16.6 million",
+      d:["1.6 million","6.1 million","61 million"],
+      why:"16.6 million people did not state a nationality." },
+    { s:"10", q:"What are the four steps of identity used as a weapon?",
+      a:"Make citizens, protect them, rewrite their nation, absorb the land",
+      d:["Hold a referendum, sign a treaty, send aid, open trade","Build schools, train elites, hold elections, grant autonomy","Impose sanctions, cut gas, recall ambassadors, invade"],
+      why:"Passports, then “protection”, then a new national story, then annexation." },
+    { s:"10", q:"Which 2021 text called Russians and Ukrainians “one people”?",
+      a:"Putin’s essay on the historical unity of Russians and Ukrainians",
+      d:["The amended Article 68 of the constitution","The 2036 national-policy strategy","The 2021 census questionnaire"],
+      why:"Putin’s July 2021 essay denied Ukraine a separate nationhood." },
+    { s:"11", q:"What is the headline target of the 2036 national-policy strategy?",
+      a:"95% “all-Russian civic identity”",
+      d:["50% of citizens speaking two languages","85% of regions led by elected governors","100% of passports showing nationality"],
+      why:"Decree No. 858 sets a 95% target for all-Russian civic identity by 2036." },
+    { s:"12", q:"Confirmed war deaths per 100,000 residents: Tuva compared with Moscow?",
+      a:"About 476 in Tuva versus 27 in Moscow",
+      d:["About 27 in Tuva versus 476 in Moscow","About 100 in Tuva versus 90 in Moscow","About 476 in Tuva versus 400 in Moscow"],
+      why:"Tuva has the highest rate in Russia, roughly seventeen times Moscow’s." },
+    { s:"12", q:"What does the talk conclude about who pays for the war?",
+      a:"The line runs between a protected centre and a poor periphery",
+      d:["Only ethnic minorities are recruited","Moscow bears the highest losses","Losses are spread evenly across all regions"],
+      why:"Within Buryatia and Tuva, Russians and minorities die at similar rates, so the divide is centre versus periphery." },
+    { s:"14", q:"In the conclusion, what do Tilly and Moore each explain?",
+      a:"Tilly explains how (wars rebuilt central control), Moore explains why (no independent class to negotiate)",
+      d:["Tilly explains why, Moore explains how","Both explain only the Soviet period","Tilly explains the economy, Moore explains religion"],
+      why:"Tilly gives the mechanism, Moore gives the missing actor." }
+  ]}
+];
+
+const LABELS = ["Intro", "Point 1", "Point 2", "Bridge"];
+const KEY = "wtn-flashcards";
+const last = SLIDES.length - 1;
+const reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+let st = { i: 0, view: "card" };
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY) || "null");
+  if (saved && Number.isInteger(saved.i) && saved.i >= 0 && saved.i <= last) st.i = saved.i;
+  if (saved && (saved.view === "card" || saved.view === "all")) st.view = saved.view;
+} catch (e) {}
+let swiped = false;
+let quiz = null;
+let lastQuiz = -1;
+let readAlong = false;
+
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify({ i: st.i, view: st.view === "quiz" ? "card" : st.view })); } catch (e) {}
+}
+function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
+const $ = id => document.getElementById(id);
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
+function buildCard(s, idx) {
+  const a = el("article", "card c-" + s.c);
+  a.id = "card-" + s.n;
+  a.setAttribute("aria-label", "Slide " + s.n + ": " + s.title);
+  const top = el("div", "top");
+  const num = el("span", "num"); num.textContent = s.n; num.setAttribute("aria-hidden", "true");
+  const meta = el("div", "meta");
+  const sec = el("p", "sec"); sec.textContent = "Slide " + s.n + " · " + s.sec;
+  const h = el("h2"); h.textContent = s.title;
+  meta.append(sec, h); top.append(num, meta);
+  const ol = el("ol", "rows");
+  s.b.forEach((t, k) => {
+    const li = el("li", "row");
+    const lab = el("span", "lab"); lab.textContent = LABELS[k];
+    const cell = el("div", "cell");
+    const p = el("p", "txt"); p.textContent = t;
+    cell.append(p);
+    if (k === 3) {
+      const nx = SLIDES[idx + 1];
+      const tag = el("span", "next");
+      tag.textContent = nx ? "Next → " + nx.n + " " + nx.short : "End → Q&A";
+      cell.append(tag);
+    }
+    li.append(lab, cell); ol.append(li);
+  });
+  a.append(top, ol);
+  return a;
+}
+
+function buildChips() {
+  const box = $("chips");
+  SLIDES.forEach((s, idx) => {
+    const b = el("button", "chip c-" + s.c);
+    b.type = "button"; b.textContent = s.n;
+    b.setAttribute("aria-label", "Slide " + s.n + ": " + s.title);
+    b.addEventListener("click", () => {
+      if (st.view === "card") { st.i = idx; render(0); save(); }
+      else { const t = $("card-" + s.n); if (t) t.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" }); }
+    });
+    box.append(b);
+  });
+}
+
+/* ---------- quiz ---------- */
+function startQuiz(qi) {
+  if (qi === undefined) {
+    const pool = [0, 1, 2].filter(x => x !== lastQuiz);
+    qi = pool[Math.floor(Math.random() * pool.length)];
+  }
+  lastQuiz = qi;
+  const Q = QUIZZES[qi];
+  quiz = { qi, k: 0, picked: null, score: 0, missed: [], opts: Q.qs.map(q => shuffle([q.a].concat(q.d))) };
+  st.view = "quiz";
+  render(0);
+  focusFirst(".opt");
+}
+function reviewSlide(n) {
+  const idx = SLIDES.findIndex(s => s.n === n);
+  if (idx >= 0) st.i = idx;
+  st.view = "card"; render(0); save();
+  window.scrollTo({ top: 0, behavior: reduced ? "auto" : "smooth" });
+}
+function focusFirst(sel) { const t = document.querySelector("#quiz " + sel); if (t) t.focus({ preventScroll: true }); }
+function answer(t) {
+  if (!quiz || quiz.picked !== null) return;
+  const q = QUIZZES[quiz.qi].qs[quiz.k];
+  quiz.picked = t;
+  if (t === q.a) quiz.score++; else quiz.missed.push(quiz.k);
+  renderQuiz();
+  focusFirst(".qbtn.go");
+}
+function nextQ() { quiz.k++; quiz.picked = null; renderQuiz(); focusFirst(quiz.k < QUIZZES[quiz.qi].qs.length ? ".opt" : ".qbtn.go"); }
+function qbtn(label, cls, fn) { const b = el("button", "qbtn" + (cls ? " " + cls : "")); b.type = "button"; b.textContent = label; b.addEventListener("click", fn); return b; }
+
+function renderQuiz() {
+  const Q = QUIZZES[quiz.qi];
+  const total = Q.qs.length;
+  const done = quiz.k >= total;
+  const box = $("quiz");
+  const head = el("div", "qhead");
+  const tabs = el("div", "seg"); tabs.setAttribute("role", "group"); tabs.setAttribute("aria-label", "Choose a quiz");
+  QUIZZES.forEach((z, zi) => {
+    const b = el("button"); b.type = "button"; b.textContent = "Quiz " + (zi + 1);
+    b.setAttribute("aria-pressed", String(zi === quiz.qi));
+    b.addEventListener("click", () => startQuiz(zi));
+    tabs.append(b);
+  });
+  const prog = el("p", "kicker");
+  prog.textContent = done ? "Finished · " + quiz.score + " of " + total : "Question " + (quiz.k + 1) + " of " + total + " · Score " + quiz.score;
+  head.append(tabs, prog);
+
+  const card = el("section", "qcard c-" + Q.c);
+  const sec = el("p", "sec"); sec.textContent = "Quiz " + (quiz.qi + 1) + " · " + Q.name;
+  card.append(sec);
+
+  if (!done) {
+    const q = Q.qs[quiz.k];
+    const h = el("h2", "qprompt"); h.textContent = q.q;
+    const opts = el("div", "opts"); opts.setAttribute("role", "group"); opts.setAttribute("aria-label", "Answers");
+    quiz.opts[quiz.k].forEach((t, oi) => {
+      const b = el("button", "opt"); b.type = "button";
+      const k = el("span", "k"); const tx = el("span"); tx.textContent = t;
+      k.textContent = "ABCD"[oi];
+      if (quiz.picked !== null) {
+        b.disabled = true;
+        if (t === q.a) { b.classList.add("is-right"); k.textContent = "✓"; }
+        else if (t === quiz.picked) { b.classList.add("is-wrong"); k.textContent = "✗"; }
+        else b.classList.add("is-dim");
+      }
+      b.append(k, tx);
+      b.addEventListener("click", () => answer(t));
+      opts.append(b);
+    });
+    card.append(h, opts);
+    if (quiz.picked !== null) {
+      const fb = el("div", "feedback");
+      const v = el("p", "verdict"); v.textContent = quiz.picked === q.a ? "Correct" : "Not this one · the right answer is filled in";
+      const ex = el("p", "expl"); ex.textContent = "Slide " + q.s + ": " + q.why;
+      const btns = el("div", "qbtns");
+      btns.append(
+        qbtn(quiz.k + 1 < total ? "Next question →" : "See my score →", "go", nextQ),
+        qbtn("Review slide " + q.s, "ghost", () => reviewSlide(q.s))
+      );
+      fb.append(v, ex, btns);
+      card.append(fb);
+    }
+  } else {
+    const sc = el("p", "qscore"); sc.textContent = quiz.score + "/" + total;
+    const ratio = quiz.score / total;
+    const sum = el("p", "qsum");
+    sum.textContent = ratio >= 0.875 ? "Ready to present. Try another quiz to be sure."
+      : ratio >= 0.6 ? "Almost there. Review the slides below, then try another quiz."
+      : "Go back through the cards for these slides, then try again.";
+    card.append(sc, sum);
+    if (quiz.missed.length) {
+      const ul = el("ul", "missed");
+      quiz.missed.forEach(k => {
+        const q = Q.qs[k];
+        const li = el("li");
+        const p = el("p"); p.textContent = q.q;
+        li.append(p, qbtn("Review slide " + q.s, "ghost", () => reviewSlide(q.s)));
+        ul.append(li);
+      });
+      card.append(ul);
+    }
+    const btns = el("div", "qbtns");
+    btns.append(qbtn("Try another quiz ↻", "go", () => startQuiz()), qbtn("Back to cards", "ghost", () => { st.view = "card"; render(0); save(); }));
+    card.append(btns);
+  }
+  box.replaceChildren(head, card);
+}
+
+/* ---------- views ---------- */
+function render(dir) {
+  const isCard = st.view === "card", isAll = st.view === "all", isQuiz = st.view === "quiz";
+  $("view-card").setAttribute("aria-pressed", String(isCard));
+  $("view-all").setAttribute("aria-pressed", String(isAll));
+  [...$("chips").children].forEach((c, idx) => c.setAttribute("aria-current", String(isCard && idx === st.i)));
+  $("chips").hidden = isQuiz;
+  $("ra").hidden = !(readAlong && isCard);
+  $("stage").hidden = !isCard; $("all").hidden = !isAll; $("quiz").hidden = !isQuiz;
+  $("nav").hidden = !isCard;
+  $("hint").hidden = isAll;
+  $("hint").textContent = isQuiz ? "Keys 1–4 to answer · Enter for the next question" : "← → or swipe to move · Space for the next card";
+  $("test").textContent = isQuiz ? "New quiz ↻" : "Test me →";
+  if (isCard) {
+    const card = buildCard(SLIDES[st.i], st.i);
+    if (dir && !reduced) { card.style.setProperty("--dir", (dir > 0 ? 14 : -14) + "px"); card.classList.add("enter"); }
+    $("stage").replaceChildren(card);
+    $("count").textContent = SLIDES[st.i].n + " / " + String(SLIDES.length).padStart(2, "0");
+    $("prev").disabled = st.i === 0;
+    $("next").disabled = st.i === last;
+  } else if (isAll && !$("all").childElementCount) {
+    $("all").replaceChildren(...SLIDES.map((s, idx) => buildCard(s, idx)));
+  } else if (isQuiz) {
+    renderQuiz();
+  }
+}
+
+function go(d) {
+  const n = st.i + d;
+  if (n < 0 || n > last) return;
+  st.i = n; render(d); save();
+}
+
+$("prev").addEventListener("click", () => go(-1));
+$("next").addEventListener("click", () => go(1));
+$("view-card").addEventListener("click", () => { st.view = "card"; render(0); save(); });
+$("view-all").addEventListener("click", () => { st.view = "all"; render(0); save(); });
+$("test").addEventListener("click", () => startQuiz());
+
+document.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const onButton = e.target && e.target.closest && e.target.closest("button");
+  if (st.view === "card") {
+    if (e.key === "ArrowRight") { e.preventDefault(); go(1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); go(-1); }
+    else if (e.key === " " && !onButton) { e.preventDefault(); go(1); }
+  } else if (st.view === "quiz" && quiz) {
+    const total = QUIZZES[quiz.qi].qs.length;
+    if (quiz.k < total && quiz.picked === null && /^[1-4]$/.test(e.key)) {
+      e.preventDefault(); answer(quiz.opts[quiz.k][Number(e.key) - 1]);
+    } else if (e.key === "Enter" && !onButton && quiz.picked !== null && quiz.k < total) {
+      e.preventDefault(); nextQ();
+    }
+  }
+});
+
+let sx = 0, sy = 0, tracking = false;
+$("stage").addEventListener("pointerdown", e => { tracking = true; sx = e.clientX; sy = e.clientY; });
+$("stage").addEventListener("pointerup", e => {
+  if (!tracking) return; tracking = false;
+  const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) { swiped = true; go(dx < 0 ? 1 : -1); setTimeout(() => { swiped = false; }, 0); }
+});
+
+buildChips();
+const entry = (location.hash || "").slice(1);
+if (entry === "quiz") {
+  startQuiz();
+} else {
+  if (entry === "read") { readAlong = true; st.i = 0; st.view = "card"; }
+  render(0);
+}
+</script>
+</body>
+</html>

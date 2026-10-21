@@ -1,0 +1,33 @@
+name: Nation site
+
+# Publishes nation/public as its own Worker, https://nation.<subdomain>.workers.dev.
+# Separate from the money Worker; uses the same two Cloudflare secrets as Deploy.
+on:
+  push:
+    branches: [main]
+    paths: ["nation/**", ".github/workflows/nation.yml"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash # -eo pipefail, so `wrangler deploy | tee` still fails the job on errors
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx wrangler deploy --config nation/wrangler.toml | tee deploy.log
+      - name: Wait until the site answers
+        run: |
+          url=$(grep -oE 'https://[a-zA-Z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          # A Worker that is new on workers.dev needs a few minutes before its DNS and certificate work.
+          curl -fsS --retry 30 --retry-delay 10 --retry-all-errors -o /dev/null "$url/"
+          echo "### Deployed: $url" >> "$GITHUB_STEP_SUMMARY"
