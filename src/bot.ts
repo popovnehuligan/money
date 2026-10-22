@@ -191,6 +191,9 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
       await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+    } else if (action === 'a') {
+      await applyChoice(env, { ...t, tg_msg: q.message.message_id }, t.kind === 'spend' ? { category: t.category ?? undefined } : { kind: t.kind });
+      await answer('Approved');
     } else if (action === 'n') {
       const ask = await tg<{ message_id: number }>(env, 'sendMessage', {
         chat_id: env.CHAT_ID,

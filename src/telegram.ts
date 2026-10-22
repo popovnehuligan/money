@@ -89,6 +89,11 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
     return [...rows, ...debtRows()];
   }
 
+  // A suggestion you haven't approved yet (a learned shop, a rule, an import): one tap to say it's right.
+  if (!t.confirmed && !(t.kind === 'spend' && !t.category)) {
+    rows.push([{ text: `✅ ${t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind]}`, callback_data: `a:0:${t.n}` }]);
+  }
+
   if (t.kind === 'spend') {
     // Built-in categories as emoji, four per row, then ➕ to type a new one. Yours show their
     // names, two per row, because you may have picked the same emoji twice.

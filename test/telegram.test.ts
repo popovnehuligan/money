@@ -31,7 +31,7 @@ test('"change" expands the full keyboard again; manual entries can be deleted', 
 });
 
 test('money coming in only gets the kinds, two per row', () => {
-  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
+  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✅ 💰 Income'], ['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
 });
 
 test('a loan payment asks which loan when there are two', () => {
@@ -44,6 +44,12 @@ test('a loan payment asks which loan when there are two', () => {
 test('categories you added show their names, two per row, after ➕', () => {
   const cats = categoriesFrom('{"games":"🎮 Games","vape":"🏷 Vape shop","gifts":"🎁 Gifts"}');
   const kb = texts(txKeyboard(tx({ category: 'vape' }), false, [], cats));
-  assert.deepEqual(kb[2], ['💊', '🏠', '📦', '➕']);
-  assert.deepEqual(kb.slice(3, 5), [['🎮 Games', '✓ Vape shop'], ['🎁 Gifts']]);
+  assert.deepEqual(kb[3], ['💊', '🏠', '📦', '➕']);
+  assert.deepEqual(kb.slice(4, 6), [['🎮 Games', '✓ Vape shop'], ['🎁 Gifts']]);
+});
+
+test('a suggestion waits for approval: ✅ on top until you confirm it', () => {
+  assert.deepEqual(texts(txKeyboard(tx({ category: 'smokes' })))[0], ['✅ 🚬 Cigarettes']); // learned or imported
+  assert.ok(!texts(txKeyboard(tx())).flat().some((b) => b.startsWith('✅'))); // nothing to approve without a category
+  assert.deepEqual(texts(txKeyboard(tx({ category: 'smokes', confirmed: 1 })))[0], ['🚬 Cigarettes · change']); // approved
 });

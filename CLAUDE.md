@@ -29,6 +29,13 @@ Then report what changed and what you verified. Keep to-do lists for the owner s
 - GitHub secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `TELEGRAM_TOKEN`. They exist, but sessions can't read them, so deploys go through CI.
 - Webhook secret and ingest key: derived from the bot token (`src/auth.ts`). Changing the token changes the Gmail script's key.
 
+## Importing a bank statement (the owner's instructions)
+
+The October 2026 statement will fill in what happened before b-mails started (2026-10-20 14:28):
+- Import only movements before the first b-mail. Everything later is already stored; the b-mail balances reconcile to the cent.
+- The owner approves every imported payment. Store each one unconfirmed with your suggested kind and category (rules and learned names first), then send it to Telegram so it shows ✅ with your suggestion. Never mark imported payments as confirmed yourself.
+- Afterwards, resend the October wrap-up (the 1 November one only covered 20–31 October).
+
 ## Only the owner can
 
 - Send `/start` to the bot. The first chat to do it becomes the owner.
