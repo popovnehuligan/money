@@ -56,7 +56,8 @@ export function categoriesFrom(json: string | null): Categories {
  * already exists returns that one. Null when there's no name in it.
  */
 export function newCategory(text: string, existing: Categories): [id: string, label: string] | null {
-  const m = text.trim().replace(/\s+/g, ' ').match(/^(\p{Extended_Pictographic}\uFE0F?)?\s*(.*)$/u);
+  // One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
+  const m = text.trim().replace(/\s+/g, ' ').match(/^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u);
   const name = m?.[2].slice(0, 24).trim();
   if (!name || !/\p{L}/u.test(name)) return null;
   const nice = name[0].toUpperCase() + name.slice(1);

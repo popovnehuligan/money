@@ -89,6 +89,9 @@ test('typing a category: emoji kept, a tag when there is none, same name reuses 
   assert.deepEqual(newCategory('  vape shop ', DEFAULT_CATEGORIES), ['vape-shop', '🏷 Vape shop']);
   assert.deepEqual(newCategory('parking', DEFAULT_CATEGORIES), ['parking', '🅿️ Parking']); // already there
   assert.deepEqual(newCategory('Žltý taxík', DEFAULT_CATEGORIES), ['zlty-taxik', '🏷 Žltý taxík']);
+  assert.deepEqual(newCategory('💆🏻‍♀️ Kate', DEFAULT_CATEGORIES), ['kate', '💆🏻‍♀️ Kate']); // skin tone and ♀ stay in the emoji
+  assert.deepEqual(newCategory('💝 kate', categoriesFrom('{"kate":"💆🏻‍♀️ Kate"}')), ['kate', '💆🏻‍♀️ Kate']); // same name, whatever the emoji
+  assert.deepEqual(newCategory('🇸🇰 Slovak stuff', DEFAULT_CATEGORIES), ['slovak-stuff', '🇸🇰 Slovak stuff']);
   assert.equal(newCategory('🎮', DEFAULT_CATEGORIES), null);
   assert.equal(newCategory('123', DEFAULT_CATEGORIES), null);
 });
