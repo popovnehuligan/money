@@ -4,7 +4,9 @@ Personal finance tracker: Tatra banka b-mails → Gmail Apps Script → Cloudfla
 
 ## Do it yourself, then deploy
 
-The owner wants you to do everything you can without asking, including deploying after every change. That permission is standing: you don't need to ask before pushing to `main`.
+The owner wants you to do everything you can without asking, including deploying after every change. That permission is standing: never ask before pushing to `main` or deploying. The owner has said so explicitly ("stop asking my confirmation for deploys"). `.claude/settings.json` allows the deploy pushes; run each push as its own command so the rule matches.
+
+If `main` has commits you didn't make (another session works on this repo too, e.g. `nation/`), merge them, review what they change, run the tests and deploy. Don't stop to ask.
 
 After each change:
 
