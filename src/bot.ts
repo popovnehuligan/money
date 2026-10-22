@@ -1,6 +1,6 @@
 import { BadInput, applyChoice } from './actions.ts';
-import { CATEGORIES, KINDS, owed, owedText, parseDebts } from './classify.ts';
-import { debtNames, deleteTx, getBudget, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
+import { KINDS, owed, owedText, parseDebts, type Categories } from './classify.ts';
+import { debtNames, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
@@ -11,13 +11,13 @@ interface Chat {
   id: number;
 }
 export interface Update {
-  message?: { message_id: number; chat: Chat; text?: string };
+  message?: { message_id: number; chat: Chat; text?: string; reply_to_message?: { message_id: number } };
   callback_query?: { id: string; data?: string; message?: { message_id: number; chat: Chat } };
 }
 
-const HELP = `💶 <b>How it works</b>
+const help = (cats: Categories) => `💶 <b>How it works</b>
 Card and Google Pay payments appear here about a minute after you pay. Tap to sort them:
-• a category and 👍/👎 for spending: ${Object.values(CATEGORIES).join(' · ')}
+• a category and 👍/👎 for spending: ${Object.values(cats).join(' · ')}, or ➕ to type your own
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
 • 🏦 Savings for moves to your savings account
 • 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
@@ -55,7 +55,7 @@ ${forwarder ?? '(run the Deploy workflow first, then send /start again)'}
 From then on b-mails skip your inbox (they go to the label <i>b-mail</i>) and each payment shows up here.`,
     await dashboardButton(env),
   );
-  await send(env, HELP);
+  await send(env, help(await getCategories(env.DB)));
 }
 
 export async function handleUpdate(env: Env, u: Update): Promise<void> {
@@ -81,7 +81,7 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
       await welcome(env);
       return;
     case '/help':
-      await send(env, HELP, await dashboardButton(env));
+      await send(env, help(await getCategories(env.DB)), await dashboardButton(env));
       return;
     case '/today':
       await send(env, await morningText(env), await dashboardButton(env));
@@ -127,6 +127,22 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
       return;
   }
 
+  // The answer to "➕ What was it?": a reply to that question, or (for 15 minutes) any text without a number.
+  const pending = JSON.parse((await getSetting(env.DB, 'pending_category')) ?? 'null') as { msg: number; n: number; at: number } | null;
+  if (pending && (m.reply_to_message?.message_id === pending.msg || (!/\d/.test(text) && Date.now() - pending.at < 15 * 60_000))) {
+    const t = await getTx(env.DB, pending.n);
+    try {
+      if (t) await applyChoice(env, t, { newCategory: text });
+    } catch (e) {
+      if (!(e instanceof BadInput)) throw e;
+      await send(env, e.message);
+      return;
+    }
+    await deleteSetting(env.DB, 'pending_category');
+    for (const id of [pending.msg, m.message_id]) await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: id }); // keep the chat tidy
+    return;
+  }
+
   const cash = text.match(CASH);
   if (!cash) {
     await send(env, `I didn't get that. Type an amount like <code>4.50 kava</code>, or /help.`);
@@ -166,14 +182,23 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: q.message.message_id });
       await answer('Deleted');
     } else if (action === 'e') {
-      await edit(env, q.message.message_id, txText(t, await footerFor(env, t)), txKeyboard(t, true, await debtNames(env.DB)));
+      const cats = await getCategories(env.DB);
+      await edit(env, q.message.message_id, txText(t, await footerFor(env, t), cats), txKeyboard(t, true, await debtNames(env.DB), cats));
       await answer();
     } else if (action === 'c') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { category: value });
-      await answer(`${CATEGORIES[value]}. Next time ${who} goes there automatically.`);
+      await answer(`${(await getCategories(env.DB))[value]}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
       await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+    } else if (action === 'n') {
+      const ask = await tg<{ message_id: number }>(env, 'sendMessage', {
+        chat_id: env.CHAT_ID,
+        text: 'What was it? Type a name, e.g. 🎮 Games',
+        reply_markup: { force_reply: true, input_field_placeholder: '🎮 Games' },
+      });
+      if (ask) await setSetting(env.DB, 'pending_category', JSON.stringify({ msg: ask.message_id, n: t.n, at: Date.now() }));
+      await answer();
     } else if (action === 'b') {
       const name = (await debtNames(env.DB))[Number(value)];
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { debt: name });

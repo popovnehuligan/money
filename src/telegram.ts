@@ -1,4 +1,4 @@
-import { CATEGORIES, KINDS, defaultKind, type Kind } from './classify.ts';
+import { DEFAULT_CATEGORIES, KINDS, defaultKind, type Categories, type Kind } from './classify.ts';
 import type { Env, Tx } from './db.ts';
 
 type Button = { text: string; callback_data: string } | { text: string; web_app: { url: string } };
@@ -50,9 +50,9 @@ const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '�
 
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
-export function txText(t: Tx, footer?: string): string {
+export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGORIES): string {
   const who = t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
-  const label = t.kind === 'spend' ? CATEGORIES[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind];
+  const label = t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind];
   const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);
@@ -66,7 +66,7 @@ export function txText(t: Tx, footer?: string): string {
  * Telegram makes buttons only as wide as the message, so rows hold at most two labels,
  * categories are emoji only, and a ticked label drops its emoji to make room for ✓.
  */
-export function txKeyboard(t: Tx, expanded = false, debts: string[] = []): Keyboard {
+export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: Categories = DEFAULT_CATEGORIES): Keyboard {
   const tick = (on: boolean, text: string) => (on ? `✓ ${text.replace(/^\S+\s/, '')}` : text);
   const rows: Keyboard = [];
   // With more than one loan, a 🤝 Loan payment asks which one (ticked once you've picked).
@@ -83,18 +83,24 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = []): Keybo
   ];
 
   if (t.confirmed && !expanded) {
-    const label = t.kind === 'spend' ? CATEGORIES[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind];
+    const label = t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind];
     rows.push([{ text: `${label} · change`, callback_data: `e:1:${t.n}` }]);
     if (t.kind === 'spend') rows.push(worthRow());
     return [...rows, ...debtRows()];
   }
 
   if (t.kind === 'spend') {
-    const cats = Object.entries(CATEGORIES).map(([id, label]) => {
-      const emoji = label.split(' ')[0];
-      return { text: t.category === id ? `✓ ${emoji}` : emoji, callback_data: `c:${id}:${t.n}` };
-    });
-    for (let i = 0; i < cats.length; i += 4) rows.push(cats.slice(i, i + 4));
+    // Built-in categories as emoji, four per row, then ➕ to type a new one. Yours show their
+    // names, two per row, because you may have picked the same emoji twice.
+    const pick = (id: string, text: string) => ({ text, callback_data: `c:${id}:${t.n}` });
+    const ids = Object.keys(cats);
+    const grid = ids
+      .filter((id) => id in DEFAULT_CATEGORIES)
+      .map((id) => pick(id, `${t.category === id ? '✓ ' : ''}${cats[id].split(' ')[0]}`))
+      .concat({ text: '➕', callback_data: `n:0:${t.n}` });
+    const mine = ids.filter((id) => !(id in DEFAULT_CATEGORIES)).map((id) => pick(id, tick(t.category === id, cats[id])));
+    for (let i = 0; i < grid.length; i += 4) rows.push(grid.slice(i, i + 4));
+    for (let i = 0; i < mine.length; i += 2) rows.push(mine.slice(i, i + 2));
     rows.push(worthRow());
   }
   const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));

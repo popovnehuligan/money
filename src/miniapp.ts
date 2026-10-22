@@ -1,6 +1,6 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { owed, parseDebts } from './classify.ts';
+import { categoriesFrom, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings } from './dashboard.ts';
 import { deleteSetting, deleteTx, getSettings, getTx, loanPayments, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, type Env } from './db.ts';
 import { record } from './ingest.ts';
@@ -30,6 +30,7 @@ async function summary(env: Env, asked?: string | null) {
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
     debts: owed(parseDebts(settings.debts ?? null), loans),
+    categories: categoriesFrom(settings.categories ?? null),
   });
 }
 
@@ -81,7 +82,8 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           source: 'manual',
           raw: null,
         });
-        if (tx && typeof body.category === 'string') await applyChoice(env, tx, { category: body.category });
+        if (tx && typeof body.newCategory === 'string') await applyChoice(env, tx, { newCategory: body.newCategory });
+        else if (tx && typeof body.category === 'string') await applyChoice(env, tx, { category: body.category });
         return Response.json(await summary(env));
       }
       case '/api/settings': {

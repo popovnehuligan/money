@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Tx } from '../src/db.ts';
+import { categoriesFrom } from '../src/classify.ts';
 import { txKeyboard } from '../src/telegram.ts';
 
 const tx = (over: Partial<Tx> = {}): Tx => ({
@@ -11,22 +12,22 @@ const texts = (kb: ReturnType<typeof txKeyboard>) => kb.map((row) => row.map((b)
 
 test('unsorted payments get categories, rating and kinds', () => {
   const kb = texts(txKeyboard(tx()));
-  assert.equal(kb.length, 6); // 2 category rows, worth row, 3 kind rows
-  assert.deepEqual(kb[0], ['🛒', '☕', '🚕', '🎉']);
-  assert.deepEqual(kb.slice(3), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
+  assert.equal(kb.length, 7); // 3 category rows, worth row, 3 kind rows
+  assert.deepEqual(kb.slice(0, 3), [['🚕', '🛴', '🛒', '🚬'], ['🅿️', '🍺', '🚌', '🛍'], ['💊', '🏠', '📦', '➕']]);
+  assert.deepEqual(kb.slice(4), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
 });
 
 test('sorted payments collapse to one summary button plus rating', () => {
-  const kb = texts(txKeyboard(tx({ category: 'transport', confirmed: 1, worth: 1 })));
-  assert.deepEqual(kb, [['🚕 Transport · change'], ['✓ Worth it', '👎 Regret']]);
+  const kb = texts(txKeyboard(tx({ category: 'taxi', confirmed: 1, worth: 1 })));
+  assert.deepEqual(kb, [['🚕 Taxi · change'], ['✓ Worth it', '👎 Regret']]);
   assert.deepEqual(texts(txKeyboard(tx({ kind: 'podmoga', confirmed: 1 }))), [['🔁 Passed on · change']]);
 });
 
 test('"change" expands the full keyboard again; manual entries can be deleted', () => {
-  const kb = texts(txKeyboard(tx({ category: 'transport', confirmed: 1, source: 'manual' }), true));
-  assert.equal(kb.length, 7);
-  assert.deepEqual(kb[0], ['🛒', '☕', '✓ 🚕', '🎉']);
-  assert.deepEqual(kb[6], ['🗑 Delete']);
+  const kb = texts(txKeyboard(tx({ category: 'taxi', confirmed: 1, source: 'manual' }), true));
+  assert.equal(kb.length, 8);
+  assert.deepEqual(kb[0], ['✓ 🚕', '🛴', '🛒', '🚬']);
+  assert.deepEqual(kb[7], ['🗑 Delete']);
 });
 
 test('money coming in only gets the kinds, two per row', () => {
@@ -38,4 +39,11 @@ test('a loan payment asks which loan when there are two', () => {
   assert.deepEqual(texts(txKeyboard(loan, false, ['Mom', 'Ben'])), [['🤝 Loan · change'], ['Mom', 'Ben']]);
   assert.deepEqual(texts(txKeyboard({ ...loan, debt: 'Ben' }, false, ['Mom', 'Ben'])), [['🤝 Loan · change'], ['Mom', '✓ Ben']]);
   assert.deepEqual(texts(txKeyboard(loan, false, ['Mom'])), [['🤝 Loan · change']]); // one loan: nothing to ask
+});
+
+test('categories you added show their names, two per row, after ➕', () => {
+  const cats = categoriesFrom('{"games":"🎮 Games","vape":"🏷 Vape shop","gifts":"🎁 Gifts"}');
+  const kb = texts(txKeyboard(tx({ category: 'vape' }), false, [], cats));
+  assert.deepEqual(kb[2], ['💊', '🏠', '📦', '➕']);
+  assert.deepEqual(kb.slice(3, 5), [['🎮 Games', '✓ Vape shop'], ['🎁 Gifts']]);
 });

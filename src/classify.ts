@@ -17,16 +17,56 @@ export const KINDS: Record<Kind, string> = {
   ignore: '🚫 Ignore',
 };
 
-export const CATEGORIES: Record<string, string> = {
-  food: '🛒 Groceries',
-  eat: '☕ Cafés & bars',
-  transport: '🚕 Transport',
-  fun: '🎉 Fun',
-  home: '🏠 Home & bills',
-  health: '💊 Health',
+export type Categories = Record<string, string>; // id → "emoji Name"
+
+/**
+ * Built-in categories. Ids are stored on payments and in rules, so they stay put when a
+ * label changes ("eat" was "Eating out"). Yours, added by typing a name, live in the
+ * `categories` setting and appear before 📦 Other (see categoriesFrom).
+ */
+export const DEFAULT_CATEGORIES: Categories = {
+  taxi: '🚕 Taxi',
+  scooter: '🛴 Scooter',
+  food: '🛒 Food',
+  smokes: '🚬 Cigarettes',
+  parking: '🅿️ Parking',
+  eat: '🍺 Bar',
+  bus: '🚌 Bus',
   shop: '🛍 Shopping',
+  health: '💊 Health',
+  home: '🏠 Home & bills',
   other: '📦 Other',
 };
+
+/** Built-in categories plus the ones you added (the `categories` setting, {id: label}). */
+export function categoriesFrom(json: string | null): Categories {
+  let custom: Categories = {};
+  try {
+    const c: unknown = JSON.parse(json ?? '{}');
+    if (c && typeof c === 'object' && !Array.isArray(c)) custom = Object.fromEntries(Object.entries(c).filter(([, v]) => typeof v === 'string'));
+  } catch {
+    // keep the built-in ones
+  }
+  const { other, ...built } = DEFAULT_CATEGORIES;
+  return { ...built, ...custom, other };
+}
+
+/**
+ * A category from what you typed: "🎮 Games" as is, "games" as "🏷 Games". Typing a name that
+ * already exists returns that one. Null when there's no name in it.
+ */
+export function newCategory(text: string, existing: Categories): [id: string, label: string] | null {
+  const m = text.trim().replace(/\s+/g, ' ').match(/^(\p{Extended_Pictographic}\uFE0F?)?\s*(.*)$/u);
+  const name = m?.[2].slice(0, 24).trim();
+  if (!name || !/\p{L}/u.test(name)) return null;
+  const nice = name[0].toUpperCase() + name.slice(1);
+  const same = Object.entries(existing).find(([, label]) => fold(label.slice(label.indexOf(' ') + 1)) === fold(nice));
+  if (same) return same;
+  const base = fold(nice).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mine';
+  let id = base;
+  for (let i = 2; id in existing; i++) id = `${base}-${i}`;
+  return [id, `${m?.[1] ?? '🏷'} ${nice}`];
+}
 
 export const isKind = (k: string): k is Kind => k in KINDS;
 
@@ -41,7 +81,9 @@ export function keyFor(merchant?: string, iban?: string): string | undefined {
   if (iban) return iban;
   if (!merchant) return undefined;
   const words = fold(merchant).replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean);
-  return words.length ? words.slice(0, 2).join(' ') : undefined;
+  // "BOLT.EU/O/…" vs "BOLT.EU/P/…": the code after the web address tells kinds of ride apart.
+  const n = /^[a-z0-9-]+\.[a-z]{2,3}\/[a-z]/.test(fold(merchant)) ? 3 : 2;
+  return words.length ? words.slice(0, n).join(' ') : undefined;
 }
 
 /**
@@ -66,7 +108,7 @@ export interface Rule {
 export function parseRules(json: string | null): Rule[] {
   try {
     const rules: unknown = JSON.parse(json ?? '[]');
-    return Array.isArray(rules) ? rules.filter((r): r is Rule => Array.isArray(r?.match) && r.category in CATEGORIES) : [];
+    return Array.isArray(rules) ? rules.filter((r): r is Rule => Array.isArray(r?.match) && typeof r.category === 'string') : [];
   } catch {
     return [];
   }

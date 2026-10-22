@@ -35,8 +35,8 @@
   --podmoga: #8f86ff;
   --loan: #6cc4ff;
   --water: 56 232 214;
-  --c-food: #3987e5; --c-eat: #e0662e; --c-transport: #1fae7c; --c-fun: #d79a12;
-  --c-home: #e0598b; --c-health: #3fae3f; --c-shop: #9085e9; --c-other: #7c8bb0;
+  --c-taxi: #e8b400; --c-scooter: #2fbf71; --c-food: #3987e5; --c-smokes: #a08c7d; --c-parking: #19b3c4; --c-eat: #e0662e;
+  --c-bus: #d9483b; --c-shop: #9085e9; --c-health: #3fae3f; --c-home: #e0598b; --c-other: #7c8bb0;
 
   --f-ui: "Geist", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --vh: var(--tg-viewport-stable-height, 100svh);
@@ -316,6 +316,10 @@ svg { display: block; }
   transition: transform .18s var(--spring), box-shadow .2s, background .2s;
 }
 .tile .em { font-size: 23px; line-height: 1; }
+.tile-new { --c: rgba(255, 255, 255, .5); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16); }
+.new-cat { display: flex; gap: 8px; margin-top: 10px; }
+.new-cat input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 14px; border: 0; background: rgba(0, 0, 0, .28); color: var(--ink); font: 500 16px var(--f-ui); }
+.new-cat button { padding: 0 18px; border-radius: 14px; background: rgba(255, 255, 255, .14); color: #fff; font-weight: 600; }
 .tile:active { transform: scale(.9); }
 .tile[aria-pressed="true"] { background: color-mix(in oklab, var(--c) 34%, rgba(0, 0, 0, .1)); box-shadow: inset 0 0 0 2px var(--c), 0 0 22px -4px var(--c); color: #fff; }
 .worth { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -488,10 +492,16 @@ const KIND = {
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
 let CATS = {};
+// Built-in categories have a colour token; ones you typed take the next colour from this palette.
+const BUILT_IN = new Set(['taxi', 'scooter', 'food', 'smokes', 'parking', 'eat', 'bus', 'shop', 'health', 'home', 'other']);
+const OWN_COLORS = ['#f5a524', '#8b7cf6', '#22b8cf', '#f0568c', '#9bc53d', '#e07a5f', '#5c7cfa', '#2fbf71'];
 const catMeta = (id) => {
-  const label = CATS[id] || CATS.other || '📦 Other';
+  const known = id in CATS;
+  const label = CATS[known ? id : 'other'] || '📦 Other';
   const i = label.indexOf(' ');
-  return { id, emoji: label.slice(0, i), name: label.slice(i + 1), c: `var(--c-${id in CATS ? id : 'other'})` };
+  const mine = Object.keys(CATS).filter((k) => !BUILT_IN.has(k));
+  const c = !known ? 'var(--c-other)' : BUILT_IN.has(id) ? `var(--c-${id})` : OWN_COLORS[mine.indexOf(id) % OWN_COLORS.length];
+  return { id, emoji: label.slice(0, i), name: label.slice(i + 1), c };
 };
 const visual = (t) => (t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
 const isUnsorted = (t) => t.kind === 'spend' && !t.category && t.amount < 0;
@@ -1098,7 +1108,7 @@ function tilesHTML(selected, act, n) {
   return Object.keys(CATS).map((id) => {
     const m = catMeta(id);
     return `<button type="button" class="tile" style="--c:${m.c}" data-act="${act}" data-cat="${id}" ${n ? `data-n="${n}"` : ''} aria-pressed="${selected === id}"><span class="em">${m.emoji}</span>${esc(m.name)}</button>`;
-  }).join('');
+  }).join('') + `<button type="button" class="tile tile-new" data-act="new-cat" data-for="${act}" ${n ? `data-n="${n}"` : ''}><span class="em">＋</span>New</button>`;
 }
 
 function editorHTML(t) {
@@ -1292,10 +1302,22 @@ const actions = {
       if (state.sortIndex >= state.sortQueue.length) { haptic.ok(); confetti(); }
     }, 170);
   },
+  // ＋ New: type what it is ("🎮 Games"); it becomes a category and is picked right away.
+  'new-cat': (el) => {
+    haptic.tap();
+    const tiles = el.closest('.tiles');
+    if (!tiles.nextElementSibling?.classList.contains('new-cat')) {
+      // Not a <form>: in the cash sheet these tiles already sit inside one, and forms can't nest.
+      tiles.insertAdjacentHTML('afterend', `<div class="new-cat" data-for="${el.dataset.for}" ${el.dataset.n ? `data-n="${el.dataset.n}"` : ''}>
+        <input maxlength="30" placeholder="🎮 Games" autocomplete="off" enterkeyhint="done" aria-label="New category name"><button type="button" data-act="add-cat">Add</button></div>`);
+    }
+    tiles.nextElementSibling.querySelector('input').focus();
+  },
+  'add-cat': (el) => addCategory(el.closest('.new-cat')),
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
     haptic.tap();
-    Object.assign(state, { cashDir: -1, cashAmount: '', cashNote: '', cashCat: null });
+    Object.assign(state, { cashDir: -1, cashAmount: '', cashNote: '', cashCat: null, cashNewCat: null });
     openSheet('cash', cashHTML());
   },
   'cash-dir': (el) => {
@@ -1307,6 +1329,7 @@ const actions = {
     updateCashButton();
   },
   'cash-cat': (el) => {
+    state.cashNewCat = null;
     haptic.pick();
     state.cashCat = state.cashCat === el.dataset.cat ? null : el.dataset.cat;
     $$('[data-act="cash-cat"]', sheetBody).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cat === state.cashCat)));
@@ -1404,14 +1427,37 @@ document.addEventListener('click', (e) => {
   actions[el.dataset.act]?.(el);
 });
 document.addEventListener('input', (e) => { if (e.target.id === 'cash-amount') updateCashButton(); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSheet();
+  if (e.key === 'Enter' && e.target.closest?.('.new-cat')) { e.preventDefault(); addCategory(e.target.closest('.new-cat')); } // not the cash form's submit
+});
+
+/** ＋ New: what you typed becomes a category ("🎮 Games") and is picked right away. */
+function addCategory(box) {
+  const name = box.querySelector('input').value.trim(), n = Number(box.dataset.n), to = box.dataset.for;
+  if (!name) return;
+  haptic.ok();
+  if (to === 'cash-cat') {
+    // Created when the cash entry is saved; until then the name stands in for the picked tile.
+    Object.assign(state, { cashNewCat: name, cashCat: null });
+    $$('[data-act="cash-cat"]', sheetBody).forEach((b) => b.setAttribute('aria-pressed', 'false'));
+    box.outerHTML = `<p class="hint">New category: <b>${esc(name)}</b></p>`;
+  } else if (to === 'sort-pick') {
+    api('/api/tx', { n, newCategory: name, month: state.view.month }).then(accept).catch((err) => toast(err.message));
+    state.sortIndex++;
+    sheetBody.innerHTML = sortHTML();
+  } else {
+    mutate('/api/tx', { n, newCategory: name, month: state.view.month }, () => { toast(`${name} added.`); if (state.sheet === 'edit') openEditor(n); });
+  }
+}
 document.addEventListener('submit', (e) => {
   e.preventDefault();
   if (e.target.id === 'cash-form') {
     const cents = parseEuro($('#cash-amount').value);
     if (!cents) { haptic.err(); $('#cash-error').textContent = 'Enter how much, e.g. 4,50.'; return; }
     const body = { amount: state.cashDir * cents, note: $('#cash-note').value };
-    if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
+    if (state.cashDir < 0 && state.cashNewCat) body.newCategory = state.cashNewCat;
+    else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
     mutate('/api/cash', body, () => { haptic.ok(); closeSheet(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
   }
   if (e.target.id === 'settings-form') {

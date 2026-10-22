@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { applyRules, debtFor, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, applyRules, categoriesFrom, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 
@@ -18,7 +18,8 @@ test('rules ignore other names, money coming in and broken settings', () => {
   assert.equal(applyRules(rules, -150, 'LIDL SK'), null);
   assert.equal(applyRules(rules, 150, 'NOVAK Jan'), null);
   assert.deepEqual(parseRules('not json'), []);
-  assert.deepEqual(parseRules('[{"match":["x"],"category":"nope"}]'), []);
+  assert.deepEqual(parseRules('[{"match":["x"]}]'), []); // no category
+  assert.equal(parseRules('[{"match":["x"],"category":"games"}]').length, 1); // your own categories are fine
 });
 
 const therapy = parseRules('[{"match":["dr novak"],"passOnFrom":["kovac maria"],"category":"health"}]');
@@ -73,4 +74,28 @@ test("picking a loan for a bank payment teaches the lender's bank name", () => {
   assert.deepEqual(learned.map((d) => d.match), [['kovac maria'], ['SMITH Ben']]);
   assert.equal(repaymentOf(learned, [], -3000, 'SMITH Ben')?.name, 'Ben');
   assert.deepEqual(learnLender(learned, 'Mom', 'SMITH Ben').map((d) => d.match), [['kovac maria', 'SMITH Ben'], []]); // moved, not copied
+});
+
+test('your categories come after the built-in ones, before Other', () => {
+  const cats = categoriesFrom('{"games":"🎮 Games"}');
+  assert.deepEqual(Object.keys(cats).slice(-2), ['games', 'other']);
+  assert.equal(cats.taxi, '🚕 Taxi');
+  assert.deepEqual(categoriesFrom('not json'), categoriesFrom(null));
+});
+
+test('typing a category: emoji kept, a tag when there is none, same name reuses it', () => {
+  assert.deepEqual(newCategory('🎮 games', DEFAULT_CATEGORIES), ['games', '🎮 Games']);
+  assert.deepEqual(newCategory('🎮Games', DEFAULT_CATEGORIES), ['games', '🎮 Games']);
+  assert.deepEqual(newCategory('  vape shop ', DEFAULT_CATEGORIES), ['vape-shop', '🏷 Vape shop']);
+  assert.deepEqual(newCategory('parking', DEFAULT_CATEGORIES), ['parking', '🅿️ Parking']); // already there
+  assert.deepEqual(newCategory('Žltý taxík', DEFAULT_CATEGORIES), ['zlty-taxik', '🏷 Žltý taxík']);
+  assert.equal(newCategory('🎮', DEFAULT_CATEGORIES), null);
+  assert.equal(newCategory('123', DEFAULT_CATEGORIES), null);
+});
+
+test('Bolt cabs and scooters learn separately; card shops still ignore terminal and town', () => {
+  assert.equal(keyFor('BOLT.EU/O/2410'), 'bolt eu o');
+  assert.equal(keyFor('BOLT.EU/P/2610211312'), 'bolt eu p');
+  assert.notEqual(keyFor('BOLT.EU/O/2410'), keyFor('BOLT.EU/P/2610211312'));
+  assert.equal(keyFor('LIDL SK 0123 BRATISLAVA'), 'lidl sk');
 });

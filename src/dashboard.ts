@@ -1,6 +1,6 @@
 // Everything the dashboard shows for one month, as one plain object. Pure, so the
 // Worker and the design preview (preview/demo.ts) build it the same way.
-import { CATEGORIES, type Owed } from './classify.ts';
+import type { Categories, Owed } from './classify.ts';
 import type { Tx } from './db.ts';
 import { safeToSpend, summarize, type StatTx } from './stats.ts';
 import { addMonths, daysInMonth, monthName, monthOf } from './time.ts';
@@ -33,6 +33,7 @@ export interface DashboardInput {
   savedByMonth: { month: string; saved: number }[]; // newest first, every month with savings
   streak: number;
   debts: Owed[]; // what you still owe, across all months
+  categories: Categories; // built-in plus yours
 }
 
 export function dashboard(o: DashboardInput) {
@@ -62,7 +63,7 @@ export function dashboard(o: DashboardInput) {
       perMonth: recent.length ? Math.round(recent.reduce((sum, m) => sum + m.saved, 0) / recent.length) : 0,
     },
     debts: o.debts,
-    categories: CATEGORIES,
+    categories: o.categories,
     tx: o.txs.map((t) => ({
       n: t.n,
       ts: t.ts,

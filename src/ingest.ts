@@ -1,5 +1,5 @@
 import { applyRules, defaultKind, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { debtNames, getSetting, insertTx, insertUnparsed, latestBmail, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { debtNames, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { esc, send, txKeyboard, txText } from './telegram.ts';
@@ -41,8 +41,9 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
 }
 
 export async function notify(env: Env, t: Tx, header?: string): Promise<void> {
-  const text = txText(t, await footerFor(env, t));
-  const id = await send(env, header ? `${header}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB)));
+  const cats = await getCategories(env.DB);
+  const text = txText(t, await footerFor(env, t), cats);
+  const id = await send(env, header ? `${header}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB), cats));
   if (id) await updateTx(env.DB, t.n, { tg_msg: id });
 }
 

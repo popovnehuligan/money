@@ -1,4 +1,4 @@
-import { parseDebts, type Kind } from './classify.ts';
+import { categoriesFrom, parseDebts, type Categories, type Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
@@ -151,6 +151,15 @@ export async function getBudget(db: D1Database): Promise<number | null> {
 export async function getSettings(db: D1Database): Promise<Record<string, string>> {
   const { results } = await db.prepare('SELECT key, value FROM settings').all<{ key: string; value: string }>();
   return Object.fromEntries(results.map((r) => [r.key, r.value]));
+}
+
+/** Built-in categories plus yours. */
+export const getCategories = async (db: D1Database): Promise<Categories> => categoriesFrom(await getSetting(db, 'categories'));
+
+/** Saves a category you typed (only yours are stored; built-in ones live in the code). */
+export async function addCategory(db: D1Database, id: string, label: string): Promise<void> {
+  const mine = JSON.parse((await getSetting(db, 'categories')) ?? '{}') as Categories;
+  await setSetting(db, 'categories', JSON.stringify({ ...mine, [id]: label }));
 }
 
 export const deleteSetting = (db: D1Database, key: string) => db.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();

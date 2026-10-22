@@ -2,7 +2,7 @@
 // the Worker's /api routes, so the dashboard can be looked at without deploying.
 // It reuses the real dashboard/statistics code, so the numbers behave like production.
 // Not part of the Worker bundle.
-import { CATEGORIES, defaultKind, isKind, owed, parseDebts, type Kind } from '../src/classify.ts';
+import { categoriesFrom, defaultKind, isKind, newCategory, owed, parseDebts, type Kind } from '../src/classify.ts';
 import { dashboard, readSettings } from '../src/dashboard.ts';
 import type { Tx } from '../src/db.ts';
 import { noSpendStreak } from '../src/stats.ts';
@@ -15,25 +15,29 @@ type Row = [string, string, number, string, Kind?, string?, (0 | 1)?, string?];
 const OCTOBER: Row[] = [
   ['01', '08:02', 1400, 'Studio Nova s.r.o.', 'income', undefined, undefined, 'transfer'],
   ['01', '12:40', -18.4, 'LIDL SK 0123 BRATISLAVA', 'spend', 'food', 1],
-  ['02', '09:15', -19.9, 'DPB Bratislava', 'spend', 'transport', 1],
-  ['02', '19:22', -14.6, 'WOLT', 'spend', 'eat', 0],
+  ['02', '09:15', -1.1, 'DPB Bratislava', 'spend', 'bus', 1],
+  ['02', '19:22', -14.6, 'WOLT', 'spend', 'food', 0],
   ['03', '07:30', -150, 'Savings account', 'savings', undefined, undefined, 'transfer'],
   ['03', '18:05', -32.15, 'BILLA 0456', 'spend', 'food'],
   ['04', '21:10', -11.99, 'STEAM GAMES', 'spend', 'fun', 0],
+  ['04', '12:30', -9.4, 'Tabak - Press -OC NI', 'spend', 'smokes'],
   ['05', '13:20', -4.5, 'Coffee', 'spend', 'eat', 1, 'cash'],
   ['06', '17:45', -24.8, 'KAUFLAND 1120', 'spend', 'food', 1],
-  ['07', '08:50', -6.4, 'BOLT.EU/O/2410', 'spend', 'transport'],
+  ['07', '08:50', -6.4, 'BOLT.EU/O/2410', 'spend', 'taxi'],
+  ['07', '18:10', -2.55, 'BOLT.EU/P/2610', 'spend', 'scooter'],
   ['08', '10:12', 500, 'Event Agency Danube', 'podmoga', undefined, undefined, 'transfer'],
   ['08', '16:30', -400, 'Crew payout', 'podmoga', undefined, undefined, 'transfer'],
   ['08', '20:15', -38.5, 'BISTRO SAVOY', 'spend', 'eat', 1],
   ['09', '12:05', -15, 'O2 Slovakia', 'spend', 'home'],
+  ['09', '14:20', -9.15, 'EasyPark Slovakia', 'spend', 'parking', 1],
   ['10', '18:40', -12.3, 'DR.MAX 077', 'spend', 'health', 1],
   ['11', '15:00', -59.99, 'ZALANDO', 'spend', 'shop', 0],
   ['12', '19:30', -21.7, 'LIDL SK 0123 BRATISLAVA', 'spend', 'food'],
-  ['13', '22:45', -9.2, 'BOLT.EU/O/2410', 'spend', 'transport', 0],
+  ['13', '22:45', -9.2, 'BOLT.EU/O/2410', 'spend', 'taxi', 0],
   ['14', '11:00', 260, 'Event Agency Danube', 'podmoga', undefined, undefined, 'transfer'],
   ['14', '11:40', -220, 'Crew payout', 'podmoga', undefined, undefined, 'transfer'],
   ['14', '20:10', -26.4, 'CINEMA CITY', 'spend', 'fun', 1],
+  ['14', '23:40', -4.5, 'Hub bar', 'spend', 'eat', 1],
   ['15', '07:30', -50, 'Savings account', 'savings', undefined, undefined, 'transfer'],
   ['15', '18:20', -17.85, 'BILLA 0456', 'spend', 'food'],
   ['16', '20:00', -40, 'Mom', 'loan', undefined, undefined, 'transfer'],
@@ -47,8 +51,8 @@ function september(): Row[] {
   let seed = 7;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const pool: [string, string, number][] = [
-    ['LIDL SK 0123 BRATISLAVA', 'food', 22], ['BILLA 0456', 'food', 18], ['WOLT', 'eat', 16], ['BOLT.EU/O/2410', 'transport', 8],
-    ['Coffee', 'eat', 4], ['STEAM GAMES', 'fun', 12], ['DR.MAX 077', 'health', 10], ['DECATHLON', 'shop', 35],
+    ['LIDL SK 0123 BRATISLAVA', 'food', 22], ['BILLA 0456', 'food', 18], ['Tabak Press', 'smokes', 9], ['BOLT.EU/O/2410', 'taxi', 8],
+    ['Hub bar', 'eat', 4], ['BOLT.EU/P/2610', 'scooter', 3], ['EasyPark Slovakia', 'parking', 6], ['DECATHLON', 'shop', 35],
   ];
   const rows: Row[] = [['01', '08:00', 1400, 'Studio Nova s.r.o.', 'income', undefined, undefined, 'transfer'], ['03', '07:30', -180, 'Savings account', 'savings', undefined, undefined, 'transfer'], ['09', '12:05', -15, 'O2 Slovakia', 'spend', 'home']];
   for (let day = 1; day <= 30; day++) {
@@ -85,7 +89,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
-const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
+const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', categories: '{"fun":"🎉 Fun"}', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
 function summary(month = TODAY.slice(0, 7)) {
@@ -103,7 +107,16 @@ function summary(month = TODAY.slice(0, 7)) {
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
     debts: owed(parseDebts(settings.debts), txs.filter((t) => t.kind === 'loan')),
+    categories: categoriesFrom(settings.categories),
   });
+}
+
+// Same as the Worker: a typed name becomes a category (or the existing one with that name).
+function typedCategory(text: string): string | undefined {
+  const made = newCategory(text, categoriesFrom(settings.categories));
+  if (!made) return undefined;
+  settings.categories = JSON.stringify({ ...JSON.parse(settings.categories ?? '{}'), [made[0]]: made[1] });
+  return made[0];
 }
 
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
@@ -121,7 +134,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     case '/api/tx': {
       const t = txs.find((x) => x.n === body.n);
       if (!t) return json({ error: 'That payment no longer exists.' }, 404);
-      if (body.category !== undefined && body.category in CATEGORIES) Object.assign(t, { kind: 'spend', category: body.category, confirmed: 1 });
+      if (body.newCategory !== undefined) body.category = typedCategory(body.newCategory);
+      if (body.category !== undefined && body.category in categoriesFrom(settings.categories)) Object.assign(t, { kind: 'spend', category: body.category, confirmed: 1 });
       if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
       if (body.worth !== undefined) t.worth = body.worth;
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
@@ -132,7 +146,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       return json(summary(month));
     case '/api/cash': {
       const now = new Date();
-      const t = toTx('2026-10')([TODAY.slice(8), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, body.amount / 100, body.note || 'Cash', undefined, body.category, undefined, 'cash']);
+      const category = body.newCategory !== undefined ? typedCategory(body.newCategory) : body.category;
+      const t = toTx('2026-10')([TODAY.slice(8), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, body.amount / 100, body.note || 'Cash', undefined, category, undefined, 'cash']);
       txs.push(t);
       return json(summary());
     }

@@ -1,5 +1,5 @@
-import { CATEGORIES, debtFor, owed, owedText, parseDebts } from './classify.ts';
-import { firstDay, getBudget, getSetting, loanPayments, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
+import { debtFor, owed, owedText, parseDebts } from './classify.ts';
+import { firstDay, getBudget, getCategories, getSetting, loanPayments, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
 import { noSpendStreak, safeToSpend, summarize } from './stats.ts';
 import { eur } from './telegram.ts';
 import { addDays, addMonths, dayOf, localStamp, monthName, monthOf } from './time.ts';
@@ -80,7 +80,8 @@ export async function wrapText(env: Env, month: string): Promise<string> {
     `➡️ Left over: <b>${eur(s.left, true)}</b>`,
   ];
   if (s.byCategory.length) {
-    lines.push('', `Top: ${s.byCategory.slice(0, 3).map(([c, v]) => `${(CATEGORIES[c] ?? '📦').split(' ')[0]} ${eur(v)}`).join(' · ')}`);
+    const cats = await getCategories(env.DB);
+    lines.push('', `Top: ${s.byCategory.slice(0, 3).map(([c, v]) => `${(cats[c] ?? '📦').split(' ')[0]} ${eur(v)}`).join(' · ')}`);
   }
   if (s.regret > 0 && s.spent > 0) lines.push(`👎 Regretted: ${eur(s.regret)} (${Math.round((s.regret / s.spent) * 100)} % of spending)`);
   return lines.join('\n');
