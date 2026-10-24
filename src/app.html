@@ -317,6 +317,16 @@ svg { display: block; }
 }
 .tile .em { font-size: 23px; line-height: 1; }
 .tile-new { --c: rgba(255, 255, 255, .5); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .16); }
+.details { margin-top: 12px; padding: 14px; border-radius: 18px; background: rgba(0, 0, 0, .2); }
+.details .field:first-child { margin-top: 0; }
+.details .primary { height: 46px; margin-top: 14px; }
+.sh-sub { margin: 28px 0 4px; font: 700 17px var(--f-ui); letter-spacing: -.02em; }
+.cat-list { display: grid; gap: 8px; margin-top: 12px; }
+.cat-row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; }
+.cat-row .em { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; font-size: 20px; background: color-mix(in oklab, var(--c) 22%, rgba(0, 0, 0, .2)); }
+.cat-row .input { height: 44px; }
+.icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; color: var(--bad); background: rgba(255, 112, 118, .1); }
+.icon-btn svg { width: 18px; height: 18px; }
 .new-cat { display: flex; gap: 8px; margin-top: 10px; }
 .new-cat input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 14px; border: 0; background: rgba(0, 0, 0, .28); color: var(--ink); font: 500 16px var(--f-ui); }
 .new-cat button { padding: 0 18px; border-radius: 14px; background: rgba(255, 255, 255, .14); color: #fff; font-weight: 600; }
@@ -1117,6 +1127,14 @@ function editorHTML(t) {
   return `<div class="sh-head"><span class="drop" style="--c:${v.c}"><span>${v.icon}</span></span>
       <div class="sh-title"><h2 id="sheet-title">${esc(t.label)}</h2><p>${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p></div></div>
     <p class="sh-amount ${t.amount > 0 ? 'in' : ''}">${money(t.amount, true)}</p>
+    ${t.bankName && t.label !== t.bankName ? `<p class="hint">Bank: ${esc(t.bankName)}</p>` : ''}
+    <button type="button" class="textbtn" data-act="edit-details">✏️ ${t.deletable ? 'Edit name, amount or time' : 'Rename'}</button>
+    <div class="details" id="details" hidden>
+      <label class="field"><span class="field-name">Name</span><input class="input" id="ed-label" maxlength="60" placeholder="${esc(t.bankName || 'Cash')}" value="${t.label !== t.bankName ? esc(t.label) : ''}" enterkeyhint="done"></label>
+      ${t.deletable ? `<label class="field"><span class="field-name">Amount</span><span class="suffix"><input id="ed-amount" inputmode="decimal" value="${NUM.format(Math.abs(t.amount) / 100).replace(/\s/g, '')}"><b>€</b></span></label>
+      <label class="field"><span class="field-name">When</span><input class="input" id="ed-ts" type="datetime-local" value="${t.ts}"></label>` : ''}
+      <button type="button" class="primary" data-act="save-details" data-n="${t.n}">Save</button>
+    </div>
     <p class="label" id="kind-label">What was it?</p>
     <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
@@ -1172,7 +1190,14 @@ function settingsHTML() {
       <label class="field"><span class="field-name">Already in savings</span><span class="suffix"><input id="set-start" inputmode="decimal" placeholder="0" value="${v(sv.start)}"><b>€</b></span><small>What was in your savings account before the app started counting.</small></label>
       <p class="form-error" id="settings-error" role="alert"></p>
       <button class="primary" type="submit">Save</button>
-    </form>`;
+    </form>
+    <h3 class="sh-sub">Categories</h3>
+    <p class="hint">Type over a name to rename it; start with an emoji to change its icon. Yours can be deleted, and their payments go back to “to sort”.</p>
+    <div class="cat-list">${Object.keys(CATS).map((id) => {
+      const m = catMeta(id);
+      return `<div class="cat-row" style="--c:${m.c}"><span class="em" aria-hidden="true">${m.emoji}</span><input class="input" data-cat-id="${id}" value="${esc(m.name)}" maxlength="30" enterkeyhint="done" aria-label="Rename ${esc(m.name)}">${BUILT_IN.has(id) ? '<span></span>' : `<button type="button" class="icon-btn" data-act="cat-del" data-cat="${id}" aria-label="Delete ${esc(m.name)}">${ICON.trash}</button>`}</div>`;
+    }).join('')}</div>
+    <div class="new-cat" data-for="settings"><input maxlength="30" placeholder="🎮 New category" autocomplete="off" enterkeyhint="done" aria-label="New category"><button type="button" data-act="add-cat">Add</button></div>`;
 }
 
 /* ---------- feedback ---------- */
@@ -1209,6 +1234,26 @@ function splash(x01, strength = 26) {
 /* =========================================================================
    Actions
    ========================================================================= */
+/** Yes/no, with Telegram's own dialog inside Telegram. */
+const ask = (text) => new Promise((ok) => (TG?.showConfirm ? TG.showConfirm(text, ok) : ok(confirm(text))));
+
+// Telegram and the app edit the same payments: pick up what changed in the chat when you come back,
+// and every half minute while you look. Never while a sheet is open under your thumb.
+async function refresh() {
+  if (document.hidden || state.sheet || !state.cur) return;
+  try {
+    const fresh = await api('/api/summary');
+    if (JSON.stringify(fresh) !== JSON.stringify(state.cur)) accept(fresh);
+    if (state.view.month !== fresh.month) {
+      const other = await api(`/api/summary?month=${state.view.month}`);
+      if (JSON.stringify(other) !== JSON.stringify(state.view)) accept(other);
+    }
+  } catch { /* offline for a moment: try again next time */ }
+}
+document.addEventListener('visibilitychange', refresh);
+TG?.onEvent?.('activated', refresh);
+setInterval(refresh, 30_000);
+
 async function mutate(path, body, done) {
   try {
     accept(await api(path, body));
@@ -1314,6 +1359,26 @@ const actions = {
     tiles.nextElementSibling.querySelector('input').focus();
   },
   'add-cat': (el) => addCategory(el.closest('.new-cat')),
+  'edit-details': () => {
+    const box = $('#details');
+    box.hidden = !box.hidden;
+    if (!box.hidden) $('#ed-label').focus();
+  },
+  'save-details': (el) => {
+    const n = Number(el.dataset.n), t = findTx(n), body = { n, label: $('#ed-label').value, month: state.view.month };
+    if ($('#ed-amount')) {
+      const cents = parseEuro($('#ed-amount').value);
+      if (!cents) { haptic.err(); toast('Enter an amount, e.g. 4,50.'); return; }
+      body.amount = Math.sign(t.amount) * cents;
+      body.ts = $('#ed-ts').value.slice(0, 16);
+    }
+    mutate('/api/tx', body, () => { haptic.ok(); toast('Saved'); if (state.sheet === 'edit') openEditor(n); });
+  },
+  'cat-del': async (el) => {
+    const m = catMeta(el.dataset.cat);
+    if (!(await ask(`Delete ${m.emoji} ${m.name}? Its payments go back to “to sort”.`))) return;
+    mutate('/api/category', { remove: el.dataset.cat, month: state.view.month }, () => { toast(`${m.name} deleted`); openSheet('settings', settingsHTML()); });
+  },
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
     haptic.tap();
@@ -1427,8 +1492,17 @@ document.addEventListener('click', (e) => {
   actions[el.dataset.act]?.(el);
 });
 document.addEventListener('input', (e) => { if (e.target.id === 'cash-amount') updateCashButton(); });
+// ⚙ Categories: renaming is saved when you leave the field (or press Enter).
+document.addEventListener('change', (e) => {
+  const id = e.target.dataset?.catId;
+  if (!id) return;
+  const name = e.target.value.trim();
+  if (!name || name === catMeta(id).name) { e.target.value = catMeta(id).name; return; }
+  mutate('/api/category', { rename: id, label: name, month: state.view.month }, () => { haptic.ok(); toast('Renamed'); openSheet('settings', settingsHTML()); });
+});
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeSheet();
+  if (e.key === 'Enter' && e.target.dataset?.catId) e.target.blur(); // saves the rename (change event)
   if (e.key === 'Enter' && e.target.closest?.('.new-cat')) { e.preventDefault(); addCategory(e.target.closest('.new-cat')); } // not the cash form's submit
 });
 
@@ -1437,7 +1511,9 @@ function addCategory(box) {
   const name = box.querySelector('input').value.trim(), n = Number(box.dataset.n), to = box.dataset.for;
   if (!name) return;
   haptic.ok();
-  if (to === 'cash-cat') {
+  if (to === 'settings') {
+    mutate('/api/category', { add: name, month: state.view.month }, () => { toast(`${name} added`); openSheet('settings', settingsHTML()); });
+  } else if (to === 'cash-cat') {
     // Created when the cash entry is saved; until then the name stands in for the picked tile.
     Object.assign(state, { cashNewCat: name, cashCat: null });
     $$('[data-act="cash-cat"]', sheetBody).forEach((b) => b.setAttribute('aria-pressed', 'false'));

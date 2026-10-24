@@ -48,7 +48,8 @@ export function categoriesFrom(json: string | null): Categories {
     // keep the built-in ones
   }
   const { other, ...built } = DEFAULT_CATEGORIES;
-  return { ...built, ...custom, other };
+  const { other: myOther, ...mine } = custom; // you can rename Other, but it stays last
+  return { ...built, ...mine, other: myOther ?? other };
 }
 
 /**
@@ -56,17 +57,24 @@ export function categoriesFrom(json: string | null): Categories {
  * already exists returns that one. Null when there's no name in it.
  */
 export function newCategory(text: string, existing: Categories): [id: string, label: string] | null {
-  // One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
-  const m = text.trim().replace(/\s+/g, ' ').match(/^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u);
-  const name = m?.[2].slice(0, 24).trim();
-  if (!name || !/\p{L}/u.test(name)) return null;
-  const nice = name[0].toUpperCase() + name.slice(1);
-  const same = Object.entries(existing).find(([, label]) => fold(label.slice(label.indexOf(' ') + 1)) === fold(nice));
+  const label = categoryLabel(text);
+  if (!label) return null;
+  const nice = label.slice(label.indexOf(' ') + 1);
+  const same = Object.entries(existing).find(([, l]) => fold(l.slice(l.indexOf(' ') + 1)) === fold(nice));
   if (same) return same;
   const base = fold(nice).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mine';
   let id = base;
   for (let i = 2; id in existing; i++) id = `${base}-${i}`;
-  return [id, `${m?.[1] ?? '🏷'} ${nice}`];
+  return [id, label];
+}
+
+/** "🎮 games" → "🎮 Games", "vape" → "🏷 Vape"; `fallback` is the emoji to use when none is typed. Null without a name. */
+export function categoryLabel(text: string, fallback = '🏷'): string | null {
+  // One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
+  const m = text.trim().replace(/\s+/g, ' ').match(/^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u);
+  const name = m?.[2].slice(0, 24).trim();
+  if (!name || !/\p{L}/u.test(name)) return null;
+  return `${m?.[1] ?? fallback} ${name[0].toUpperCase()}${name.slice(1)}`;
 }
 
 export const isKind = (k: string): k is Kind => k in KINDS;

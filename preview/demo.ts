@@ -2,7 +2,7 @@
 // the Worker's /api routes, so the dashboard can be looked at without deploying.
 // It reuses the real dashboard/statistics code, so the numbers behave like production.
 // Not part of the Worker bundle.
-import { categoriesFrom, defaultKind, isKind, newCategory, owed, parseDebts, type Kind } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, defaultKind, isKind, newCategory, owed, parseDebts, type Kind } from '../src/classify.ts';
 import { dashboard, readSettings } from '../src/dashboard.ts';
 import type { Tx } from '../src/db.ts';
 import { noSpendStreak } from '../src/stats.ts';
@@ -86,6 +86,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
     source: method === 'cash' ? 'manual' : 'bmail',
     tg_msg: null,
     debt: null,
+    label: null,
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
@@ -139,6 +140,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
       if (body.worth !== undefined) t.worth = body.worth;
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
+      if (body.label !== undefined) t.label = String(body.label ?? '').trim() || null;
+      if (body.amount !== undefined && t.source !== 'bmail') t.amount = body.amount;
+      if (body.ts !== undefined && t.source !== 'bmail') t.ts = body.ts;
       return json(summary(t.ts.slice(0, 7)));
     }
     case '/api/delete':
@@ -150,6 +154,18 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const t = toTx('2026-10')([TODAY.slice(8), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, body.amount / 100, body.note || 'Cash', undefined, category, undefined, 'cash']);
       txs.push(t);
       return json(summary());
+    }
+    case '/api/category': {
+      const mine = JSON.parse(settings.categories ?? '{}');
+      const cats = categoriesFrom(settings.categories);
+      if (typeof body.add === 'string') typedCategory(body.add);
+      else if (body.rename in cats) settings.categories = JSON.stringify({ ...mine, [body.rename]: categoryLabel(body.label, cats[body.rename].split(' ')[0]) ?? cats[body.rename] });
+      else if (body.remove in mine && !(body.remove in DEFAULT_CATEGORIES)) {
+        delete mine[body.remove];
+        settings.categories = JSON.stringify(mine);
+        for (const t of txs) if (t.category === body.remove) Object.assign(t, { category: null, confirmed: 0 });
+      }
+      return json(summary(month));
     }
     case '/api/settings':
       for (const [k, key] of [['budget', 'budget'], ['goalAmount', 'goal_amount'], ['savingsStart', 'savings_start']] as const) {

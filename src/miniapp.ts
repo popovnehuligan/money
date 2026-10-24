@@ -1,9 +1,9 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { categoriesFrom, owed, parseDebts } from './classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSettings, getTx, loanPayments, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, type Env } from './db.ts';
-import { record } from './ingest.ts';
+import { deleteSetting, deleteTx, getSettings, getTx, loanPayments, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
+import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
 import { addDays, addMonths, dayOf, localStamp, monthOf } from './time.ts';
@@ -82,9 +82,32 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           source: 'manual',
           raw: null,
         });
-        if (tx && typeof body.newCategory === 'string') await applyChoice(env, tx, { newCategory: body.newCategory });
-        else if (tx && typeof body.category === 'string') await applyChoice(env, tx, { category: body.category });
+        if (tx) {
+          const sorted = typeof body.newCategory === 'string' ? await applyChoice(env, tx, { newCategory: body.newCategory }) : typeof body.category === 'string' ? await applyChoice(env, tx, { category: body.category }) : tx;
+          await notify(env, sorted); // so it's in the chat too, like everything else
+        }
         return Response.json(await summary(env));
+      }
+      case '/api/category': {
+        // ⚙ Categories: add one, rename one (built-in ones too), or delete one of yours.
+        const mine = await myCategories(env.DB);
+        const cats = categoriesFrom(JSON.stringify(mine));
+        if (typeof body.add === 'string') {
+          const made = newCategory(body.add, cats);
+          if (!made) throw new BadInput('Type a name for it, e.g. 🎮 Games');
+          if (!(made[0] in cats)) mine[made[0]] = made[1];
+        } else if (typeof body.rename === 'string' && body.rename in cats) {
+          const label = categoryLabel(String(body.label ?? ''), cats[body.rename].split(' ')[0]);
+          if (!label) throw new BadInput('Type a name for it, e.g. 🎮 Games');
+          mine[body.rename] = label;
+        } else if (typeof body.remove === 'string' && body.remove in mine && !(body.remove in DEFAULT_CATEGORIES)) {
+          delete mine[body.remove];
+          await uncategorize(env.DB, body.remove);
+        } else {
+          throw new BadInput('Nothing to change.');
+        }
+        await saveMyCategories(env.DB, mine);
+        return Response.json(await summary(env, String(body.month ?? '')));
       }
       case '/api/settings': {
         const values: Record<string, string | null> = {};

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CATEGORIES, applyRules, categoriesFrom, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 
@@ -101,4 +101,15 @@ test('Bolt cabs and scooters learn separately; card shops still ignore terminal 
   assert.equal(keyFor('BOLT.EU/P/2610211312'), 'bolt eu p');
   assert.notEqual(keyFor('BOLT.EU/O/2410'), keyFor('BOLT.EU/P/2610211312'));
   assert.equal(keyFor('LIDL SK 0123 BRATISLAVA'), 'lidl sk');
+});
+
+test('renaming categories: typed emoji wins, else the old one stays; Other stays last', () => {
+  assert.equal(categoryLabel('🍻 pub', '🍺'), '🍻 Pub');
+  assert.equal(categoryLabel('pub', '🍺'), '🍺 Pub');
+  assert.equal(categoryLabel('  ', '🍺'), null);
+  const cats = categoriesFrom('{"eat":"🍻 Pub","other":"📦 Misc","games":"🎮 Games"}');
+  assert.equal(cats.eat, '🍻 Pub');
+  assert.deepEqual(Object.keys(cats).slice(-2), ['games', 'other']);
+  assert.equal(cats.other, '📦 Misc');
+  assert.equal(Object.keys(cats).indexOf('eat'), Object.keys(DEFAULT_CATEGORIES).indexOf('eat')); // keeps its place
 });

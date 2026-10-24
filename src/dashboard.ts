@@ -72,7 +72,8 @@ export function dashboard(o: DashboardInput) {
       category: t.category,
       worth: t.worth,
       confirmed: t.confirmed === 1,
-      label: t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
+      label: t.label ?? t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
+      bankName: t.merchant ?? t.note, // shown under your own name, so you can still tell what the bank said
       method: METHOD[t.method] ?? t.method,
       deletable: t.source !== 'bmail',
       debt: t.debt,

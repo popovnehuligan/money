@@ -51,7 +51,7 @@ const ICON: Record<Kind, string> = { spend: '馃捀', income: '馃挵', savings: '馃
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
 export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGORIES): string {
-  const who = t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
+  const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
   const label = t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind];
   const worth = t.worth === 1 ? ' 路 馃憤' : t.worth === 0 ? ' 路 馃憥' : '';
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> 路 ${esc(who)}`, `${label} 路 ${t.method} 路 ${when(t.ts)}${worth}`];

@@ -95,9 +95,10 @@ Optional secrets: `OWN_IBANS` (your own IBANs, comma-separated, so they're never
 - Pay as usual. The Telegram message arrives about a minute later; tap a category, plus 👍/👎 if you like.
 - Use the dashboard to:
   - sort several payments in a row (the "to sort" card);
-  - fix any payment by tapping it;
+  - fix any payment by tapping it. **✏️ Rename** gives it your own name (the bank's stays visible underneath), and entries you added yourself can also change amount and time;
   - add cash with the **Cash** button;
-  - set your budget and savings goal with ⚙.
+  - set your budget and savings goal with ⚙. Under **Categories**, rename a category by typing over it (start with an emoji to change its icon), add one, or delete one of yours.
+- The chat and the dashboard stay in sync. A change in one shows in the other: cash added in the dashboard gets its chat message, and the dashboard picks up chat changes when you return to it and every 30 seconds.
 - In the chat, `4.50 kava` adds cash and `+20 gift` adds money you received. Commands: `/today`, `/month`, `/month last`, `/budget 600`, `/owe` (or `/owe Mom 100`), `/gaps off`.
 
 ## Free-tier limits

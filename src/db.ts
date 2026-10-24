@@ -38,11 +38,12 @@ export interface Tx {
   source: string;
   tg_msg: number | null;
   debt: string | null; // which loan a 🤝 Loan payment belongs to
+  label: string | null; // your own name for it, shown instead of the bank's
 }
 
-export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt'> & { raw: string | null; debt?: string | null };
+export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label'> & { raw: string | null; debt?: string | null };
 
-const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt';
+const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label';
 
 /** Returns the stored row, or null if this ext_id was already imported. */
 export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
@@ -58,7 +59,7 @@ export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
 
 export const getTx = (db: D1Database, n: number) => db.prepare(`SELECT ${COLS} FROM tx WHERE n = ?`).bind(n).first<Tx>();
 
-type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt'>>;
+type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts'>>;
 
 export async function updateTx(db: D1Database, n: number, patch: Patch): Promise<void> {
   const keys = Object.keys(patch) as (keyof Patch)[];
@@ -156,11 +157,17 @@ export async function getSettings(db: D1Database): Promise<Record<string, string
 /** Built-in categories plus yours. */
 export const getCategories = async (db: D1Database): Promise<Categories> => categoriesFrom(await getSetting(db, 'categories'));
 
-/** Saves a category you typed (only yours are stored; built-in ones live in the code). */
+/** Your categories and your names for built-in ones (the built-in list itself lives in the code). */
+export const myCategories = async (db: D1Database): Promise<Categories> => JSON.parse((await getSetting(db, 'categories')) ?? '{}') as Categories;
+export const saveMyCategories = (db: D1Database, mine: Categories) => setSetting(db, 'categories', JSON.stringify(mine));
+
+/** Saves a category you typed, or a new name for an existing one. */
 export async function addCategory(db: D1Database, id: string, label: string): Promise<void> {
-  const mine = JSON.parse((await getSetting(db, 'categories')) ?? '{}') as Categories;
-  await setSetting(db, 'categories', JSON.stringify({ ...mine, [id]: label }));
+  await saveMyCategories(db, { ...(await myCategories(db)), [id]: label });
 }
+
+/** A category you deleted: its payments go back to "to sort". */
+export const uncategorize = (db: D1Database, id: string) => db.prepare('UPDATE tx SET category = NULL, confirmed = 0 WHERE category = ?').bind(id).run();
 
 export const deleteSetting = (db: D1Database, key: string) => db.prepare('DELETE FROM settings WHERE key = ?').bind(key).run();
 

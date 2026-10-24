@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Tx } from '../src/db.ts';
 import { categoriesFrom } from '../src/classify.ts';
-import { txKeyboard } from '../src/telegram.ts';
+import { txKeyboard, txText } from '../src/telegram.ts';
 
 const tx = (over: Partial<Tx> = {}): Tx => ({
   n: 7, ext_id: 'g', ts: '2026-10-19T09:00', amount: -760, currency: 'EUR', balance: null, merchant: 'BOLT', iban: null, note: null,
@@ -52,4 +52,9 @@ test('a suggestion waits for approval: ✅ on top until you confirm it', () => {
   assert.deepEqual(texts(txKeyboard(tx({ category: 'smokes' })))[0], ['✅ 🚬 Cigarettes']); // learned or imported
   assert.ok(!texts(txKeyboard(tx())).flat().some((b) => b.startsWith('✅'))); // nothing to approve without a category
   assert.deepEqual(texts(txKeyboard(tx({ category: 'smokes', confirmed: 1 })))[0], ['🚬 Cigarettes · change']); // approved
+});
+
+test('your name for a payment is what the chat shows', () => {
+  assert.match(txText(tx({ merchant: 'Platba 7500/000000-123', label: 'Gift for Kate' })), /Gift for Kate/);
+  assert.match(txText(tx({ merchant: 'BOLT' })), /BOLT/);
 });
