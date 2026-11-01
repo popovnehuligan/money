@@ -224,3 +224,13 @@ export function learnLender(debts: Debt[], name: string, bankName: string | null
     return { ...d, match: d.name === name ? [...others, bankName] : others };
   });
 }
+
+/**
+ * Balance differences that come in a burst (four b-mails in one minute arriving out of order,
+ * a charge and its refund) belong together: a new one joins the open, unanswered one from the
+ * last 6 hours instead of asking again. A total of 0 means there was nothing to explain.
+ */
+export function joinGap(open: { amount: number; ts: string; confirmed: number } | null, gap: number, ts: string): { join: boolean; amount: number } {
+  const hours = open ? (Date.parse(`${ts}Z`) - Date.parse(`${open.ts}Z`)) / 3_600_000 : Infinity;
+  return open && !open.confirmed && hours >= 0 && hours <= 6 ? { join: true, amount: open.amount + gap } : { join: false, amount: gap };
+}

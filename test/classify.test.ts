@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CATEGORIES, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 
@@ -112,4 +112,13 @@ test('renaming categories: typed emoji wins, else the old one stays; Other stays
   assert.deepEqual(Object.keys(cats).slice(-2), ['games', 'other']);
   assert.equal(cats.other, '📦 Misc');
   assert.equal(Object.keys(cats).indexOf('eat'), Object.keys(DEFAULT_CATEGORIES).indexOf('eat')); // keeps its place
+});
+
+test('a balance difference joins the open one from the last 6 hours', () => {
+  const open = { amount: 100, ts: '2026-10-31T15:08', confirmed: 0 };
+  assert.deepEqual(joinGap(open, -200, '2026-10-31T15:08'), { join: true, amount: -100 });
+  assert.deepEqual(joinGap(open, -100, '2026-10-31T20:00'), { join: true, amount: 0 });
+  assert.deepEqual(joinGap(open, -100, '2026-11-01T08:00'), { join: false, amount: -100 }); // too long ago
+  assert.deepEqual(joinGap({ ...open, confirmed: 1 }, -100, '2026-10-31T15:09'), { join: false, amount: -100 }); // already answered
+  assert.deepEqual(joinGap(null, 50, '2026-10-31T15:09'), { join: false, amount: 50 });
 });

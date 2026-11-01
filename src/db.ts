@@ -59,7 +59,7 @@ export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
 
 export const getTx = (db: D1Database, n: number) => db.prepare(`SELECT ${COLS} FROM tx WHERE n = ?`).bind(n).first<Tx>();
 
-type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts'>>;
+type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts' | 'key'>>;
 
 export async function updateTx(db: D1Database, n: number, patch: Patch): Promise<void> {
   const keys = Object.keys(patch) as (keyof Patch)[];
@@ -83,14 +83,22 @@ export const learned = (db: D1Database, key: string) =>
 export const latestBmail = (db: D1Database) =>
   db.prepare(`SELECT ${COLS} FROM tx WHERE source = 'bmail' AND balance IS NOT NULL ORDER BY ts DESC, n DESC LIMIT 1`).first<Tx>();
 
-/** Sum of the bank movements stored after one transaction and before another (by arrival). */
+/**
+ * Sum of the b-mail movements stored after one transaction and before another (by arrival).
+ * Gap entries don't count: the balance we start from already includes what they describe,
+ * and counting them made every gap answer the previous one (−20.19, +20.19, −20.19…).
+ */
 export async function movedBetween(db: D1Database, afterN: number, beforeN: number): Promise<number> {
   const row = await db
-    .prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM tx WHERE source IN ('bmail', 'gap') AND n > ? AND n < ?")
+    .prepare("SELECT COALESCE(SUM(amount), 0) AS s FROM tx WHERE source = 'bmail' AND n > ? AND n < ?")
     .bind(afterN, beforeN)
     .first<{ s: number }>();
   return row?.s ?? 0;
 }
+
+/** The newest balance difference you haven't answered yet. */
+export const latestOpenGap = (db: D1Database) =>
+  db.prepare(`SELECT ${COLS} FROM tx WHERE source = 'gap' AND confirmed = 0 ORDER BY n DESC LIMIT 1`).first<Tx>();
 
 /** Transactions with from <= ts < to (both "YYYY-MM-DD…" strings). */
 export async function txBetween(db: D1Database, from: string, to: string): Promise<Tx[]> {

@@ -1,8 +1,8 @@
-import { applyRules, defaultKind, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { debtNames, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, defaultKind, joinGap, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
+import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
-import { esc, send, txKeyboard, txText } from './telegram.ts';
+import { edit, esc, send, tg, txKeyboard, txText } from './telegram.ts';
 import { addDays, dayOf } from './time.ts';
 
 export interface IngestMessage {
@@ -40,11 +40,22 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   return store(prior?.kind ?? defaultKind(t.amount), prior?.category ?? null);
 }
 
-export async function notify(env: Env, t: Tx, header?: string): Promise<void> {
+const GAP_HEADER = '⚖️ Your balance moved by more than the b-mails explain. A standing order, a fee, a savings transfer?';
+
+async function message(env: Env, t: Tx): Promise<[string, ReturnType<typeof txKeyboard>]> {
   const cats = await getCategories(env.DB);
   const text = txText(t, await footerFor(env, t), cats);
-  const id = await send(env, header ? `${header}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB), cats));
+  return [t.source === 'gap' ? `${GAP_HEADER}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB), cats)];
+}
+
+export async function notify(env: Env, t: Tx): Promise<void> {
+  const id = await send(env, ...(await message(env, t)));
   if (id) await updateTx(env.DB, t.n, { tg_msg: id });
+}
+
+/** Redraws a payment's chat message after the payment changed. */
+async function redraw(env: Env, t: Tx): Promise<void> {
+  if (t.tg_msg) await edit(env, t.tg_msg, ...(await message(env, t)));
 }
 
 export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'duplicate' | 'unparsed' | 'balance'> {
@@ -90,13 +101,23 @@ export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'dup
   // Keyed by amount, so a recurring "−100 € gap" you marked as savings is recognised next time.
   if (tx.balance !== null && prev?.balance != null && prev.ts <= tx.ts && (await getSetting(env.DB, 'gaps')) !== 'off') {
     const gap = tx.balance - (prev.balance + (await movedBetween(env.DB, prev.n, tx.n)) + tx.amount);
-    if (gap !== 0) {
+    const open = gap === 0 ? null : await latestOpenGap(env.DB);
+    const joined = joinGap(open, gap, tx.ts);
+    if (open && joined.join && joined.amount === 0) {
+      // It evened out: nothing to explain any more.
+      await deleteTx(env.DB, open.n);
+      if (open.tg_msg) await tg(env, 'deleteMessage', { chat_id: env.CHAT_ID, message_id: open.tg_msg });
+    } else if (open && joined.join) {
+      const patch = { amount: joined.amount, key: `gap ${joined.amount}`, kind: open.kind === 'spend' || open.kind === 'income' ? defaultKind(joined.amount) : open.kind };
+      await updateTx(env.DB, open.n, patch);
+      await redraw(env, { ...open, ...patch });
+    } else if (gap !== 0) {
       const g = await record(
         env,
         { ext_id: `gap-${msg.id}`, ts: tx.ts, amount: gap, currency: 'EUR', balance: null, merchant: 'Unexplained balance change', iban: null, note: null, method: 'gap', source: 'gap', raw: null },
         `gap ${gap}`,
       );
-      if (g && !msg.silent) await notify(env, g, '⚖️ Your balance moved by more than the b-mails explain. A standing order, a fee, a savings transfer?');
+      if (g && !msg.silent) await notify(env, g);
     }
   }
 
