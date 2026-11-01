@@ -34,3 +34,9 @@ test('past months have no allowance or streak; empty settings read as unset', ()
   assert.equal(d.budget, null);
   assert.equal(d.savings.goalAmount, null);
 });
+
+test('your account balance is shown for the current month only', () => {
+  const base = { today: '2026-11-01', txs: [], prevTxs: [], settings: readSettings({}), savedByMonth: [], streak: 0, debts: [], balance: { amount: 5981, ts: '2026-11-01T11:42' } };
+  assert.deepEqual(dashboard({ ...base, month: '2026-11' }).balance, { amount: 5981, ts: '2026-11-01T11:42' });
+  assert.equal(dashboard({ ...base, month: '2026-10' }).balance, null);
+});

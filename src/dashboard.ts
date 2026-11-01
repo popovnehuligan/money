@@ -34,6 +34,7 @@ export interface DashboardInput {
   streak: number;
   debts: Owed[]; // what you still owe, across all months
   categories: Categories; // built-in plus yours
+  balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
 }
 
 export function dashboard(o: DashboardInput) {
@@ -64,6 +65,7 @@ export function dashboard(o: DashboardInput) {
     },
     debts: o.debts,
     categories: o.categories,
+    balance: current ? o.balance ?? null : null,
     tx: o.txs.map((t) => ({
       n: t.n,
       ts: t.ts,

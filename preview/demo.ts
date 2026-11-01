@@ -110,6 +110,7 @@ function summary(month = TODAY.slice(0, 7)) {
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
     debts: owed(parseDebts(settings.debts), txs.filter((t) => t.kind === 'loan')),
     categories: categoriesFrom(settings.categories),
+    balance: { amount: 41235, ts: `${TODAY}T09:12` },
   });
 }
 

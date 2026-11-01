@@ -833,10 +833,18 @@ function renderToday() {
     value = left;
     label.textContent = over ? 'Over today’s allowance' : 'Safe to spend today';
     sub.innerHTML = over ? 'Tomorrow’s pool fills a little lower.' : `of <b>${eur(Math.max(allowance, 0))}</b> for today · ${Math.round(f * 100)} % left`;
+  } else if (d.balance) {
+    // No budget: the pool is what's really on your account, the number your bank app shows.
+    const b = d.balance;
+    over = b.amount < 0;
+    f = clamp(b.amount / Math.max(b.amount + s.realSpent, 1), 0, 1);
+    value = b.amount;
+    label.textContent = 'On your account';
+    sub.innerHTML = `as of ${esc(dayLabel(b.ts.slice(0, 10), d.today).toLowerCase())}, ${b.ts.slice(11, 16)} · spent this month&nbsp;<b>${eur(s.realSpent)}</b><br>Set a monthly budget and this becomes your daily pool.`;
   } else {
-    label.textContent = 'Left this month';
-    f = s.realIncome > 0 ? clamp(s.left / s.realIncome, 0, 1) : 0.5;
-    value = s.left;
+    label.textContent = 'Spent this month';
+    f = 0.5;
+    value = s.realSpent;
     sub.textContent = 'Set a monthly budget and this becomes your daily pool.';
   }
   num.dry.innerHTML = num.wet.innerHTML = money(value);

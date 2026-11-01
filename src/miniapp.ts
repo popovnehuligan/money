@@ -2,7 +2,7 @@ import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSettings, getTx, loanPayments, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSettings, getTx, latestBmail, loanPayments, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank] = await Promise.all([
     txBetween(env.DB, `${month}-01`, `${addMonths(month, 1)}-01`),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -20,6 +20,7 @@ async function summary(env: Env, asked?: string | null) {
     firstDay(env.DB),
     spendDaysSince(env.DB, since),
     loanPayments(env.DB),
+    latestBmail(env.DB),
   ]);
   return dashboard({
     month,
@@ -31,6 +32,7 @@ async function summary(env: Env, asked?: string | null) {
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
     debts: owed(parseDebts(settings.debts ?? null), loans),
     categories: categoriesFrom(settings.categories ?? null),
+    balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
   });
 }
 
