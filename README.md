@@ -41,11 +41,13 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 | 🏦 Savings | moves to/from your savings account | "saved", never spending |
 | 🚫 Ignore | moves between your own accounts | nothing |
 
+Savings don't ask you anything: round-ups and other bank movements that are 🏦 Savings are stored as approved, without a chat message, and show up in the savings jar.
+
 **Categories:** 🚕 Taxi · 🛴 Scooter · 🛒 Food · 🚬 Cigarettes · 🅿️ Parking · 🍺 Bar · 🚌 Bus · 🛍 Shopping · 💊 Health · 🏠 Home & bills · 📦 Other. If nothing fits, tap ➕ (Telegram) or ＋ New (dashboard) and type what it is, e.g. "🎮 Games". It becomes a category of its own, stored in the database (`categories` setting).
 
 You choose a kind or category once, in the chat or the dashboard. After that, payments to the same shop, IBAN or person are sorted the same way automatically. Bolt is told apart by its code: "BOLT.EU/O/…" and "BOLT.EU/P/…" are learned separately, so cabs and scooters don't get mixed up as long as Bolt bills them under different codes. Once a payment is sorted, its chat message collapses to a single "change" button.
 
-**Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" into ☕ Cafés & bars when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. Rules live in the database, not in this public repo, because they contain names.
+**Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" into 🍺 Bar when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. A rule can set a kind instead of a category, and `"quiet": true` stores what it sorts as approved, without a chat message. For example, `{"match":["pension fund"],"kind":"ignore","quiet":true}` handles an automatic pension payment you never want to be asked about. Rules live in the database, not in this public repo, because they contain names.
 
 A rule with `passOnFrom` pairs someone else's money with the bill it pays, for example a parent who pays for your therapy: `{"match":["dr novak"],"passOnFrom":["parent's name"],"category":"health"}`. Money from the parent is 🔁 Passed on. A payment to the therapist is also 🔁 Passed on while some of the parent's money from the last 60 days is still waiting. If none is, you paid it yourself, so it counts as 💊 Health spending.
 

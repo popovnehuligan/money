@@ -16,10 +16,12 @@ export interface IngestMessage {
 /**
  * Stores a transaction, sorted by your rules first (pass-on pairs, repayments to someone
  * you owe, name rules), else by your last choice for the same merchant/counterparty.
- * Null if already stored.
+ * Bank movements into or out of savings, and payments a `quiet` rule sorts, are stored as
+ * approved: you asked not to be asked about them. Null if already stored.
  */
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined), kind?: Kind): Promise<Tx | null> {
-  const store = (kind: Kind, category: string | null, debt?: string) => insertTx(env.DB, { ...t, key: key ?? null, kind, category, debt });
+  const store = (kind: Kind, category: string | null, debt?: string, quiet = false) =>
+    insertTx(env.DB, { ...t, key: key ?? null, kind, category, debt, approved: quiet || (kind === 'savings' && t.source === 'bmail') });
   if (kind) return store(kind, null);
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
@@ -27,7 +29,7 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   if (pass && t.amount > 0) return store('podmoga', null);
   if (pass) {
     const waiting = waitingToPassOn(pass, await passedOnSince(env.DB, addDays(dayOf(t.ts), -60)));
-    return waiting >= -t.amount ? store('podmoga', null) : store('spend', pass.category);
+    return waiting >= -t.amount ? store('podmoga', null) : store('spend', pass.category ?? null);
   }
 
   const debts = parseDebts(await getSetting(env.DB, 'debts'));
@@ -35,7 +37,8 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   if (repaid) return store('loan', null, repaid.name);
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
-  if (rule) return store('spend', rule === 'ask' ? null : rule);
+  if (rule === 'ask') return store('spend', null);
+  if (rule) return store(rule.kind ?? 'spend', (rule.kind ?? 'spend') === 'spend' ? (rule.category ?? null) : null, undefined, rule.quiet);
   const prior = key ? await learned(env.DB, key, t.amount) : null;
   return store(prior?.kind ?? defaultKind(t.amount), prior?.category ?? null);
 }
@@ -117,10 +120,10 @@ export async function ingest(env: Env, msg: IngestMessage): Promise<'new' | 'dup
         { ext_id: `gap-${msg.id}`, ts: tx.ts, amount: gap, currency: 'EUR', balance: null, merchant: 'Unexplained balance change', iban: null, note: null, method: 'gap', source: 'gap', raw: null },
         `gap ${gap}`,
       );
-      if (g && !msg.silent) await notify(env, g);
+      if (g && !msg.silent && !g.confirmed) await notify(env, g);
     }
   }
 
-  if (!msg.silent) await notify(env, tx);
+  if (!msg.silent && !tx.confirmed) await notify(env, tx); // already sorted: nothing to ask
   return 'new';
 }

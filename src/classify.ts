@@ -101,6 +101,10 @@ export function keyFor(merchant?: string, iban?: string): string | undefined {
  * to a name containing "cafe hub" that are a multiple of 1.50 € go to cafés & bars. Other
  * payments to that name are left for you to sort instead of reusing the earlier choice.
  *
+ * `kind` sorts into a kind instead of a category, and `quiet` stores the payment as approved
+ * without a chat message: [{"match":["pension fund"],"kind":"ignore","quiet":true}] for an
+ * automatic payment you never want to be asked about.
+ *
  * With `passOnFrom`, a rule pairs someone else's money with the bill it pays, e.g.
  * [{"match":["dr novak"],"passOnFrom":["mom name"],"category":"health"}]: money from mom is
  * 🔁 Passed on, and so is a payment to Dr Novak while some of mom's money is still waiting.
@@ -110,14 +114,16 @@ export interface Rule {
   match: string[];
   multipleOf?: number; // cents
   max?: number; // cents
-  category: string;
+  category?: string;
+  kind?: Kind; // instead of a category, e.g. "ignore"
+  quiet?: boolean; // approved without asking
   passOnFrom?: string[];
 }
 
 export function parseRules(json: string | null): Rule[] {
   try {
     const rules: unknown = JSON.parse(json ?? '[]');
-    return Array.isArray(rules) ? rules.filter((r): r is Rule => Array.isArray(r?.match) && typeof r.category === 'string') : [];
+    return Array.isArray(rules) ? rules.filter((r): r is Rule => Array.isArray(r?.match) && (typeof r.category === 'string' || (typeof r.kind === 'string' && isKind(r.kind)))) : [];
   } catch {
     return [];
   }
@@ -129,13 +135,13 @@ const mentions = (list: string[], names: Name[]) => {
   return list.some((m) => text.includes(fold(m)));
 };
 
-/** A category when a rule decides, 'ask' when a rule's name matches but the amount doesn't, else null. */
-export function applyRules(rules: Rule[], amount: number, ...names: Name[]): string | 'ask' | null {
+/** The rule that decides a payment, 'ask' when a rule's name matches but the amount doesn't, else null. */
+export function applyRules(rules: Rule[], amount: number, ...names: Name[]): Rule | 'ask' | null {
   if (amount >= 0) return null;
   for (const r of rules) {
     if (r.passOnFrom || !mentions(r.match, names)) continue;
     const fits = (!r.multipleOf || -amount % r.multipleOf === 0) && (!r.max || -amount <= r.max);
-    return fits ? r.category : 'ask';
+    return fits ? r : 'ask';
   }
   return null;
 }

@@ -3,10 +3,18 @@ import assert from 'node:assert/strict';
 import { DEFAULT_CATEGORIES, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
+const category = (r: ReturnType<typeof applyRules>) => (r && r !== 'ask' ? r.category : r);
 
 test('a rule sorts matching payments that are a multiple of the amount', () => {
-  assert.equal(applyRules(rules, -150, 'NOVAK Jan', 'Platba 1100/000000-1234567890'), 'eat');
-  assert.equal(applyRules(rules, -450, null, 'Café Hub o.z.'), 'eat');
+  assert.equal(category(applyRules(rules, -150, 'NOVAK Jan', 'Platba 1100/000000-1234567890')), 'eat');
+  assert.equal(category(applyRules(rules, -450, null, 'Café Hub o.z.')), 'eat');
+});
+
+test('a rule can sort into a kind instead, quietly', () => {
+  const quiet = parseRules('[{"match":["pension fund"],"kind":"ignore","quiet":true},{"match":["x"],"kind":"nonsense"}]');
+  assert.equal(quiet.length, 1); // a kind that doesn't exist is dropped
+  const r = applyRules(quiet, -2000, 'PENSION FUND a.s.');
+  assert.ok(r && r !== 'ask' && r.kind === 'ignore' && r.quiet);
 });
 
 test('other payments to the same name are left for you to sort', () => {

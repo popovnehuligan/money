@@ -41,7 +41,11 @@ export interface Tx {
   label: string | null; // your own name for it, shown instead of the bank's
 }
 
-export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label'> & { raw: string | null; debt?: string | null };
+export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label'> & {
+  raw: string | null;
+  debt?: string | null;
+  approved?: boolean; // stored as already sorted: nothing to ask in the chat
+};
 
 const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label';
 
@@ -49,11 +53,11 @@ const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, me
 export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
   return db
     .prepare(
-      `INSERT INTO tx (ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, source, raw, debt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tx (ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, source, raw, debt, confirmed)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(ext_id) DO NOTHING RETURNING ${COLS}`,
     )
-    .bind(t.ext_id, t.ts, t.amount, t.currency, t.balance, t.merchant, t.iban, t.note, t.method, t.key, t.kind, t.category, t.source, t.raw, t.debt ?? null)
+    .bind(t.ext_id, t.ts, t.amount, t.currency, t.balance, t.merchant, t.iban, t.note, t.method, t.key, t.kind, t.category, t.source, t.raw, t.debt ?? null, t.approved ? 1 : 0)
     .first<Tx>();
 }
 

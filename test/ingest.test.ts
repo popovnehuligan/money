@@ -97,3 +97,24 @@ test('what you chose for money from someone is not suggested for money to them',
   await withName('2026-10-31 10:00', 20, 360);
   assert.deepEqual((await kinds()).map((t) => t.kind), ['income', 'spend', 'income']); // −60 isn't "income"
 });
+
+test('savings and payments a quiet rule sorts are stored as approved, without asking in the chat', async () => {
+  const { env, sent } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('rules', ?)").bind('[{"match":["pension fund"],"kind":"ignore","quiet":true}]').run();
+  // A round-up into savings…
+  await ingest(env, {
+    id: `s${++n}`, date: '2026-10-22T09:20', subject: 'Account savings credit (ID=221026/000000-2)',
+    body: 'at 22/10/2026, 09:20 the balance on your savings Novak Jan Savings was increased by 0.59 EUR.\r\nLedger balance: 8.77 EUR\r\nActual balance: 8.77 EUR\r\nDispo balance: 8.77 EUR\r\n\r\nTransaction description: Sporenie kartou\r\n',
+  });
+  // …and the monthly pension payment.
+  await ingest(env, {
+    id: `s${++n}`, date: '2026-11-02T12:00', subject: 'Debit on your account (ID=1)',
+    body: 'at 02/11/2026, 12:00 the balance on your account SK0000000000000000000000 was decreased by 20.00 EUR.\r\nActual balance: 80.00 EUR\r\n\r\nTransaction description: Trvaly prikaz\r\nCounterparty account: PENSION FUND a.s.\r\n',
+  });
+  const rows = (await env.DB.prepare('SELECT amount, kind, confirmed FROM tx ORDER BY n').all()).results;
+  assert.deepEqual(rows.map((r) => ({ ...r })), [
+    { amount: -59, kind: 'savings', confirmed: 1 },
+    { amount: -2000, kind: 'ignore', confirmed: 1 },
+  ]);
+  assert.equal(sent.filter((m) => m === 'sendMessage').length, 0);
+});
