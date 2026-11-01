@@ -81,3 +81,19 @@ test('an answered difference stays answered; a new one later gets its own entry'
   await bmail(env, '2026-10-01 10:00', -1, 78); // another −10
   assert.deepEqual(await gaps(), [-1000, -1000]);
 });
+
+test('what you chose for money from someone is not suggested for money to them', async () => {
+  const { env } = setup();
+  const kinds = async () => (await env.DB.prepare('SELECT amount, kind FROM tx ORDER BY n').all<{ amount: number; kind: string }>()).results;
+  // Same person both ways (the b-mail names them on the Counterparty line).
+  const withName = (when: string, euros: number, balance: number) =>
+    ingest(env, {
+      id: `p${++n}`, date: when.replace(' ', 'T'), subject: `${euros < 0 ? 'Debit' : 'Credit'} on your account (ID=1)`,
+      body: `at ${when.slice(8, 10)}/${when.slice(5, 7)}/${when.slice(0, 4)}, ${when.slice(11)} the balance on your account SK0000000000000000000000 was ${euros < 0 ? 'decreased' : 'increased'} by ${Math.abs(euros).toFixed(2)} EUR.\r\nActual balance: ${balance.toFixed(2)} EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: NOVAK Jana\r\n`,
+    });
+  await withName('2026-10-30 11:52', 350, 400);
+  await env.DB.prepare("UPDATE tx SET kind = 'income', confirmed = 1").run(); // you said: income
+  await withName('2026-10-31 09:00', -60, 340);
+  await withName('2026-10-31 10:00', 20, 360);
+  assert.deepEqual((await kinds()).map((t) => t.kind), ['income', 'spend', 'income']); // −60 isn't "income"
+});

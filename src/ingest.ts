@@ -36,7 +36,7 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
   if (rule) return store('spend', rule === 'ask' ? null : rule);
-  const prior = key ? await learned(env.DB, key) : null;
+  const prior = key ? await learned(env.DB, key, t.amount) : null;
   return store(prior?.kind ?? defaultKind(t.amount), prior?.category ?? null);
 }
 

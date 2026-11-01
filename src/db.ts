@@ -72,11 +72,12 @@ export async function updateTx(db: D1Database, n: number, patch: Patch): Promise
 
 export const deleteTx = (db: D1Database, n: number) => db.prepare('DELETE FROM tx WHERE n = ?').bind(n).run();
 
-/** Your most recent explicit choice for this merchant/counterparty. */
-export const learned = (db: D1Database, key: string) =>
+/** Your most recent explicit choice for this merchant/counterparty, for money going the same way. */
+export const learned = (db: D1Database, key: string, amount: number) =>
   db
-    .prepare('SELECT kind, category FROM tx WHERE key = ? AND confirmed = 1 ORDER BY ts DESC, n DESC LIMIT 1')
-    .bind(key)
+    // Only choices for money going the same way: +350 € from someone being income says nothing about paying them.
+    .prepare('SELECT kind, category FROM tx WHERE key = ? AND confirmed = 1 AND (amount < 0) = ? ORDER BY ts DESC, n DESC LIMIT 1')
+    .bind(key, amount < 0 ? 1 : 0)
     .first<Pick<Tx, 'kind' | 'category'>>();
 
 /** The latest b-mail that told us your main account's balance. */
