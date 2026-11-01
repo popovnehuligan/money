@@ -41,6 +41,7 @@ const OCTOBER: Row[] = [
   ['15', '07:30', -50, 'Savings account', 'savings', undefined, undefined, 'transfer'],
   ['15', '18:20', -17.85, 'BILLA 0456', 'spend', 'food'],
   ['16', '20:00', -40, 'Mom', 'loan', undefined, undefined, 'transfer'],
+  ['17', '11:15', -40, 'ATM Obchodna 12', 'cash', undefined, undefined, 'atm'],
   ['19', '08:41', -3.8, 'Kafíčko na rohu', 'spend', undefined, undefined, 'cash'],
   ['19', '09:12', -7.6, 'BOLT.EU/O/2410', 'spend'],
   ['15', '19:05', -13.2, 'TESCO EXPRESS', 'spend'],

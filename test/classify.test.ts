@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CATEGORIES, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, categoryEmoji, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 const category = (r: ReturnType<typeof applyRules>) => (r && r !== 'ask' ? r.category : r);
@@ -129,4 +129,10 @@ test('a balance difference joins the open one from the last 6 hours', () => {
   assert.deepEqual(joinGap(open, -100, '2026-11-01T08:00'), { join: false, amount: -100 }); // too long ago
   assert.deepEqual(joinGap({ ...open, confirmed: 1 }, -100, '2026-10-31T15:09'), { join: false, amount: -100 }); // already answered
   assert.deepEqual(joinGap(null, 50, '2026-10-31T15:09'), { join: false, amount: 50 });
+});
+
+test('a category label\'s emoji, however many code points it has', () => {
+  assert.equal(categoryEmoji('💆🏻‍♀️ Kate'), '💆🏻‍♀️');
+  assert.equal(categoryEmoji('🅿️ Parking'), '🅿️');
+  assert.equal(categoryEmoji('Vape'), null);
 });

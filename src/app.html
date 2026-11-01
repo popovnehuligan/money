@@ -499,8 +499,10 @@ const KIND = {
   podmoga: { icon: '🔁', name: 'Passed on', c: 'var(--podmoga)', hint: 'Money you only pass on: podmoga jobs, or someone’s money for a bill. Only what you keep, in minus out, counts.' },
   loan: { icon: '🤝', name: 'Loan', c: 'var(--loan)', hint: 'Borrowed or paid back. Not income or spending: it changes what you owe.' },
   savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
+  cash: { icon: '💵', name: 'Cash', c: 'var(--ink-2)', hint: 'Cash out of an ATM, or cash paid in. Not spending: what you spend from it counts when you add it as cash.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
+const UNCOUNTED = new Set(['ignore', 'cash']); // shown, but not part of any total
 let CATS = {};
 // Built-in categories have a colour token; ones you typed take the next colour from this palette.
 const BUILT_IN = new Set(['taxi', 'scooter', 'food', 'smokes', 'parking', 'eat', 'bus', 'shop', 'health', 'home', 'other']);
@@ -846,7 +848,7 @@ function renderToday() {
   root.style.setProperty('--water', pool.colorTarget.map((v) => v | 0).join(' '));
 
 
-  const todays = d.tx.filter((t) => t.ts.startsWith(d.today) && t.kind !== 'ignore');
+  const todays = d.tx.filter((t) => t.ts.startsWith(d.today) && !UNCOUNTED.has(t.kind));
   const shown = todays.slice(0, 5), more = todays.length - shown.length;
   const items = [...shown.map((t) => ({ t })), ...(more > 0 ? [{ more }] : [])];
   const box = $('#buoys');
@@ -1000,7 +1002,7 @@ function rowHTML(t) {
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
     <span class="drop" style="--c:${v.c}"><span>${un ? '?' : v.icon}</span></span>
     <span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${esc(what)} · ${t.ts.slice(11, 16)} · ${esc(t.method)}${worth}</span></span>
-    <span class="row-amt ${t.kind === 'ignore' ? 'off' : t.amount > 0 ? 'in' : ''}">${short(t.amount, true)}</span>
+    <span class="row-amt ${UNCOUNTED.has(t.kind) ? 'off' : t.amount > 0 ? 'in' : ''}">${short(t.amount, true)}</span>
   </button>`;
 }
 
@@ -1123,7 +1125,7 @@ function tilesHTML(selected, act, n) {
 
 function editorHTML(t) {
   const v = visual(t);
-  const kinds = [t.amount > 0 ? 'income' : 'spend', 'podmoga', 'savings', 'loan', 'ignore'];
+  const kinds = [t.amount > 0 ? 'income' : 'spend', 'podmoga', 'savings', 'loan', 'cash', 'ignore'];
   return `<div class="sh-head"><span class="drop" style="--c:${v.c}"><span>${v.icon}</span></span>
       <div class="sh-title"><h2 id="sheet-title">${esc(t.label)}</h2><p>${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p></div></div>
     <p class="sh-amount ${t.amount > 0 ? 'in' : ''}">${money(t.amount, true)}</p>

@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORIES, KINDS, defaultKind, type Categories, type Kind } from './classify.ts';
+import { DEFAULT_CATEGORIES, KINDS, categoryEmoji, defaultKind, type Categories, type Kind } from './classify.ts';
 import type { Env, Tx } from './db.ts';
 
 type Button = { text: string; callback_data: string } | { text: string; web_app: { url: string } };
@@ -46,7 +46,7 @@ export function eur(cents: number, signed = false): string {
   return `${sign}${NUM.format(Math.abs(cents) / 100)} €`;
 }
 
-const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', ignore: '🚫' };
+const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', cash: '💵', ignore: '🚫' };
 
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
@@ -57,6 +57,16 @@ export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGO
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);
   return lines.join('\n');
+}
+
+/** Splits buttons into rows of at most `max`, as even as possible: 17 → 6, 6, 5. */
+function evenRows<T>(items: T[], max: number): T[][] {
+  const count = Math.ceil(items.length / max), rows: T[][] = [];
+  for (let i = 0, start = 0; i < count; i++) {
+    const size = Math.floor(items.length / count) + (i < items.length % count ? 1 : 0);
+    rows.push(items.slice(start, (start += size)));
+  }
+  return rows;
 }
 
 /**
@@ -95,20 +105,22 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
   }
 
   if (t.kind === 'spend') {
-    // Built-in categories as emoji, four per row, then ➕ to type a new one. Yours show their
-    // names, two per row, because you may have picked the same emoji twice.
+    // Every category as its emoji, in rows of up to six, then ➕ to type a new one. Only a
+    // category whose emoji another one shares shows its name (two per row, below the grid).
     const pick = (id: string, text: string) => ({ text, callback_data: `c:${id}:${t.n}` });
     const ids = Object.keys(cats);
+    const emoji = (id: string) => categoryEmoji(cats[id]);
+    const unique = (id: string) => emoji(id) !== null && ids.filter((other) => emoji(other) === emoji(id)).length === 1;
     const grid = ids
-      .filter((id) => id in DEFAULT_CATEGORIES)
-      .map((id) => pick(id, `${t.category === id ? '✓ ' : ''}${cats[id].split(' ')[0]}`))
+      .filter(unique)
+      .map((id) => pick(id, `${t.category === id ? '✓ ' : ''}${emoji(id)}`))
       .concat({ text: '➕', callback_data: `n:0:${t.n}` });
-    const mine = ids.filter((id) => !(id in DEFAULT_CATEGORIES)).map((id) => pick(id, tick(t.category === id, cats[id])));
-    for (let i = 0; i < grid.length; i += 4) rows.push(grid.slice(i, i + 4));
-    for (let i = 0; i < mine.length; i += 2) rows.push(mine.slice(i, i + 2));
+    const named = ids.filter((id) => !unique(id)).map((id) => pick(id, tick(t.category === id, cats[id])));
+    rows.push(...evenRows(grid, 6));
+    for (let i = 0; i < named.length; i += 2) rows.push(named.slice(i, i + 2));
     rows.push(worthRow());
   }
-  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
+  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'cash', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
   rows.push(kinds.slice(0, 2), kinds.slice(2, 4), kinds.slice(4), ...debtRows());
   if (t.source !== 'bmail') rows.push([{ text: '🗑 Delete', callback_data: `d:0:${t.n}` }]);
   return rows;

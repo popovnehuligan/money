@@ -5,8 +5,9 @@ import { fold } from './parse.ts';
 // only pass on, like podmoga jobs or a parent's money for a bill: only the net of
 // in minus out counts. loan = borrowing or paying back: it changes what you
 // owe (see Debt), never income or spending. ignore = moves between your own
-// accounts that shouldn't count at all.
-export type Kind = 'spend' | 'income' | 'savings' | 'podmoga' | 'loan' | 'ignore';
+// accounts that shouldn't count at all. cash = cash out of an ATM or paid in: money changing
+// form, not spending (what you spend from it counts when you type it in).
+export type Kind = 'spend' | 'income' | 'savings' | 'podmoga' | 'loan' | 'cash' | 'ignore';
 
 export const KINDS: Record<Kind, string> = {
   spend: '💸 Spend',
@@ -14,6 +15,7 @@ export const KINDS: Record<Kind, string> = {
   savings: '🏦 Savings',
   podmoga: '🔁 Passed on',
   loan: '🤝 Loan',
+  cash: '💵 Cash',
   ignore: '🚫 Ignore',
 };
 
@@ -68,10 +70,15 @@ export function newCategory(text: string, existing: Categories): [id: string, la
   return [id, label];
 }
 
+// One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
+const EMOJI_FIRST = /^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u;
+
+/** The emoji a category label starts with ("💆🏻‍♀️ Kate" → "💆🏻‍♀️"), or null. */
+export const categoryEmoji = (label: string): string | null => label.trim().match(EMOJI_FIRST)?.[1] ?? null;
+
 /** "🎮 games" → "🎮 Games", "vape" → "🏷 Vape"; `fallback` is the emoji to use when none is typed. Null without a name. */
 export function categoryLabel(text: string, fallback = '🏷'): string | null {
-  // One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
-  const m = text.trim().replace(/\s+/g, ' ').match(/^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u);
+  const m = text.trim().replace(/\s+/g, ' ').match(EMOJI_FIRST);
   const name = m?.[2].slice(0, 24).trim();
   if (!name || !/\p{L}/u.test(name)) return null;
   return `${m?.[1] ?? fallback} ${name[0].toUpperCase()}${name.slice(1)}`;

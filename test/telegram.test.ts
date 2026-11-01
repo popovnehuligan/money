@@ -12,9 +12,9 @@ const texts = (kb: ReturnType<typeof txKeyboard>) => kb.map((row) => row.map((b)
 
 test('unsorted payments get categories, rating and kinds', () => {
   const kb = texts(txKeyboard(tx()));
-  assert.equal(kb.length, 7); // 3 category rows, worth row, 3 kind rows
-  assert.deepEqual(kb.slice(0, 3), [['🚕', '🛴', '🛒', '🚬'], ['🅿️', '🍺', '🚌', '🛍'], ['💊', '🏠', '📦', '➕']]);
-  assert.deepEqual(kb.slice(4), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
+  assert.equal(kb.length, 6); // 2 category rows, worth row, 3 kind rows
+  assert.deepEqual(kb.slice(0, 2), [['🚕', '🛴', '🛒', '🚬', '🅿️', '🍺'], ['🚌', '🛍', '💊', '🏠', '📦', '➕']]);
+  assert.deepEqual(kb.slice(3), [['✓ Spend', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['💵 Cash', '🚫 Ignore']]);
 });
 
 test('sorted payments collapse to one summary button plus rating', () => {
@@ -25,13 +25,13 @@ test('sorted payments collapse to one summary button plus rating', () => {
 
 test('"change" expands the full keyboard again; manual entries can be deleted', () => {
   const kb = texts(txKeyboard(tx({ category: 'taxi', confirmed: 1, source: 'manual' }), true));
-  assert.equal(kb.length, 8);
-  assert.deepEqual(kb[0], ['✓ 🚕', '🛴', '🛒', '🚬']);
-  assert.deepEqual(kb[7], ['🗑 Delete']);
+  assert.equal(kb.length, 7);
+  assert.deepEqual(kb[0], ['✓ 🚕', '🛴', '🛒', '🚬', '🅿️', '🍺']);
+  assert.deepEqual(kb[6], ['🗑 Delete']);
 });
 
 test('money coming in only gets the kinds, two per row', () => {
-  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✅ 💰 Income'], ['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['🚫 Ignore']]);
+  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✅ 💰 Income'], ['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['💵 Cash', '🚫 Ignore']]);
 });
 
 test('a loan payment asks which loan when there are two', () => {
@@ -41,11 +41,20 @@ test('a loan payment asks which loan when there are two', () => {
   assert.deepEqual(texts(txKeyboard(loan, false, ['Mom'])), [['🤝 Loan · change']]); // one loan: nothing to ask
 });
 
-test('categories you added show their names, two per row, after ➕', () => {
-  const cats = categoriesFrom('{"games":"🎮 Games","vape":"🏷 Vape shop","gifts":"🎁 Gifts"}');
-  const kb = texts(txKeyboard(tx({ category: 'vape' }), false, [], cats));
-  assert.deepEqual(kb[3], ['💊', '🏠', '📦', '➕']);
-  assert.deepEqual(kb.slice(4, 6), [['🎮 Games', '✓ Vape shop'], ['🎁 Gifts']]);
+test('categories you added are icons in the same grid, rows kept even', () => {
+  const cats = categoriesFrom('{"games":"🎮 Games","kate":"💆🏻‍♀️ Kate","gifts":"🎁 Gifts","coffee":"☕ Coffee & food","gym":"🏋️ Gym"}');
+  const kb = texts(txKeyboard(tx({ category: 'kate', confirmed: 1 }), true, [], cats));
+  assert.deepEqual(kb.slice(0, 3), [
+    ['🚕', '🛴', '🛒', '🚬', '🅿️', '🍺'],
+    ['🚌', '🛍', '💊', '🏠', '🎮', '✓ 💆🏻‍♀️'],
+    ['🎁', '☕', '🏋️', '📦', '➕'],
+  ]);
+});
+
+test('only categories that share an emoji show their names', () => {
+  const cats = categoriesFrom('{"vape":"🏷 Vape shop","snacks":"🏷 Snacks"}');
+  const kb = texts(txKeyboard(tx({ category: 'vape', confirmed: 1 }), true, [], cats));
+  assert.deepEqual(kb.slice(0, 3), [['🚕', '🛴', '🛒', '🚬', '🅿️', '🍺'], ['🚌', '🛍', '💊', '🏠', '📦', '➕'], ['✓ Vape shop', '🏷 Snacks']]);
 });
 
 test('a suggestion waits for approval: ✅ on top until you confirm it', () => {

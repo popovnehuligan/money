@@ -21,6 +21,7 @@ Card and Google Pay payments appear here about a minute after you pay. Tap to so
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
 • 🏦 Savings for moves to your savings account
 • 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
+• 💵 Cash for cash out of an ATM or paid in: not spending, what you spend from it counts when you type it in
 I remember your choice for the same shop or account next time.
 
 Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), or use + in the dashboard.

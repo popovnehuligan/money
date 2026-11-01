@@ -40,7 +40,8 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   if (rule === 'ask') return store('spend', null);
   if (rule) return store(rule.kind ?? 'spend', (rule.kind ?? 'spend') === 'spend' ? (rule.category ?? null) : null, undefined, rule.quiet);
   const prior = key ? await learned(env.DB, key, t.amount) : null;
-  return store(prior?.kind ?? defaultKind(t.amount), prior?.category ?? null);
+  if (prior) return store(prior.kind, prior.category);
+  return store(t.method === 'atm' ? 'cash' : defaultKind(t.amount), null); // an ATM: a suggestion to approve
 }
 
 const GAP_HEADER = '⚖️ Your balance moved by more than the b-mails explain. A standing order, a fee, a savings transfer?';

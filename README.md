@@ -39,13 +39,14 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 | 🔁 Passed on | money you only pass on: podmoga jobs (500 € in, 400 € out), or a parent's money for a bill you pay | only the **net** (+100 € income); a loss counts as spending |
 | 🤝 Loan | borrowing, or paying someone back | neither income nor spending; it changes what you owe (see below) |
 | 🏦 Savings | moves to/from your savings account | "saved", never spending |
+| 💵 Cash | cash out of an ATM, or cash paid in | nothing: what you spend from it counts when you type it in |
 | 🚫 Ignore | moves between your own accounts | nothing |
 
 Savings don't ask you anything: round-ups and other bank movements that are 🏦 Savings are stored as approved, without a chat message, and show up in the savings jar.
 
-**Categories:** 🚕 Taxi · 🛴 Scooter · 🛒 Food · 🚬 Cigarettes · 🅿️ Parking · 🍺 Bar · 🚌 Bus · 🛍 Shopping · 💊 Health · 🏠 Home & bills · 📦 Other. If nothing fits, tap ➕ (Telegram) or ＋ New (dashboard) and type what it is, e.g. "🎮 Games". It becomes a category of its own, stored in the database (`categories` setting).
+**Categories:** 🚕 Taxi · 🛴 Scooter · 🛒 Food · 🚬 Cigarettes · 🅿️ Parking · 🍺 Bar · 🚌 Bus · 🛍 Shopping · 💊 Health · 🏠 Home & bills · 📦 Other. If nothing fits, tap ➕ (Telegram) or ＋ New (dashboard) and type what it is, e.g. "🎮 Games". It becomes a category of its own, stored in the database (`categories` setting). In the chat every category is just its emoji, in one grid; only one whose emoji another category shares also shows its name.
 
-You choose a kind or category once, in the chat or the dashboard. After that, payments to the same shop, IBAN or person are sorted the same way automatically. Bolt is told apart by its code: "BOLT.EU/O/…" and "BOLT.EU/P/…" are learned separately, so cabs and scooters don't get mixed up as long as Bolt bills them under different codes. Once a payment is sorted, its chat message collapses to a single "change" button.
+You choose a kind or category once, in the chat or the dashboard. After that, payments to the same shop, IBAN or person are sorted the same way automatically. Bolt is told apart by its code: "BOLT.EU/O/…" and "BOLT.EU/P/…" are learned separately, so cabs and scooters don't get mixed up as long as Bolt bills them under different codes. Once a payment is sorted, its chat message collapses to a single "change" button. ATM withdrawals come with 💵 Cash suggested.
 
 **Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" into 🍺 Bar when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. A rule can set a kind instead of a category, and `"quiet": true` stores what it sorts as approved, without a chat message. For example, `{"match":["pension fund"],"kind":"ignore","quiet":true}` handles an automatic pension payment you never want to be asked about. Rules live in the database, not in this public repo, because they contain names.
 
