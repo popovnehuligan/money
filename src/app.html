@@ -1003,13 +1003,15 @@ function renderJar() {
     </div>` : '';
 }
 
-function rowHTML(t) {
+/** One payment. Lists without day headings (a category's payments) show its date instead of the time. */
+function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
   const what = t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name;
   const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
+  const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
     <span class="drop" style="--c:${v.c}"><span>${un ? '?' : v.icon}</span></span>
-    <span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${esc(what)} · ${t.ts.slice(11, 16)} · ${esc(t.method)}${worth}</span></span>
+    <span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${[category ? what : '', when, t.method].filter(Boolean).map(esc).join(' · ')}${worth}</span></span>
     <span class="row-amt ${UNCOUNTED.has(t.kind) ? 'off' : t.amount > 0 ? 'in' : ''}">${short(t.amount, true)}</span>
   </button>`;
 }
@@ -1159,8 +1161,8 @@ function editorHTML(t) {
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
 }
 
-const listSheetHTML = (title, list) => `<h2 class="sh-h" id="sheet-title">${esc(title)}</h2>
-  <div style="margin-top:10px">${list.length ? list.map(rowHTML).join('') : '<div class="empty"><b>Dry</b>Nothing spent.</div>'}</div>`;
+const listSheetHTML = (title, list, row = {}) => `<h2 class="sh-h" id="sheet-title">${esc(title)}</h2>
+  <div style="margin-top:10px">${list.length ? list.map((t) => rowHTML(t, row)).join('') : '<div class="empty"><b>Dry</b>Nothing spent.</div>'}</div>`;
 
 function sortHTML() {
   const q = state.sortQueue, i = state.sortIndex;
@@ -1304,7 +1306,7 @@ const actions = {
   cat: (el) => {
     haptic.pick();
     const c = el.dataset.cat, m = catMeta(c);
-    openSheet('list', listSheetHTML(`${m.emoji} ${m.name} in ${state.view.name}`, state.view.tx.filter((t) => t.kind === 'spend' && (t.category || 'other') === c)));
+    openSheet('list', listSheetHTML(`${m.emoji} ${m.name} in ${state.view.name}`, state.view.tx.filter((t) => t.kind === 'spend' && (t.category || 'other') === c), { date: true, category: false }));
   },
   tx: (el) => { haptic.tap(); openEditor(el.dataset.n); },
   kind: (el) => {
