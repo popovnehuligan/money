@@ -125,7 +125,7 @@ test('savings and payments a quiet rule sorts are stored as approved, without as
 
 test('cash out of an ATM is suggested as 💵 Cash: not spending, waiting for your ✅', async () => {
   const { env } = setup();
-  await bmail(env, '2026-10-19 11:15', -10, 90, 'Vyber z bankomatu 4405**0000, TB VYSOKA');
+  await bmail(env, '2026-10-19 11:15', -10, 90, 'Vyber z bankomatu 4405**0000, SOME ATM');
   const t = await env.DB.prepare('SELECT kind, method, confirmed FROM tx').first();
   assert.deepEqual({ ...t }, { kind: 'cash', method: 'atm', confirmed: 0 });
 });
