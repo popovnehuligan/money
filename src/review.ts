@@ -28,10 +28,10 @@ export interface Review {
   nextName: string;
   partial: boolean; // the month isn't over yet
   headline: string;
-  income: number;
-  spent: number;
+  earned: number; // income plus what you kept from passed-on money
+  spent: number; // spending plus any passed-on overdraft
   saved: number;
-  spare: number; // income - spent
+  spare: number; // earned - spent
   keptPassedOn: number; // this month's change of the passed-on running total
   cuts: Cut[];
   earn: string[];
@@ -45,6 +45,7 @@ export interface ReviewInput {
   txs: ReviewTx[];
   prevTxs: StatTx[];
   categories: Categories;
+  passedOnBefore?: number; // passed-on running total before the month
   goal?: { name: string | null; amount: number | null; saved: number } | null;
 }
 
@@ -137,11 +138,11 @@ export function review(o: ReviewInput): Review {
   const label = (c: string) => cats[c] ?? cats.other;
   const catName = (c: string) => label(c).slice(label(c).indexOf(' ') + 1);
   const emoji = (c: string) => label(c).split(' ')[0];
-  const s = summarize(o.txs);
+  const s = summarize(o.txs, o.passedOnBefore ?? 0);
   const partial = o.today < addMonths(o.month, 1) && o.today >= o.month;
   const name = monthName(o.month), next = addMonths(o.month, 1), nextName = monthName(next);
   const daysSoFar = partial ? Math.max(1, Number(o.today.slice(8, 10)) - 1) : daysInMonth(o.month);
-  const spare = s.income - s.spent;
+  const spare = s.earned - s.spent;
   const all = statsOf(o.txs);
 
   // 1. Where to cut.
@@ -165,15 +166,16 @@ export function review(o: ReviewInput): Review {
   const earn: string[] = [];
   const spent = partial ? Math.round((s.spent * daysInMonth(o.month)) / daysSoFar) : s.spent;
   const need = (sp: number) => Math.ceil(sp / 0.8 / 1000) * 1000;
-  if (partial) earn.push(`So far: *${e0(s.income)}* in, *${e0(s.spent)}* spent. At this pace ${name} ends at about *${e0(spent)}* spent.`);
-  else if (s.income > 0) earn.push(`You took in *${e0(s.income)}* and spent *${e0(s.spent)}*: ${spare >= 0 ? `*${e0(spare)}* to spare, ${pct(spare, s.income)} % of what came in.` : `*${e0(-spare)}* more than came in.`}`);
-  else earn.push(`No income came in this month, and you spent *${e0(s.spent)}*.`);
-  const more = Math.max(0, need(spent) - s.income), moreWithCuts = Math.max(0, need(spent - cutTotal) - s.income);
+  if (partial) earn.push(`So far: *${e0(s.earned)}* earned, *${e0(s.spent)}* spent. At this pace ${name} ends at about *${e0(spent)}* spent.`);
+  else if (s.earned > 0) earn.push(`You earned *${e0(s.earned)}* and spent *${e0(s.spent)}*: ${spare >= 0 ? `*${e0(spare)}* to spare, ${pct(spare, s.earned)} % of what you earned.` : `*${e0(-spare)}* more than you earned.`}`);
+  else earn.push(`You earned nothing this month, and spent *${e0(s.spent)}*.`);
+  const more = Math.max(0, need(spent) - s.earned), moreWithCuts = Math.max(0, need(spent - cutTotal) - s.earned);
   if (more > 0) {
     earn.push(`To keep 20 % of what you earn at this spending, you'd need about *${e0(need(spent))}* a month: *${e0(more)}* more, roughly *${e0(more / 4.33)}* a week.`);
     if (cutTotal) earn.push(moreWithCuts > 0 ? `With the cuts above it's *${e0(moreWithCuts)}* more, ${e0(moreWithCuts / 4.33)} a week.` : `With the cuts above you'd keep 20 % without earning a cent more.`);
   } else if (!partial) earn.push(`That's at least 20 % kept: right where it should be. 🎉`);
-  if (s.podmogaNet) earn.push(`Passed-on money isn't counted here: it ${s.podmogaNet > 0 ? `left you *${e0(s.podmogaNet)}*` : `cost you *${e0(-s.podmogaNet)}*`} this month.`);
+  if (s.podmogaNet > 0) earn.push(`Earned includes *${e0(s.podmogaNet)}* you kept from passed-on money.`);
+  if (s.overdraft > 0) earn.push(`Spent includes *${e0(s.overdraft)}* more passed on than came in for it.`);
 
   // 3. What else stood out.
   const notes: Note[] = [];
@@ -221,7 +223,7 @@ export function review(o: ReviewInput): Review {
   for (const [c, g] of groups) {
     if (!g.out) continue; // only bills someone else's money was meant to pay
     const net = g.in - g.out;
-    notes.push({ icon: '🔁', text: `${catName(c)}: ${e0(g.in)} came in for it, ${e0(g.out)} went out${net < 0 ? `: *${e0(-net)}* from your own pocket.` : net > 0 ? `: *${e0(net)}* still waiting to be passed on.` : ', fully covered.'}` });
+    notes.push({ icon: '🔁', text: net < 0 ? `${catName(c)}: *${e0(-net)}* came from your own pocket.` : net > 0 ? `${catName(c)}: *${e0(net)}* still waiting to be passed on.` : `${catName(c)}: fully covered by the money passed on for it.` });
   }
 
   const unsorted = spends.filter((t) => !t.category);
@@ -250,20 +252,20 @@ export function review(o: ReviewInput): Review {
 
   const headline = partial
     ? `${name} so far`
-    : s.income > 0 && spare >= s.income * 0.2
-      ? `${name}: you kept ${pct(spare, s.income)} % of what came in`
+    : s.earned > 0 && spare >= s.earned * 0.2
+      ? `${name}: you kept ${pct(spare, s.earned)} % of what you earned`
       : spare >= 0
         ? `${name}: you broke about even`
-        : `${name}: ${e0(-spare)} more went out than came in`;
+        : `${name}: you spent ${e0(-spare)} more than you earned`;
 
-  return { month: o.month, name, nextName, partial, headline, income: s.income, spent: s.spent, saved: s.saved, spare, keptPassedOn: s.podmogaNet, cuts, earn, notes, plan };
+  return { month: o.month, name, nextName, partial, headline, earned: s.earned, spent: s.spent, saved: s.saved, spare, keptPassedOn: s.podmogaNet, cuts, earn, notes, plan };
 }
 
 /** The review as a Telegram message (HTML), for the 1st of the month. */
 export function reviewText(r: Review, categories: Categories): string {
   const cats = { ...DEFAULT_CATEGORIES, ...categories };
   const html = (t: string) => t.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]!).replace(/\*([^*]+)\*/g, '<b>$1</b>');
-  const lines = [`📋 <b>${html(r.headline)}</b>`, '', `💰 In ${e0(r.income)} · 💸 spent ${e0(r.spent)} · 🏦 saved ${e0(r.saved)}`];
+  const lines = [`📋 <b>${html(r.headline)}</b>`, '', `💰 Earned ${e0(r.earned)} · 💸 spent ${e0(r.spent)} · 🏦 saved ${e0(r.saved)}`];
   if (r.cuts.length) {
     lines.push('', '<b>Where to cut</b>');
     for (const c of r.cuts) lines.push(`${(cats[c.category] ?? cats.other).split(' ')[0]} ${e0(c.spent)} → keep it under <b>${e0(c.cap)}</b> (saves ${e0(c.save)})`);

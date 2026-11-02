@@ -29,8 +29,8 @@ const r = review({ month: '2026-10', today: '2026-11-02', txs: october, prevTxs:
 const plain = (s: string) => s.replace(/\u00a0/g, ' '); // amounts use no-break spaces: "1 000 €" never splits
 
 test('passed-on money is not income or spending in the review', () => {
-  assert.equal(r.income, 140000);
-  assert.equal(r.spent, 16000 + 12000 + 8000 + 878 + 90000); // taxi, bar, cigarettes, Google Play ×2, rent
+  assert.equal(r.earned, 140000); // the therapy pair lost 35 €: nothing kept, so nothing earned from it
+  assert.equal(r.spent, 16000 + 12000 + 8000 + 878 + 90000 + 3500); // taxi, bar, cigarettes, Google Play ×2, rent, and the 35 € passed on beyond what came in
   assert.equal(r.keptPassedOn, -3500);
 });
 
@@ -46,10 +46,10 @@ test('cuts come with a saving, a cap and a how-to, biggest first', () => {
 
 test('what you would need to earn to keep 20 %', () => {
   const earn = r.earn.map(plain);
-  assert.match(earn[0], /You took in \*1 400 €\* and spent \*1 269 €\*: \*131 €\* to spare, 9 %/);
-  assert.match(earn[1], /about \*1 590 €\* a month: \*190 €\* more, roughly \*44 €\* a week/);
-  assert.match(earn[2], /With the cuts above it's \*30 €\* more, 7 € a week/); // cuts: 50 + 50 + 25 + 5 €
-  assert.match(earn.at(-1)!, /cost you \*35 €\*/);
+  assert.match(earn[0], /You earned \*1 400 €\* and spent \*1 304 €\*: \*96 €\* to spare, 7 %/);
+  assert.match(earn[1], /about \*1 630 €\* a month: \*230 €\* more, roughly \*53 €\* a week/);
+  assert.match(earn[2], /With the cuts above it's \*70 €\* more, 16 € a week/); // cuts: 50 + 50 + 25 + 5 €
+  assert.match(earn.at(-1)!, /Spent includes \*35 €\* more passed on than came in for it/);
 });
 
 test('notes: income source, nights out, double charge, therapy paid from your own pocket', () => {
@@ -57,7 +57,8 @@ test('notes: income source, nights out, double charge, therapy paid from your ow
   assert.match(text, /\*1 000 €\* \(71 %\) of your income came from Parent/);
   assert.match(text, /Nights out/);
   assert.match(text, /Google Play charged \*4,39 €\* 2× on Tue 20 Oct/);
-  assert.match(text, /Psychologist: 35 € came in for it, 70 € went out: \*35 €\* from your own pocket/);
+  assert.match(text, /Psychologist: \*35 €\* came from your own pocket/);
+  assert.doesNotMatch(text, /came in for it|went out:/); // never the raw passed-on amounts
   assert.match(text, /\*30 €\* went into savings/);
 });
 
@@ -82,5 +83,5 @@ test('what you marked necessary is never counted as something to cut', () => {
   const needed = october.map((t) => (t.category === 'taxi' ? { ...t, worth: 2 } : t));
   const r2 = review({ month: '2026-10', today: '2026-11-02', txs: needed, prevTxs: [], categories: cats });
   assert.ok(!r2.cuts.some((c) => c.category === 'taxi'));
-  assert.match(plain(r2.notes.map((n) => n.text).join('\n')), /\*160 €\* \(13 %\) of spending you marked necessary/);
+  assert.match(plain(r2.notes.map((n) => n.text).join('\n')), /\*160 €\* \(12 %\) of spending you marked necessary/);
 });

@@ -2,7 +2,7 @@ import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore] = await Promise.all([
     txBetween(env.DB, `${month}-01`, `${addMonths(month, 1)}-01`),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -23,6 +23,8 @@ async function summary(env: Env, asked?: string | null) {
     latestBmail(env.DB),
     passedOnTotal(env.DB),
     unratedCount(env.DB),
+    passedOnBefore(env.DB, `${month}-01`),
+    passedOnBefore(env.DB, `${addMonths(month, -1)}-01`),
   ]);
   return dashboard({
     month,
@@ -37,6 +39,8 @@ async function summary(env: Env, asked?: string | null) {
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
     passedOn,
     unrated,
+    passedOnBefore: before,
+    prevPassedOnBefore: prevBefore,
   });
 }
 

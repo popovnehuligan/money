@@ -53,6 +53,8 @@ export interface DashboardInput {
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
+  passedOnBefore?: number; // passed-on running total before this month
+  prevPassedOnBefore?: number; // …and before the previous month
 }
 
 /** One payment as the dashboard shows it. */
@@ -77,11 +79,11 @@ export function txView(t: Tx) {
 export function dashboard(o: DashboardInput) {
   const current = o.month === monthOf(o.today);
   const s = o.settings;
-  const prev = summarize(o.prevTxs);
+  const prev = summarize(o.prevTxs, o.prevPassedOnBefore ?? 0);
   const savedTotal = o.savedByMonth.reduce((sum, m) => sum + m.saved, 0);
   // Pace for the goal: average of the last three months you saved anything in.
   const recent = o.savedByMonth.filter((m) => m.saved > 0).slice(0, 3);
-  const summary = summarize(o.txs);
+  const summary = summarize(o.txs, o.passedOnBefore ?? 0);
   const spentIn = new Map(summary.byCategory);
   return {
     month: o.month,
@@ -104,9 +106,10 @@ export function dashboard(o: DashboardInput) {
       txs: o.txs,
       prevTxs: o.prevTxs,
       categories: o.categories,
+      passedOnBefore: o.passedOnBefore ?? 0,
       goal: { name: s.goalName, amount: s.goalAmount, saved: s.savingsStart + savedTotal },
     }),
-    prev: { income: prev.income, spent: prev.spent, saved: prev.saved },
+    prev: { earned: prev.earned, spent: prev.spent, saved: prev.saved },
     savings: {
       goalName: s.goalName,
       goalAmount: s.goalAmount,

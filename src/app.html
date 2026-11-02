@@ -608,7 +608,7 @@ const KIND = {
   cash: { icon: '💵', name: 'Cash', c: 'var(--ink-2)', hint: 'Cash out of an ATM, or cash paid in. Not spending: what you spend from it counts when you add it as cash.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
 };
-const UNCOUNTED = new Set(['ignore', 'cash']); // shown, but not part of any total
+const UNCOUNTED = new Set(['ignore', 'cash', 'podmoga']); // shown, but their own amounts aren't part of any total (passed-on money counts only as its net)
 let CATS = {};
 // Built-in categories have a colour token; ones you typed take the next colour from this palette.
 const BUILT_IN = new Set(['taxi', 'scooter', 'food', 'smokes', 'parking', 'eat', 'bus', 'shop', 'health', 'home', 'other']);
@@ -1050,20 +1050,23 @@ function renderFlow() {
   const po = d.passedOn;
   if (po.in || po.out) {
     // Someone else's money through your account: never income or spending. Only what you keep counts, as a running total.
+    const month = s.podmogaNet > 0 ? `${eur0(s.podmogaNet)} of it is in ${esc(d.name)}’s earnings.`
+      : s.overdraft > 0 ? `In ${esc(d.name)} you passed on ${eur0(s.overdraft)} more than came in for it; that’s in spent.`
+      : s.podmogaNet < 0 ? `In ${esc(d.name)} you passed on money that came in earlier: no loss.` : '';
     pod = `<div class="pod">
       <h3>🔁 Passed on · kept so far</h3>
       <p class="big-kept${po.kept < 0 ? ' neg' : ''}">${eur0(po.kept, true)}</p>
-      <p>${eur0(po.in)} came in and ${eur0(po.out)} went out since you started. None of it counts as income or spending; only what you keep does.${s.podmogaIn || s.podmogaOut ? ` ${esc(d.name)}: ${eur0(s.podmogaNet, true)}.` : ''}</p>
+      <p>Only what you keep counts, never the money that just passes through. ${month}</p>
     </div>`;
   }
   $('#flow').innerHTML = `
     <h2 class="title" id="flow-title">Where it went</h2>
     <div class="totals">
-      <div><span>Came in</span><b>${eur0(s.income)}</b></div>
+      <div><span>Earned</span><b>${eur0(s.earned)}</b></div>
       <div><span>Spent</span><b>${eur0(s.spent)}</b></div>
       <div><span>Saved</span><b class="gold">${eur0(s.saved)}</b></div>
     </div>
-    ${bars ? `<div class="bars">${bars}</div>` : '<div class="empty"><b>Nothing spent yet</b>Categories show up here as you sort payments.</div>'}
+    ${bars ? `<div class="bars">${bars}${s.overdraft ? `<div class="bar-row" style="--c:var(--podmoga)"><span class="bar-top"><span>🔁 Passed on beyond what came in</span><b>${eur0(s.overdraft)}</b></span><span class="meter"><i style="--w:${((100 * s.overdraft) / max).toFixed(1)}%"></i></span></div>` : ''}</div>` : '<div class="empty"><b>Nothing spent yet</b>Categories show up here as you sort payments.</div>'}
     ${pod}`;
 }
 
@@ -1543,7 +1546,7 @@ function reviewHTML(d) {
       <button type="button" class="textbtn" data-act="end-challenge">End the challenge</button>` : '';
   return `<p class="rv-kicker">${r.partial ? 'So far' : 'Month in review'}</p>
     <h2 class="rv-head" id="sheet-title">${esc(r.headline)}</h2>
-    <div class="totals"><div><span>Came in</span><b>${eur0(r.income)}</b></div><div><span>Spent</span><b>${eur0(r.spent)}</b></div><div><span>Saved</span><b class="gold">${eur0(r.saved)}</b></div></div>
+    <div class="totals"><div><span>Earned</span><b>${eur0(r.earned)}</b></div><div><span>Spent</span><b>${eur0(r.spent)}</b></div><div><span>Saved</span><b class="gold">${eur0(r.saved)}</b></div></div>
     ${live}${plan}
     ${cuts ? `<h3 class="sh-sub">Where to cut</h3>${cuts}` : ''}
     <h3 class="sh-sub">To have money to spare</h3>${r.earn.map((x) => `<p class="rv-p">${rich(x)}</p>`).join('')}

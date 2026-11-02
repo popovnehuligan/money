@@ -12,17 +12,21 @@ const tx = (ts: string, amount: number, kind: StatTx['kind'], extra: Partial<Sta
   ...extra,
 });
 
-test('passed-on money is never income or spending; only its net moves', () => {
-  // 300 in, three people paid 50 each: you kept 150, and nothing was spent.
+test('passed-on money counts only as its net: 300 in, 3 × 50 out is 150 earned, nothing spent', () => {
   const s = summarize([tx('2026-10-05T10:00', 30000, 'podmoga'), ...[1, 2, 3].map((i) => tx(`2026-10-0${5 + i}T15:00`, -5000, 'podmoga'))]);
-  assert.equal(s.income, 0);
-  assert.equal(s.spent, 0);
-  assert.equal(s.podmogaNet, 15000);
+  assert.deepEqual([s.income, s.earned, s.spent, s.podmogaNet], [0, 15000, 0, 15000]);
 });
 
 test('a session paid with mom\'s 35 € nets to nothing', () => {
   const s = summarize([tx('2026-10-05T10:00', 3500, 'podmoga'), tx('2026-10-05T15:00', -3500, 'podmoga')]);
-  assert.deepEqual([s.income, s.spent, s.podmogaNet], [0, 0, 0]);
+  assert.deepEqual([s.earned, s.spent, s.overdraft], [0, 0, 0]);
+});
+
+test('paying out more than came in is an overdraft (spent), unless money from earlier months covers it', () => {
+  const out = [tx('2026-11-03T15:00', -15000, 'podmoga')];
+  assert.deepEqual([summarize(out).spent, summarize(out).overdraft], [15000, 15000]); // nothing was waiting: your own money
+  assert.deepEqual([summarize(out, 30000).spent, summarize(out, 30000).earned], [0, 0]); // the 300 from October pays it: no loss
+  assert.equal(summarize(out, 10000).overdraft, 5000); // 100 was waiting, 50 more is yours
 });
 
 test('savings transfers are saved, not spent', () => {

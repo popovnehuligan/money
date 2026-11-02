@@ -1,6 +1,6 @@
 import { debtFor, owed, owedText, parseDebts, type Categories } from './classify.ts';
 import { parseCaps } from './dashboard.ts';
-import { firstDay, getBudget, getCategories, getSetting, getSettings, loanPayments, passedOnTotal, savedByMonth, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
+import { firstDay, getBudget, getCategories, getSetting, getSettings, loanPayments, passedOnBefore, passedOnTotal, savedByMonth, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
 import { review, reviewText } from './review.ts';
 import { noSpendStreak, safeToSpend, summarize, type Summary } from './stats.ts';
 import { eur } from './telegram.ts';
@@ -23,7 +23,7 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
   const month = monthOf(t.ts);
   const name = monthName(month);
   const txs = await txInMonth(env.DB, month);
-  const s = summarize(txs);
+  const s = summarize(txs, await passedOnBefore(env.DB, `${month}-01`));
   switch (t.kind) {
     case 'spend': {
       const today = dayOf(localStamp());
@@ -59,7 +59,7 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
     case 'savings':
       return `Saved in ${name}: <b>${eur(s.saved)}</b> 🌱`;
     case 'income':
-      return `Income in ${name}: ${eur(s.income)}`;
+      return `Earned in ${name}: ${eur(s.earned)}`;
     default:
       return undefined;
   }
@@ -75,7 +75,7 @@ export async function morningText(env: Env): Promise<string> {
     firstDay(env.DB),
     spendDaysSince(env.DB, addDays(today, -90)),
   ]);
-  const s = summarize(monthTxs);
+  const s = summarize(monthTxs, await passedOnBefore(env.DB, `${month}-01`));
   const spentYesterday = summarize(yesterdayTxs).spent;
 
   const lines = [
@@ -94,20 +94,21 @@ export async function morningText(env: Env): Promise<string> {
 
 /** The month in review (the full one is in the dashboard), plus the passed-on running total. */
 export async function wrapText(env: Env, month: string): Promise<string> {
-  const [txs, prevTxs, settings, cats, saved, total] = await Promise.all([
+  const [txs, prevTxs, settings, cats, saved, total, before] = await Promise.all([
     txInMonth(env.DB, month),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
     getCategories(env.DB),
     savedByMonth(env.DB),
     passedOnTotal(env.DB),
+    passedOnBefore(env.DB, `${month}-01`),
   ]);
   const savedSoFar = Number(settings.savings_start ?? 0) + saved.reduce((sum, m) => sum + m.saved, 0);
   const goal = { name: settings.goal_name || null, amount: settings.goal_amount ? Number(settings.goal_amount) : null, saved: savedSoFar };
-  const r = review({ month, today: dayOf(localStamp()), txs: txs as Tx[], prevTxs, categories: cats, goal });
+  const r = review({ month, today: dayOf(localStamp()), txs: txs as Tx[], prevTxs, categories: cats, goal, passedOnBefore: before });
   const lines = [reviewText(r, cats)];
   if (total.in || total.out) lines.push('', `🔁 Kept from passed-on money so far: <b>${eur(total.kept, true)}</b>`);
   const caps = parseCaps(settings.caps);
-  if (r.partial && Object.keys(caps).length) lines.push('', `🎯 ${capsLine(caps, summarize(txs), cats)}`);
+  if (r.partial && Object.keys(caps).length) lines.push('', `🎯 ${capsLine(caps, summarize(txs, before), cats)}`);
   return lines.join('\n');
 }

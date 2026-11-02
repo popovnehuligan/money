@@ -14,21 +14,25 @@ export interface StatTx {
 export const ownPart = (t: Pick<StatTx, 'amount' | 'loan_part'>) => t.amount - (t.loan_part ?? 0);
 
 export interface Summary {
-  income: number;
-  spent: number;
+  income: number; // 💰 Income payments only
+  earned: number; // what you earned: income plus what you kept from passed-on money
+  spent: number; // what you spent: spending plus any passed-on overdraft
   saved: number;
-  // 🔁 Passed on: someone else's money through your account. Never income or spending;
-  // only what you keep counts, as a running total (see passedOnTotal in db.ts).
+  // 🔁 Passed on: someone else's money through your account. Its raw amounts never count as
+  // earned or spent, only its net: kept money is earned; paying out more than came in (and more
+  // than was still waiting from earlier months) is an overdraft, which is spent.
   podmogaIn: number;
   podmogaOut: number;
-  podmogaNet: number; // this month's change of that running total
+  podmogaNet: number; // this month's change of the passed-on running total
+  overdraft: number; // the part of `spent` that is passed-on overdraft
   loans: number; // borrowed minus paid back (negative when you paid back more)
-  left: number; // income - spent - saved + loans
+  left: number; // earned - spent - saved + loans
   regret: number; // spending you marked 👎
   byCategory: [string, number][]; // biggest first
 }
 
-export function summarize(txs: StatTx[]): Summary {
+/** `passedOnBefore`: the passed-on running total before these payments (money still waiting to go out). */
+export function summarize(txs: StatTx[], passedOnBefore = 0): Summary {
   let income = 0, spent = 0, saved = 0, podmogaIn = 0, podmogaOut = 0, loans = 0, regret = 0;
   const cats = new Map<string, number>();
   for (const t of txs) {
@@ -49,15 +53,20 @@ export function summarize(txs: StatTx[]): Summary {
       if (t.worth === 0) regret -= own;
     }
   }
+  const podmogaNet = podmogaIn - podmogaOut;
+  const earned = income + Math.max(0, podmogaNet);
+  const overdraft = Math.max(0, -podmogaNet - Math.max(0, passedOnBefore)); // payouts beyond everything that came in
   return {
     income,
-    spent,
+    earned,
+    spent: spent + overdraft,
     saved,
     podmogaIn,
     podmogaOut,
-    podmogaNet: podmogaIn - podmogaOut,
+    podmogaNet,
+    overdraft,
     loans,
-    left: income - spent - saved + loans,
+    left: earned - spent - overdraft - saved + loans,
     regret,
     byCategory: [...cats].filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]),
   };

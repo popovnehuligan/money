@@ -22,7 +22,7 @@ The dashboard treats money as water. Scrolling down is diving deeper:
   - Today's payments hang in the sky above, because that money has left the pool. Drag one into a category to sort it, or tap it to edit.
   - Touch the water to make ripples; in Telegram 8.0+ it sloshes when you tilt the phone.
 - **The month:** one glass per day, filled with that day's spending by category. ✦ marks days with nothing spent, and a dripping glass was a big day. 📋 opens the month in review (below), and the caps of a challenge you took show here as they fill.
-- **Where it went:** what came in, what was spent and what was saved, then spending by category and what you've kept from passed-on money so far.
+- **Where it went:** what you earned, what you spent and what you saved, then spending by category and what you've kept from passed-on money so far.
 - **Savings jar:** gold liquid with the goal date at your current pace, plus "leaks": what you marked 👎.
 - **Every drop:** the full list, with filters.
 
@@ -36,7 +36,7 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 |---|---|---|
 | 💸 Spend | normal spending (Google Pay, card, cash) | expense, by category |
 | 💰 Income | salary, gifts | income |
-| 🔁 Passed on | money you only pass on: podmoga jobs (300 € in, three people paid 50 € each), or a parent's money for a bill you pay | never income or spending. What you keep (+150 €) is a **running total** of everything in minus everything out, so a payout next month is no "loss" |
+| 🔁 Passed on | money you only pass on: podmoga jobs (300 € in, three people paid 50 € each), or a parent's money for a bill you pay | only the **net**, never the amounts passing through: what you keep (+150 €) is earned; paying out more than came in is spent, unless money still waiting from earlier months covers it (so a payout next month is no "loss"). "Kept so far" is the running total |
 | 🤝 Loan | borrowing, or paying someone back | neither income nor spending; it changes what you owe (see below) |
 | 🏦 Savings | moves to/from your savings account | "saved", never spending |
 | 💵 Cash | cash out of an ATM, or cash paid in | nothing: what you spend from it counts when you type it in |

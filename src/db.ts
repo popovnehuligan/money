@@ -121,6 +121,11 @@ export async function passedOnTotal(db: D1Database, category?: string): Promise<
   return { in: i, out: o, kept: i - o };
 }
 
+/** The passed-on running total before `day`: money still waiting to be passed on (or overdrawn, if negative). */
+export async function passedOnBefore(db: D1Database, day: string): Promise<number> {
+  return (await db.prepare("SELECT COALESCE(SUM(amount), 0) AS k FROM tx WHERE kind = 'podmoga' AND ts < ?").bind(day).first<{ k: number }>())?.k ?? 0;
+}
+
 /** Spending you haven't rated yet (👍 worth it, 🧱 necessary, 👎 regret), newest first. */
 export async function unratedTx(db: D1Database): Promise<Tx[]> {
   const { results } = await db.prepare(`SELECT ${COLS} FROM tx WHERE kind = 'spend' AND amount < 0 AND worth IS NULL ORDER BY ts DESC, n DESC`).all<Tx>();
