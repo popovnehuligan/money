@@ -1,6 +1,6 @@
 import { BadInput, applyChoice } from './actions.ts';
 import { KINDS, owed, owedText, parseDebts, type Categories } from './classify.ts';
-import { debtNames, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, type Env } from './db.ts';
+import { debtNames, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, unratedCount, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
@@ -28,6 +28,7 @@ Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), o
 
 /today  today's allowance
 /month  this month so far (/month last for last month's review)
+/rate  swipe through payments: 👍 worth it, 🧱 necessary, 👎 not
 /budget 600  monthly spending budget
 /owe  what you still owe (/owe Mom 100 to set it)
 /gaps off  stop asking about unexplained balance changes`;
@@ -90,6 +91,15 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
     case '/help':
       await send(env, help(await getCategories(env.DB)), await dashboardButton(env));
       return;
+    case '/rate': {
+      const base = await getSetting(env.DB, 'base_url'), count = await unratedCount(env.DB);
+      await send(
+        env,
+        count ? `👍👎 <b>${count}</b> payments to rate. Swipe right if it was worth it, left if it wasn’t, up if it was necessary.` : 'Every payment is rated. 🎉',
+        base && count ? [[{ text: '👍👎 Rate payments', web_app: { url: `${base}/app?rate=1` } }]] : undefined,
+      );
+      return;
+    }
     case '/today':
       await send(env, await morningText(env), await dashboardButton(env));
       return;

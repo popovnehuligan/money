@@ -1,8 +1,8 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
-import { dashboard, readSettings } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
+import { dashboard, readSettings, txView } from './dashboard.ts';
+import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated] = await Promise.all([
     txBetween(env.DB, `${month}-01`, `${addMonths(month, 1)}-01`),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -22,6 +22,7 @@ async function summary(env: Env, asked?: string | null) {
     loanPayments(env.DB),
     latestBmail(env.DB),
     passedOnTotal(env.DB),
+    unratedCount(env.DB),
   ]);
   return dashboard({
     month,
@@ -35,6 +36,7 @@ async function summary(env: Env, asked?: string | null) {
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
     passedOn,
+    unrated,
   });
 }
 
@@ -51,6 +53,7 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
   if (!user || user !== env.CHAT_ID) return Response.json({ error: 'Open the dashboard from the menu button in your Telegram bot.' }, { status: 403 });
 
   if (req.method === 'GET' && url.pathname === '/api/summary') return Response.json(await summary(env, url.searchParams.get('month')));
+  if (req.method === 'GET' && url.pathname === '/api/unrated') return Response.json({ tx: (await unratedTx(env.DB)).map(txView) });
   if (req.method !== 'POST') return Response.json({ error: 'Not found' }, { status: 404 });
 
   const body = await req.json<Record<string, unknown>>().catch(() => ({}) as Record<string, unknown>);
@@ -60,7 +63,8 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         const t = await getTx(env.DB, Number(body.n));
         if (!t) return Response.json({ error: 'That payment no longer exists.' }, { status: 404 });
         await applyChoice(env, t, body as Choice);
-        return Response.json(await summary(env, monthOf(t.ts)));
+        // The swiper rates one payment after another: it only needs to know it worked.
+        return Response.json(body.quiet ? { ok: true } : await summary(env, monthOf(t.ts)));
       }
       case '/api/delete': {
         const t = await getTx(env.DB, Number(body.n));

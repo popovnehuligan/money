@@ -64,7 +64,7 @@ const atNight = (t: { ts: string }) => hour(t) >= 22 || hour(t) < 5;
 const who = (t: ReviewTx) => t.label ?? t.merchant ?? t.note ?? 'Cash';
 
 /** What each category's cut looks like: the share you could keep, and how. */
-type Stats = { spent: number; count: number; avg: number; regret: number; regrets: number; night: number; list: ReviewTx[] };
+type Stats = { spent: number; needed: number; count: number; avg: number; regret: number; regrets: number; night: number; list: ReviewTx[] };
 const HOW: Record<string, { share: number; how: (x: Stats, all: Map<string, Stats>, save: number) => string }> = {
   taxi: {
     share: 0.3,
@@ -106,10 +106,11 @@ function statsOf(txs: ReviewTx[]): Map<string, Stats> {
   for (const t of txs) {
     if (t.kind !== 'spend' || t.amount >= 0) continue;
     const c = t.category ?? 'other';
-    const x = m.get(c) ?? { spent: 0, count: 0, avg: 0, regret: 0, regrets: 0, night: 0, list: [] };
+    const x = m.get(c) ?? { spent: 0, needed: 0, count: 0, avg: 0, regret: 0, regrets: 0, night: 0, list: [] };
     x.spent -= ownPart(t);
     x.count++;
     if (t.worth === 0) (x.regret -= ownPart(t)), x.regrets++;
+    if (t.worth === 2) x.needed -= ownPart(t);
     if (atNight(t)) x.night++;
     x.list.push(t);
     m.set(c, x);
@@ -148,8 +149,9 @@ export function review(o: ReviewInput): Review {
   for (const [c, x] of all) {
     const rule = HOW[c];
     // The category's own way to save, else what you marked 👎 there; whichever is bigger.
-    let own = rule ? x.spent * rule.share : 0;
-    if (c === 'smokes') own = x.count >= 8 ? Math.min(x.avg * 4.3, x.spent * 0.3) : 0; // one purchase fewer a week, if you buy twice a week or more
+    // What you marked 🧱 necessary isn't something to cut.
+    let own = rule ? (x.spent - x.needed) * rule.share : 0;
+    if (c === 'smokes') own = x.count >= 8 ? Math.min(x.avg * 4.3, (x.spent - x.needed) * 0.3) : 0; // one purchase fewer a week, if you buy twice a week or more
     if (c === 'subscription') own = doubles(x.list).reduce((sum, d) => sum + d.amount * (d.times - 1), 0) + x.regret;
     const save = five(Math.max(own, x.regret));
     if (save < 500) continue;
@@ -201,6 +203,9 @@ export function review(o: ReviewInput): Review {
   notes.push(dry ? { icon: '✦', text: `*${plural(dry, 'day')}* without spending a cent.` } : { icon: '✦', text: `Not one day without spending. One dry day a week is the cheapest win there is.` });
 
   for (const d of doubles(spends).slice(0, 2)) notes.push({ icon: '🔍', text: `${d.name} charged *${e2(d.amount)}* ${d.times}× on ${dayName(d.day)}: check it isn't a double charge.` });
+
+  const needed = [...all.values()].reduce((sum, x) => sum + x.needed, 0);
+  if (needed > 0) notes.push({ icon: '🧱', text: `*${e0(needed)}* (${pct(needed, s.spent)} %) of spending you marked necessary. The other ${e0(s.spent - needed)} is where your choices are.` });
 
   if (s.saved > 0) notes.push({ icon: '🏦', text: `*${e0(s.saved)}* went into savings, round-ups included. That habit is already working: keep it.` });
 

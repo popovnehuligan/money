@@ -3,7 +3,7 @@
 // It reuses the real dashboard/statistics code, so the numbers behave like production.
 // Not part of the Worker bundle.
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, defaultKind, isKind, newCategory, owed, parseDebts, type Kind } from '../src/classify.ts';
-import { dashboard, readSettings } from '../src/dashboard.ts';
+import { dashboard, readSettings, txView } from '../src/dashboard.ts';
 import type { Tx } from '../src/db.ts';
 import { noSpendStreak } from '../src/stats.ts';
 import { addMonths } from '../src/time.ts';
@@ -112,6 +112,7 @@ function summary(month = TODAY.slice(0, 7)) {
     debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => t.kind === 'spend' && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
+    unrated: txs.filter((t) => t.kind === 'spend' && t.amount < 0 && t.worth === null).length,
     passedOn: txs.filter((t) => t.kind === 'podmoga').reduce((p, t) => (t.amount > 0 ? { ...p, in: p.in + t.amount, kept: p.kept + t.amount } : { ...p, out: p.out - t.amount, kept: p.kept + t.amount }), { in: 0, out: 0, kept: 0 }),
   });
 }
@@ -148,7 +149,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.label !== undefined) t.label = String(body.label ?? '').trim() || null;
       if (body.amount !== undefined && t.source !== 'bmail') t.amount = body.amount;
       if (body.ts !== undefined && t.source !== 'bmail') t.ts = body.ts;
-      return json(summary(t.ts.slice(0, 7)));
+      return json(body.quiet ? { ok: true } : summary(t.ts.slice(0, 7)));
+    }
+    case '/api/unrated': {
+      const list = txs.filter((t) => t.kind === 'spend' && t.amount < 0 && t.worth === null).sort((a, b) => b.ts.localeCompare(a.ts) || b.n - a.n);
+      return json({ tx: list.map(txView) });
     }
     case '/api/delete':
       txs = txs.filter((x) => x.n !== body.n || x.source === 'bmail');

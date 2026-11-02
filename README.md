@@ -103,6 +103,7 @@ Optional secrets: `OWN_IBANS` (your own IBANs, comma-separated, so they're never
 ## Daily use
 
 - Pay as usual. The Telegram message arrives about a minute later; tap a category, plus 👍/👎 if you like.
+- Rate your spending by swiping: tap the cards button at the top of the dashboard (or send `/rate`). Each unrated payment comes as a card with its category, date and time, filled with liquid in the category's colour (more for bigger payments; it sloshes as you drag or tilt the phone). Swipe right 👍 worth it, left 👎 not worth it, up 🧱 necessary; ↶ brings back the last card. Necessary spending is never suggested as a cut in the month in review.
 - Use the dashboard to:
   - sort several payments in a row (the "to sort" card);
   - fix any payment by tapping it. **✏️ Rename** gives it your own name (the bank's stays visible underneath), and entries you added yourself can also change amount and time;

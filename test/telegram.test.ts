@@ -19,7 +19,9 @@ test('unsorted payments get categories, rating and kinds', () => {
 
 test('sorted payments collapse to one summary button plus rating', () => {
   const kb = texts(txKeyboard(tx({ category: 'taxi', confirmed: 1, worth: 1 })));
-  assert.deepEqual(kb, [['🚕 Taxi · change'], ['✓ Worth it', '👎 Regret']]);
+  assert.deepEqual(kb, [['🚕 Taxi · change'], ['✓ Worth it', '🧱 Needed', '👎 Regret']]);
+  assert.deepEqual(texts(txKeyboard(tx({ category: 'taxi', confirmed: 1, worth: 2 })))[1], ['👍 Worth it', '✓ Needed', '👎 Regret']); // necessary
+  assert.match(txText(tx({ category: 'taxi', confirmed: 1, worth: 2 })), /· 🧱/);
   assert.deepEqual(texts(txKeyboard(tx({ kind: 'podmoga', confirmed: 1 }))), [['🔁 Passed on · change']]);
 });
 

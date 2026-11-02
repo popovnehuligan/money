@@ -121,6 +121,15 @@ export async function passedOnTotal(db: D1Database, category?: string): Promise<
   return { in: i, out: o, kept: i - o };
 }
 
+/** Spending you haven't rated yet (👍 worth it, 🧱 necessary, 👎 regret), newest first. */
+export async function unratedTx(db: D1Database): Promise<Tx[]> {
+  const { results } = await db.prepare(`SELECT ${COLS} FROM tx WHERE kind = 'spend' AND amount < 0 AND worth IS NULL ORDER BY ts DESC, n DESC`).all<Tx>();
+  return results;
+}
+export async function unratedCount(db: D1Database): Promise<number> {
+  return (await db.prepare("SELECT COUNT(*) AS c FROM tx WHERE kind = 'spend' AND amount < 0 AND worth IS NULL").first<{ c: number }>())?.c ?? 0;
+}
+
 /** Names of your loans, for the "which loan?" buttons. */
 export const debtNames = async (db: D1Database) => parseDebts(await getSetting(db, 'debts')).map((d) => d.name);
 

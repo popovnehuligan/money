@@ -8,7 +8,7 @@ export class BadInput extends Error {}
 export interface Choice {
   kind?: string;
   category?: string;
-  worth?: number | null;
+  worth?: number | null; // 1 worth it, 2 necessary, 0 regret, null not rated
   debt?: string; // which loan a 🤝 Loan payment pays back (a name from the debts setting)
   newCategory?: string; // a category you typed, e.g. "🎮 Games": created if it's new, then picked
   label?: string | null; // your own name for the payment; empty (or the bank's name) goes back to the bank's
@@ -44,7 +44,7 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
     if (c.kind !== 'spend' && t.loan_part) patch.loan_part = null; // only spending can be half a repayment
   }
   if (c.worth !== undefined) {
-    if (c.worth !== null && c.worth !== 0 && c.worth !== 1) throw new BadInput('worth must be 1, 0 or null');
+    if (c.worth !== null && c.worth !== 0 && c.worth !== 1 && c.worth !== 2) throw new BadInput('worth must be 1 (worth it), 2 (necessary), 0 (regret) or null');
     patch.worth = c.worth;
   }
   if (c.label !== undefined) {

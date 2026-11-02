@@ -12,6 +12,7 @@ import { addMonths, dayOf, localStamp, monthOf } from './time.ts';
 const COMMANDS = [
   { command: 'today', description: "Today's allowance" },
   { command: 'month', description: 'This month so far' },
+  { command: 'rate', description: 'Swipe through payments: worth it, necessary or not' },
   { command: 'budget', description: 'Set the monthly budget, e.g. /budget 600' },
   { command: 'owe', description: 'What you still owe, e.g. /owe Mom 100' },
   { command: 'help', description: 'How this works' },

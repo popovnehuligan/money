@@ -362,12 +362,72 @@ svg { display: block; }
 .new-cat button { padding: 0 18px; border-radius: 14px; background: rgba(255, 255, 255, .14); color: #fff; font-weight: 600; }
 .tile:active { transform: scale(.9); }
 .tile[aria-pressed="true"] { background: color-mix(in oklab, var(--c) 34%, rgba(0, 0, 0, .1)); box-shadow: inset 0 0 0 2px var(--c), 0 0 22px -4px var(--c); color: #fff; }
-.worth { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.worth { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .worth button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 18px; background: rgba(0, 0, 0, .22); font-weight: 700; transition: transform .18s var(--spring), box-shadow .2s, background .2s; }
 .worth button:active { transform: scale(.94); }
 .worth .em { font-size: 20px; }
 .worth button[aria-pressed="true"].yes { background: rgba(62, 224, 161, .16); box-shadow: inset 0 0 0 2px var(--good); }
 .worth button[aria-pressed="true"].no { background: rgba(255, 112, 118, .14); box-shadow: inset 0 0 0 2px var(--bad); }
+.worth button[aria-pressed="true"].need { background: rgba(108, 196, 255, .14); box-shadow: inset 0 0 0 2px var(--loan); }
+.worth button { gap: 6px; padding: 0 6px; font-size: 14px; white-space: nowrap; }
+
+/* rate by swiping */
+.rate-orb { position: relative; }
+.rate-orb .badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--coral); color: #fff; font: 700 11px/18px var(--f-ui); text-align: center; }
+.swiper {
+  position: fixed; inset: 0; z-index: 25; display: flex; flex-direction: column;
+  padding: calc(12px + var(--top-safe)) max(16px, env(safe-area-inset-right, 0px)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: radial-gradient(120% 70% at 50% 0%, #15275e 0%, #081433 60%, var(--abyss) 100%);
+  opacity: 0; transition: opacity .28s var(--ease); touch-action: none; overscroll-behavior: contain;
+}
+.swiper.open { opacity: 1; }
+.sw-top { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; align-items: center; gap: 8px; }
+.sw-title { text-align: center; min-width: 0; }
+.sw-title h2 { margin: 0; font: 700 17px var(--f-ui); letter-spacing: -.01em; }
+.sw-title p { margin: 2px 0 0; font-size: 13px; color: var(--ink-2); }
+.sw-deck { position: relative; flex: 1; min-height: 0; margin: 16px 0 10px; }
+.sw-card {
+  position: absolute; inset: 0; margin: auto; width: min(100%, 380px); height: min(100%, 540px);
+  border-radius: 30px; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab;
+  background: linear-gradient(180deg, #1a2f6b 0%, #0d1d4b 100%);
+  box-shadow: 0 30px 60px -24px rgba(0, 0, 0, .7), inset 0 0 0 1px rgba(255, 255, 255, .09);
+  transition: transform .4s var(--spring), opacity .3s; will-change: transform;
+}
+.sw-card.next { transform: translateY(16px) scale(.94); opacity: .75; pointer-events: none; }
+.sw-card canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.sw-info { position: relative; z-index: 2; padding: 22px 22px 0; pointer-events: none; }
+.sw-cat { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; height: 34px; padding: 0 13px; border-radius: 17px; background: rgba(0, 0, 0, .3); font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sw-cat i { width: 9px; height: 9px; flex: none; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.sw-name { margin: 16px 0 0; font: 700 25px/1.15 var(--f-ui); letter-spacing: -.025em; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.sw-when { margin: 8px 0 0; color: var(--ink-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.sw-amt { position: absolute; z-index: 2; left: 22px; right: 22px; bottom: 20px; margin: 0; font: 700 clamp(46px, 15vw, 66px)/1 var(--f-ui); letter-spacing: -.05em; color: #fff; text-shadow: 0 2px 24px rgba(0, 0, 0, .35); pointer-events: none; }
+.sw-amt .dec { font-size: .4em; letter-spacing: -.01em; opacity: .85; margin-left: .04em; }
+.sw-stamp { position: absolute; z-index: 3; top: 24px; padding: 6px 14px; border: 3px solid currentColor; border-radius: 14px; font: 800 21px var(--f-ui); letter-spacing: .05em; text-transform: uppercase; opacity: 0; pointer-events: none; background: rgba(4, 12, 36, .35); }
+.sw-stamp.yes { left: 18px; color: var(--good); transform: rotate(-12deg); }
+.sw-stamp.no { right: 18px; color: var(--bad); transform: rotate(12deg); }
+.sw-stamp.need { left: 50%; top: 42%; color: var(--loan); transform: translateX(-50%) rotate(-5deg); }
+.sw-card.rise { animation: sw-rise .3s var(--ease) backwards; }
+.sw-card.enter-left { animation: sw-from-left .45s var(--spring) backwards; }
+.sw-card.enter-right { animation: sw-from-right .45s var(--spring) backwards; }
+.sw-card.enter-up { animation: sw-from-up .45s var(--spring) backwards; }
+@keyframes sw-rise { from { transform: translateY(16px) scale(.94); } }
+@keyframes sw-from-left { from { transform: translateX(-120vw) rotate(-18deg); } }
+@keyframes sw-from-right { from { transform: translateX(120vw) rotate(18deg); } }
+@keyframes sw-from-up { from { transform: translateY(-110vh); } }
+.sw-hints { display: flex; justify-content: space-between; margin: 0 auto 12px; width: min(100%, 380px); font: 600 12px var(--f-ui); color: var(--muted); }
+.sw-actions { display: flex; justify-content: center; align-items: center; gap: 16px; }
+.sw-btn { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; font-size: 26px; background: rgba(170, 210, 255, .1); box-shadow: inset 0 0 0 1.5px rgba(170, 210, 255, .2); transition: transform .18s var(--spring), opacity .2s; }
+.sw-btn:active { transform: scale(.88); }
+.sw-btn.no { box-shadow: inset 0 0 0 2px var(--bad); }
+.sw-btn.yes { box-shadow: inset 0 0 0 2px var(--good); }
+.sw-btn.need { width: 54px; height: 54px; font-size: 22px; box-shadow: inset 0 0 0 2px var(--loan); }
+.sw-btn.back { width: 46px; height: 46px; color: var(--ink-2); }
+.sw-btn.back svg { width: 20px; height: 20px; }
+.sw-btn:disabled { opacity: .3; }
+.sw-done { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; text-align: center; padding: 0 10px; }
+.sw-done h2 { margin: 0; font: 700 26px var(--f-ui); letter-spacing: -.03em; }
+.sw-done p { margin: 0 auto; max-width: 32ch; color: var(--ink-2); line-height: 1.5; }
+.sw-done p b { color: var(--ink); }
 .sh-foot { display: flex; justify-content: center; margin-top: 16px; }
 .textbtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 4px; font-weight: 600; font-size: 14px; color: var(--ink-2); }
 .textbtn.danger { color: var(--bad); }
@@ -423,6 +483,7 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
   <p class="hello" id="hello">Money<b>Your pool</b></p>
   <div class="bar-actions">
     <button class="orb" id="immersive" data-act="immersive" aria-label="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    <button class="orb rate-orb" data-act="rate" aria-label="Rate payments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="12" height="16" rx="3" transform="rotate(10 13 11)"/><path d="M5.5 7.5 4.6 18a3 3 0 0 0 2.7 3.2l7.2.6"/></svg><span class="badge" id="rate-badge" hidden></span></button>
     <button class="orb" data-act="settings" aria-label="Budget and savings goal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2.2"/><circle cx="10" cy="17" r="2.2"/></svg></button>
   </div>
 </header>
@@ -458,6 +519,21 @@ canvas.confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-
 <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" hidden>
   <div class="grabber" id="grabber" aria-hidden="true"></div>
   <div class="sheet-body" id="sheet-body"></div>
+</section>
+<section class="swiper" id="swiper" role="dialog" aria-modal="true" aria-labelledby="swiper-title" hidden>
+  <div class="sw-top">
+    <button class="orb" data-act="swipe-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <div class="sw-title"><h2 id="swiper-title">Was it worth it?</h2><p id="sw-count" aria-live="polite"></p></div>
+    <span aria-hidden="true"></span>
+  </div>
+  <div class="sw-deck" id="sw-deck"></div>
+  <div class="sw-hints" aria-hidden="true"><span>← Not worth it</span><span>↑ Necessary</span><span>Worth it →</span></div>
+  <div class="sw-actions">
+    <button class="sw-btn back" data-act="swipe-back" aria-label="Back to the last card" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+    <button class="sw-btn no" data-act="swipe" data-dir="left" aria-label="Not worth it">👎</button>
+    <button class="sw-btn need" data-act="swipe" data-dir="up" aria-label="Necessary">🧱</button>
+    <button class="sw-btn yes" data-act="swipe" data-dir="right" aria-label="Worth it">👍</button>
+  </div>
 </section>
 <div class="toast" id="toast" role="status"></div>
 
@@ -838,6 +914,7 @@ function frame(now) {
   requestAnimationFrame(frame);
   if (document.hidden || now - last < 15) return;
   last = now;
+  if (swipe.open) { for (const cd of swipe.cards) drawSwipeCard(cd, now); return; }
   pool.wave.tilt += (tiltTarget - pool.wave.tilt) * 0.08;
   jar.wave.tilt = pool.wave.tilt * 0.5;
   if (pool.visible) {
@@ -1022,21 +1099,23 @@ function renderJar() {
   const spend = d.tx.filter((t) => t.kind === 'spend' && t.amount < 0);
   const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - own(t), 0);
   const no = spend.filter((t) => t.worth === 0).reduce((a, t) => a - own(t), 0);
+  const need = spend.filter((t) => t.worth === 2).reduce((a, t) => a - own(t), 0);
   const all = spend.reduce((a, t) => a - own(t), 0);
-  const none = all - yes - no;
+  const none = all - yes - no - need;
   const by = {};
   for (const t of spend) if (t.worth === 0) by[t.label] = (by[t.label] || 0) - own(t);
   const topLeak = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
   const w = (v) => ((100 * v) / Math.max(all, 1)).toFixed(1);
   const text = no
     ? `you’d take back in ${esc(d.name)}. Biggest leak: <b>${esc(topLeak[0])}</b> (${eur0(topLeak[1])}).`
-    : yes ? 'No regrets so far. Everything you rated was worth it.' : 'Rate payments 👍 or 👎 and the leaks show up here.';
+    : yes || need ? 'No regrets so far. Everything you rated was worth it or necessary.' : 'Rate payments 👍 or 👎 and the leaks show up here.';
   $('#leaks').innerHTML = spend.length ? `<div class="leaks">
       <h3>Leaks</h3>
       <p class="amt">${eur0(no)}</p>
       <p>${text}</p>
-      <div class="split" role="img" aria-label="${eur0(yes)} worth it, ${eur0(no)} regretted, ${eur0(none)} not rated">${yes ? `<i style="--w:${w(yes)}%;--c:var(--good)"></i>` : ''}${no ? `<i style="--w:${w(no)}%;--c:var(--bad)"></i>` : ''}${none ? `<i style="--w:${w(none)}%;--c:rgba(255,255,255,.14)"></i>` : ''}</div>
-      <div class="split-key"><span>👍 ${eur0(yes)}</span><span>👎 ${eur0(no)}</span><span>unrated ${eur0(none)}</span></div>
+      <div class="split" role="img" aria-label="${eur0(yes)} worth it, ${eur0(no)} regretted, ${eur0(none)} not rated">${yes ? `<i style="--w:${w(yes)}%;--c:var(--good)"></i>` : ''}${need ? `<i style="--w:${w(need)}%;--c:var(--loan)"></i>` : ''}${no ? `<i style="--w:${w(no)}%;--c:var(--bad)"></i>` : ''}${none ? `<i style="--w:${w(none)}%;--c:rgba(255,255,255,.14)"></i>` : ''}</div>
+      <div class="split-key"><span>👍 ${eur0(yes)}</span><span>🧱 ${eur0(need)}</span><span>👎 ${eur0(no)}</span><span>unrated ${eur0(none)}</span></div>
+      ${state.cur.unrated ? `<button class="cta-glass" data-act="rate" style="margin-top:14px">👍👎 Rate ${state.cur.unrated} payment${state.cur.unrated === 1 ? '' : 's'}</button>` : ''}
       ${no && !reduceMotion ? '<div class="leak-drops" aria-hidden="true"><i style="left:4px;animation-delay:0s"></i><i style="left:20px;animation-delay:1.1s"></i><i style="left:12px;animation-delay:1.9s"></i></div>' : ''}
     </div>` : '';
 }
@@ -1045,7 +1124,7 @@ function renderJar() {
 function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
   const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.kind === 'spend' && t.loanPart ? ` · ½ ${t.debt}` : '');
-  const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
+  const worth = t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '';
   const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
     <span class="drop" style="--c:${v.c}"><span>${un ? '?' : v.icon}</span></span>
@@ -1079,6 +1158,7 @@ function renderLedger() {
   $('#ledger').innerHTML = `
     <h2 class="title" id="ledger-title">Every drop</h2>
     ${unsortedCount ? `<button class="cta-glass" data-act="sort" style="margin-top:16px">Sort ${unsortedCount} payment${unsortedCount === 1 ? '' : 's'}</button>` : ''}
+    ${state.cur.unrated ? `<button class="cta-glass" data-act="rate" style="margin-top:16px">👍👎 Rate ${state.cur.unrated}</button>` : ''}
     <div class="filters" role="toolbar" aria-label="Filter payments">${chips.map(([k, l]) => `<button class="filter" data-act="filter" data-f="${k}" aria-pressed="${f === k}">${esc(l)}</button>`).join('')}</div>
     ${body}
     <p class="bottom-line">You’ve reached the bottom of ${esc(d.name)}</p>`;
@@ -1094,6 +1174,9 @@ function renderAll() {
   renderFlow();
   renderJar();
   renderLedger();
+  const badge = $('#rate-badge'), left = state.cur.unrated || 0;
+  badge.hidden = !left;
+  badge.textContent = left > 99 ? '99+' : String(left);
 }
 
 async function load() {
@@ -1102,6 +1185,7 @@ async function load() {
     renderAll();
     const want = new URLSearchParams(location.search).get('review'); // the bot's "Open the review" button
     if (want && /^\d{4}-\d{2}$/.test(want)) openReview(want);
+    if (new URLSearchParams(location.search).has('rate')) openSwiper(); // the bot's /rate button
   } catch (e) {
     $('#num-label').textContent = tg ? 'The pool is unreachable' : 'Open this from your Telegram bot';
     num.dry.textContent = num.wet.textContent = '—';
@@ -1122,6 +1206,217 @@ function accept(d) {
   if (d.month === state.view.month) state.view = d;
   renderAll();
 }
+
+/* =========================================================================
+   Rate by swiping: right worth it, left not worth it, up necessary.
+   Each card holds the payment's liquid, in its category's colour, filled by
+   how big it was; it sloshes when you drag the card or tilt the phone.
+   ========================================================================= */
+const RATE = { right: 1, up: 2, left: 0 };
+const swipe = { open: false, busy: false, list: [], i: 0, history: [], session: { 0: 0, 1: 0, 2: 0 }, cards: [], max: 1 };
+const rgbOf = (el) => {
+  const v = getComputedStyle(el).getPropertyValue('--c').trim();
+  const m = v.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return AQUA;
+  const h = m[1].length === 3 ? [...m[1]].map((c) => c + c).join('') : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+};
+
+async function openSwiper() {
+  haptic.pick();
+  closeSheet();
+  const el = $('#swiper');
+  Object.assign(swipe, { open: true, busy: false, list: [], i: 0, history: [], session: { 0: 0, 1: 0, 2: 0 }, cards: [] });
+  el.hidden = false;
+  requestAnimationFrame(() => el.classList.add('open'));
+  tg?.BackButton?.show();
+  $('#sw-count').textContent = '';
+  $('#sw-deck').innerHTML = '';
+  try {
+    swipe.list = (await api('/api/unrated')).tx;
+    swipe.max = Math.max(1, ...swipe.list.map((t) => -own(t)));
+    renderDeck('rise');
+  } catch (e) { toast(e.message); closeSwiper(); }
+}
+function closeSwiper() {
+  if (!swipe.open) return;
+  swipe.open = false;
+  const el = $('#swiper');
+  el.classList.remove('open');
+  setTimeout(() => { if (!swipe.open) { el.hidden = true; $('#sw-deck').innerHTML = ''; swipe.cards = []; } }, reduceMotion ? 0 : 300);
+  if (!state.sheet) tg?.BackButton?.hide();
+  if (swipe.history.length) refresh(); // the rest of the app catches up once, not on every swipe
+}
+
+function swipeCardHTML(t) {
+  const m = t.category ? catMeta(t.category) : null;
+  const day = t.ts.slice(0, 10);
+  return `<article class="sw-card" data-n="${t.n}" style="--c:${m ? m.c : 'var(--c-other)'}" aria-label="${esc(t.label)}, ${eur(t.amount)}, ${esc(shortDay(day))} ${t.ts.slice(11, 16)}">
+    <canvas aria-hidden="true"></canvas>
+    <div class="sw-info">
+      <span class="sw-cat"><i></i>${m ? `${m.emoji} ${esc(m.name)}` : 'No category yet'}</span>
+      <h3 class="sw-name">${esc(t.label)}</h3>
+      <p class="sw-when">${esc(shortDay(day))}${day.slice(0, 4) !== today().slice(0, 4) ? ` ${day.slice(0, 4)}` : ''} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p>
+      ${t.loanPart ? `<p class="sw-when">½ paid back ${esc(t.debt)}</p>` : ''}
+    </div>
+    <p class="sw-amt">${money(t.amount)}</p>
+    <span class="sw-stamp yes">Worth it</span><span class="sw-stamp no">Not worth it</span><span class="sw-stamp need">Necessary</span>
+  </article>`;
+}
+function swipeDoneHTML() {
+  const s = swipe.session, rated = swipe.history.length;
+  return `<div class="sw-done"><div class="done-art">💧</div><h2>${rated ? 'All rated' : 'Nothing to rate'}</h2>
+    <p>${rated ? `This round: 👍 <b>${eur0(s[1])}</b> worth it · 🧱 <b>${eur0(s[2])}</b> necessary · 👎 <b>${eur0(s[0])}</b> not.${s[0] ? ` That last one is what next month can skip.` : ''}` : 'Every payment already has its verdict.'}</p>
+    <button type="button" class="primary" data-act="swipe-close">Back to the water</button></div>`;
+}
+function renderDeck(enter) {
+  const deck = $('#sw-deck'), left = swipe.list.length - swipe.i;
+  $('#sw-count').textContent = left ? `${left} to go · swipe or tap below` : '';
+  $('[data-act="swipe-back"]').disabled = !swipe.history.length;
+  for (const b of $$('[data-act="swipe"]')) b.disabled = !left;
+  if (!left) { swipe.cards = []; deck.innerHTML = swipeDoneHTML(); return; }
+  const shown = swipe.list.slice(swipe.i, swipe.i + 2);
+  deck.innerHTML = shown.map(swipeCardHTML).reverse().join(''); // the next card first, so the top one sits above it
+  swipe.cards = shown.map((t, k) => {
+    const el = deck.querySelector(`[data-n="${t.n}"]`), canvas = el.querySelector('canvas');
+    const W = el.offsetWidth, H = el.offsetHeight, dpr = Math.min(2, devicePixelRatio || 1);
+    canvas.width = W * dpr; canvas.height = H * dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    if (k === 1) el.classList.add('next');
+    else if (enter) el.classList.add(enter === 'rise' ? 'rise' : `enter-${enter}`);
+    const fill = 0.16 + 0.44 * Math.sqrt(Math.min(1, -own(t) / swipe.max)); // bigger payment, more liquid
+    return { el, t, ctx, W, H, wave: new Wave(36), level: k ? fill : 0, levelTarget: fill, drag: 0, rgb: rgbOf(el),
+      fizz: Array.from({ length: 8 }, () => ({ x: 0.1 + Math.random() * 0.8, y: Math.random(), r: 1 + Math.random() * 2.2, sp: 0.0015 + Math.random() * 0.003, ph: Math.random() * 6 })) };
+  });
+  dragCard(swipe.cards[0]);
+}
+
+function drawSwipeCard(cd, now) {
+  const { ctx: c, W, H, wave } = cd;
+  cd.level += (cd.levelTarget - cd.level) * 0.045;
+  wave.tilt += (cd.drag + tiltTarget * 0.7 - wave.tilt) * 0.12;
+  wave.step();
+  c.clearRect(0, 0, W, H);
+  const base = H * (1 - cd.level), N = 36;
+  const surface = (k) => base + wave.at(k / N) * 0.8;
+  const liquid = new Path2D();
+  liquid.moveTo(0, H);
+  for (let k = 0; k <= N; k++) liquid.lineTo((k / N) * W, surface(k));
+  liquid.lineTo(W, H);
+  liquid.closePath();
+  const g = c.createLinearGradient(0, base - 30, 0, H);
+  g.addColorStop(0, rgba(cd.rgb, 0.9));
+  g.addColorStop(1, rgba(mix(cd.rgb, DEEP, 0.6), 1));
+  c.fillStyle = g;
+  c.fill(liquid);
+  c.save();
+  c.clip(liquid);
+  for (const f of cd.fizz) {
+    if (!reduceMotion) { f.y -= f.sp; if (f.y * H < base + 6) { f.y = 1.02; f.x = 0.1 + Math.random() * 0.8; } }
+    c.fillStyle = 'rgba(255,255,255,.32)';
+    c.beginPath(); c.arc(f.x * W + Math.sin(now / 320 + f.ph) * 2.5, f.y * H, f.r, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
+  c.strokeStyle = 'rgba(255,255,255,.65)';
+  c.lineWidth = 1.6;
+  c.beginPath();
+  for (let k = 0; k <= N; k++) c.lineTo((k / N) * W, surface(k));
+  c.stroke();
+}
+
+function stampsFor(cd, dx, dy) {
+  const T = 110, upness = -dy > Math.abs(dx) ? clamp(-dy / T, 0, 1) : 0;
+  cd.el.querySelector('.sw-stamp.yes').style.opacity = upness ? 0 : clamp(dx / T, 0, 1);
+  cd.el.querySelector('.sw-stamp.no').style.opacity = upness ? 0 : clamp(-dx / T, 0, 1);
+  cd.el.querySelector('.sw-stamp.need').style.opacity = upness;
+}
+function nextFollows(dx, dy) {
+  const nx = swipe.cards[1];
+  if (!nx) return;
+  const p = clamp(Math.hypot(dx, dy) / 150, 0, 1);
+  nx.el.style.transition = 'none';
+  nx.el.style.transform = `translateY(${(16 * (1 - p)).toFixed(1)}px) scale(${(0.94 + 0.06 * p).toFixed(3)})`;
+  nx.el.style.opacity = String(0.75 + 0.25 * p);
+}
+function dragCard(cd) {
+  const el = cd.el;
+  let id = null, sx = 0, sy = 0, lx = 0, lt = 0, vx = 0, vy = 0;
+  el.addEventListener('pointerdown', (e) => {
+    if (swipe.busy || id !== null) return;
+    id = e.pointerId; el.setPointerCapture(id);
+    sx = lx = e.clientX; sy = e.clientY; lt = performance.now(); vx = vy = 0;
+    el.style.transition = 'none';
+    el.classList.remove('rise', 'enter-left', 'enter-right', 'enter-up');
+    cd.wave.poke(clamp(e.offsetX / cd.W, 0, 1), 7);
+    haptic.soft();
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (e.pointerId !== id) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy, now = performance.now(), dt = Math.max(1, now - lt);
+    vx = (e.clientX - lx) / dt; vy = e.movementY / dt || vy; lx = e.clientX; lt = now;
+    el.style.transform = `translate(${dx}px, ${dy}px) rotate(${(dx * 0.06).toFixed(2)}deg)`;
+    cd.drag = clamp(-dx * 0.4, -80, 80); // the liquid lags behind the card
+    if (Math.abs(vx) > 0.4) cd.wave.poke(vx > 0 ? 0.08 : 0.92, clamp(vx * 2.5, -6, 6));
+    stampsFor(cd, dx, dy);
+    nextFollows(dx, dy);
+  });
+  const end = (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    const dx = e.clientX - sx, dy = e.clientY - sy, T = Math.min(110, innerWidth * 0.26);
+    const dir = -dy > T && -dy > Math.abs(dx) ? 'up' : dx > T || (vx > 0.9 && dx > 30) ? 'right' : dx < -T || (vx < -0.9 && dx < -30) ? 'left' : null;
+    if (dir) return fling(dir);
+    el.style.transition = '';
+    el.style.transform = '';
+    cd.drag = 0;
+    cd.wave.poke(0.5, clamp(dx / 20, -8, 8)); // it settles with a slosh
+    stampsFor(cd, 0, 0);
+    const nx = swipe.cards[1];
+    if (nx) { nx.el.style.transition = ''; nx.el.style.transform = ''; nx.el.style.opacity = ''; }
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+
+function fling(dir) {
+  const cd = swipe.cards[0];
+  if (!cd || swipe.busy) return;
+  swipe.busy = true;
+  const t = cd.t, worth = RATE[dir];
+  dir === 'left' ? haptic.err?.() : haptic.ok();
+  stampsFor(cd, dir === 'right' ? 200 : dir === 'left' ? -200 : 0, dir === 'up' ? -200 : 0);
+  nextFollows(200, 0);
+  const el = cd.el;
+  el.style.transition = reduceMotion ? 'none' : 'transform .34s cubic-bezier(.5,0,.75,0), opacity .34s';
+  el.style.transform = dir === 'up' ? `translate(0, ${-innerHeight}px)` : `translate(${(dir === 'right' ? 1.3 : -1.3) * innerWidth}px, 40px) rotate(${dir === 'right' ? 22 : -22}deg)`;
+  el.style.opacity = '0';
+  swipe.history.push({ t, i: swipe.i, dir });
+  swipe.session[worth] -= own(t);
+  swipe.i++;
+  state.cur.unrated = Math.max(0, (state.cur.unrated || 0) - 1);
+  // Saved in the background: the next card is already there.
+  api('/api/tx', { n: t.n, worth, quiet: true }).catch((e) => toast(`Couldn’t save ${t.label}: ${e.message}`));
+  setTimeout(() => { swipe.busy = false; renderDeck('rise'); }, reduceMotion ? 0 : 230);
+}
+/** Back to the last card: its rating is taken back, and it returns from where it went. */
+function swipeBack() {
+  const h = swipe.history.pop();
+  if (!h || swipe.busy) return;
+  haptic.pick();
+  swipe.i = h.i;
+  swipe.session[RATE[h.dir]] += own(h.t);
+  state.cur.unrated = (state.cur.unrated || 0) + 1;
+  api('/api/tx', { n: h.t.n, worth: null, quiet: true }).catch((e) => toast(e.message));
+  renderDeck(h.dir);
+}
+document.addEventListener('keydown', (e) => {
+  if (!swipe.open) return;
+  const dir = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up' }[e.key];
+  if (dir) { e.preventDefault(); fling(dir); }
+  else if (e.key === 'Backspace') { e.preventDefault(); swipeBack(); }
+  else if (e.key === 'Escape') closeSwiper();
+});
 
 /* =========================================================================
    Sheets
@@ -1196,6 +1491,7 @@ function editorHTML(t) {
       <p class="label">Worth it?</p>
       <div class="worth">
         <button type="button" class="yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="em">👍</span>Worth it</button>
+        <button type="button" class="need" data-act="worth" data-worth="2" data-n="${t.n}" aria-pressed="${t.worth === 2}"><span class="em">🧱</span>Necessary</button>
         <button type="button" class="no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="em">👎</span>Regret</button>
       </div>${halfHTML(t)}` : ''}
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
@@ -1393,6 +1689,10 @@ function goTo(id) {
 }
 
 const actions = {
+  rate: () => openSwiper(),
+  swipe: (el) => fling(el.dataset.dir),
+  'swipe-back': () => swipeBack(),
+  'swipe-close': () => closeSwiper(),
   review: (el) => openReview(el.dataset.month),
   'take-challenge': () => {
     const r = state.review.review, p = r.plan;
@@ -1707,7 +2007,7 @@ if (TG) {
   TG.expand();
   try { TG.disableVerticalSwipes?.(); } catch {}
   try { TG.setHeaderColor?.('#060a22'); TG.setBackgroundColor?.('#060a22'); TG.setBottomBarColor?.('#020716'); } catch {}
-  TG.BackButton?.onClick(closeSheet);
+  TG.BackButton?.onClick(() => (swipe.open ? closeSwiper() : closeSheet()));
   if (TG.isVersionAtLeast?.('8.0') && TG.requestFullscreen) $('#immersive').hidden = false;
 }
 seedPool();

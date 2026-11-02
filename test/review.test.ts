@@ -77,3 +77,10 @@ test('the current month is "so far": a pace, no plan yet', () => {
   assert.equal(now.headline, 'October so far');
   assert.match(now.earn[0], /At this pace October ends at about/);
 });
+
+test('what you marked necessary is never counted as something to cut', () => {
+  const needed = october.map((t) => (t.category === 'taxi' ? { ...t, worth: 2 } : t));
+  const r2 = review({ month: '2026-10', today: '2026-11-02', txs: needed, prevTxs: [], categories: cats });
+  assert.ok(!r2.cuts.some((c) => c.category === 'taxi'));
+  assert.match(plain(r2.notes.map((n) => n.text).join('\n')), /\*160 €\* \(13 %\) of spending you marked necessary/);
+});

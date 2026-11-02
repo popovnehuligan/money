@@ -54,7 +54,7 @@ export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGO
   const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
   const half = t.kind === 'spend' && t.loan_part && t.debt ? ` · ½ paid back ${esc(t.debt)}` : '';
   const label = (t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind]) + half;
-  const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
+  const worth = t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '';
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);
   return lines.join('\n');
@@ -90,6 +90,7 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
   };
   const worthRow = (): Button[] => [
     { text: tick(t.worth === 1, '👍 Worth it'), callback_data: `w:1:${t.n}` },
+    { text: tick(t.worth === 2, '🧱 Needed'), callback_data: `w:2:${t.n}` },
     { text: tick(t.worth === 0, '👎 Regret'), callback_data: `w:0:${t.n}` },
   ];
 

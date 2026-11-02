@@ -52,6 +52,26 @@ export interface DashboardInput {
   categories: Categories; // built-in plus yours
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
+  unrated?: number; // spending not rated yet, all months
+}
+
+/** One payment as the dashboard shows it. */
+export function txView(t: Tx) {
+  return {
+    n: t.n,
+    ts: t.ts,
+    amount: t.amount,
+    kind: t.kind,
+    category: t.category,
+    worth: t.worth, // 1 worth it, 2 necessary, 0 regret, null not rated
+    confirmed: t.confirmed === 1,
+    label: t.label ?? t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
+    bankName: t.merchant ?? t.note, // shown under your own name, so you can still tell what the bank said
+    method: METHOD[t.method] ?? t.method,
+    deletable: t.source !== 'bmail',
+    debt: t.debt,
+    loanPart: t.loan_part ?? 0, // part that paid back the loan in `debt`
+  };
 }
 
 export function dashboard(o: DashboardInput) {
@@ -97,21 +117,9 @@ export function dashboard(o: DashboardInput) {
     debts: o.debts,
     categories: o.categories,
     balance: current ? o.balance ?? null : null,
-    tx: o.txs.map((t) => ({
-      n: t.n,
-      ts: t.ts,
-      amount: t.amount,
-      kind: t.kind,
-      category: t.category,
-      worth: t.worth,
-      confirmed: t.confirmed === 1,
-      label: t.label ?? t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
-      bankName: t.merchant ?? t.note, // shown under your own name, so you can still tell what the bank said
-      method: METHOD[t.method] ?? t.method,
-      deletable: t.source !== 'bmail',
-      debt: t.debt,
-      loanPart: t.loan_part ?? 0, // part that paid back the loan in `debt`
-    })),
+    tx: o.txs.map(txView),
+    unrated: o.unrated ?? 0, // spending not rated yet, all months
+
   };
 }
 
