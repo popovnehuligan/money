@@ -5,7 +5,7 @@ import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
 import { edit, eur, send, tg, txKeyboard, txText, type Keyboard } from './telegram.ts';
-import { addMonths, daysInMonth, localStamp, monthOf } from './time.ts';
+import { addMonths, daysInMonth, localStamp, monthName, monthOf } from './time.ts';
 
 interface Chat {
   id: number;
@@ -18,7 +18,7 @@ export interface Update {
 const help = (cats: Categories) => `💶 <b>How it works</b>
 Card and Google Pay payments appear here about a minute after you pay. Tap to sort them:
 • a category and 👍/👎 for spending: ${Object.values(cats).join(' · ')}, or ➕ to type your own
-• 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist (only the net counts)
+• 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist: never income or spending, only what you keep counts, as a running total
 • 🏦 Savings for moves to your savings account
 • 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
 • 💵 Cash for cash out of an ATM or paid in: not spending, what you spend from it counts when you type it in
@@ -27,7 +27,7 @@ I remember your choice for the same shop or account next time.
 Cash: type <code>4.50 kava</code> (spent) or <code>+20 gift</code> (received), or use + in the dashboard.
 
 /today  today's allowance
-/month  this month so far (/month last for the previous one)
+/month  this month so far (/month last for last month's review)
 /budget 600  monthly spending budget
 /owe  what you still owe (/owe Mom 100 to set it)
 /gaps off  stop asking about unexplained balance changes`;
@@ -37,6 +37,12 @@ const CASH = /^([+-]?)\s*(\d+(?:[.,]\d{1,2})?)\s*€?\s*(.*)$/s;
 export async function dashboardButton(env: Env): Promise<Keyboard | undefined> {
   const base = await getSetting(env.DB, 'base_url');
   return base ? [[{ text: '📊 Open dashboard', web_app: { url: `${base}/app` } }]] : undefined;
+}
+
+/** Opens the dashboard straight on a month's review. */
+export async function reviewButton(env: Env, month: string): Promise<Keyboard | undefined> {
+  const base = await getSetting(env.DB, 'base_url');
+  return base ? [[{ text: `📋 Open the ${monthName(month)} review`, web_app: { url: `${base}/app?review=${month}` } }]] : undefined;
 }
 
 /** First /start after setup makes that chat the owner; the bot ignores everyone else from then on. */
@@ -89,7 +95,8 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
       return;
     case '/month': {
       const month = monthOf(localStamp());
-      await send(env, await wrapText(env, arg === 'last' ? addMonths(month, -1) : month), await dashboardButton(env));
+      const which = arg === 'last' ? addMonths(month, -1) : month;
+      await send(env, await wrapText(env, which), await reviewButton(env, which));
       return;
     }
     case '/budget': {
@@ -191,7 +198,7 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await answer(`${(await getCategories(env.DB))[value]}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
-      await answer(value === 'podmoga' ? 'Passed on: only the net of in minus out counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+      await answer(value === 'podmoga' ? 'Passed on: not income or spending. Only what you keep counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
     } else if (action === 'a') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, t.kind === 'spend' ? { category: t.category ?? undefined } : { kind: t.kind });
       await answer('Approved');

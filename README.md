@@ -21,8 +21,8 @@ The dashboard treats money as water. Scrolling down is diving deeper:
   - The number floats on the water and gets lighter as the day's money runs out, while the water turns from aqua to amber to coral.
   - Today's payments hang in the sky above, because that money has left the pool. Drag one into a category to sort it, or tap it to edit.
   - Touch the water to make ripples; in Telegram 8.0+ it sloshes when you tilt the phone.
-- **The month:** one glass per day, filled with that day's spending by category. ✦ marks days with nothing spent, and a dripping glass was a big day.
-- **Where it went:** what came in, what was spent and what was saved, then spending by category and what you kept from money you passed on.
+- **The month:** one glass per day, filled with that day's spending by category. ✦ marks days with nothing spent, and a dripping glass was a big day. 📋 opens the month in review (below), and the caps of a challenge you took show here as they fill.
+- **Where it went:** what came in, what was spent and what was saved, then spending by category and what you've kept from passed-on money so far.
 - **Savings jar:** gold liquid with the goal date at your current pace, plus "leaks": what you marked 👎.
 - **Every drop:** the full list, with filters.
 
@@ -36,7 +36,7 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 |---|---|---|
 | 💸 Spend | normal spending (Google Pay, card, cash) | expense, by category |
 | 💰 Income | salary, gifts | income |
-| 🔁 Passed on | money you only pass on: podmoga jobs (500 € in, 400 € out), or a parent's money for a bill you pay | only the **net** (+100 € income); a loss counts as spending |
+| 🔁 Passed on | money you only pass on: podmoga jobs (300 € in, three people paid 50 € each), or a parent's money for a bill you pay | never income or spending. What you keep (+150 €) is a **running total** of everything in minus everything out, so a payout next month is no "loss" |
 | 🤝 Loan | borrowing, or paying someone back | neither income nor spending; it changes what you owe (see below) |
 | 🏦 Savings | moves to/from your savings account | "saved", never spending |
 | 💵 Cash | cash out of an ATM, or cash paid in | nothing: what you spend from it counts when you type it in |
@@ -50,7 +50,14 @@ You choose a kind or category once, in the chat or the dashboard. After that, pa
 
 **Rules.** For people you pay for different things, a rule in the database's `rules` setting beats that memory. For example, `[{"match":["cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]` sorts payments to "Cafe Hub" into 🍺 Bar when they are a multiple of 1.50 € and at most 9 €. Any other payment to them is left for you to sort. A rule can set a kind instead of a category, and `"quiet": true` stores what it sorts as approved, without a chat message. For example, `{"match":["pension fund"],"kind":"ignore","quiet":true}` handles an automatic pension payment you never want to be asked about. Rules live in the database, not in this public repo, because they contain names.
 
-A rule with `passOnFrom` pairs someone else's money with the bill it pays, for example a parent who pays for your therapy: `{"match":["dr novak"],"passOnFrom":["parent's name"],"category":"health"}`. Money from the parent is 🔁 Passed on. A payment to the therapist is also 🔁 Passed on while some of the parent's money from the last 60 days is still waiting. If none is, you paid it yourself, so it counts as 💊 Health spending.
+A rule with `passOnFrom` pairs someone else's money with the bill it pays, for example a parent who pays for your therapy: `{"match":["dr novak"],"passOnFrom":["parent's name"],"multipleOf":3500,"max":14000,"category":"health"}`. Every payment to the therapist is 🔁 Passed on, and so is money from the parent that fits the amounts (35 € a session, up to four); other money from them is sorted as usual. 35 € in and 35 € out leaves 0. A session you pay yourself lowers the running total, and the month in review says how much came from your own pocket.
+
+**Month in review.** 📋 in the month view (and, early in a month, the button on the first screen) opens a review of that month:
+- **Where to cut:** your biggest cuttable categories, each with what you could keep a month and how (taxi rides vs your scooter price, nights out, one purchase of cigarettes fewer a week, subscriptions charged twice, whatever you marked 👎).
+- **To have money to spare:** what you took in and spent, and the income you'd need to keep 20 % at that spending, with and without the cuts.
+- **Worth knowing:** where most income came from, nights out, the biggest day, days without spending, possible double charges, regrets, bills paid with passed-on money.
+- **Next month's challenge:** a budget and a cap per category that add up to the cuts. "Take the challenge" sets them; every payment in a capped category then says how close you are, and the morning message shows all caps.
+On the 1st, the bot sends the review's summary with a button that opens it.
 
 **Missing movements.** b-mail doesn't report everything; Tatra banka says it skips transactions generated by its core system, such as fees and interest. When a b-mail includes your balance and the balance moved more than the payment explains, the bot adds an **"Unexplained balance change"** entry. Mark a −100 € gap as 🏦 Savings once, and the next −100 € gap is recognised as savings automatically. Turn this off with `/gaps off`.
 

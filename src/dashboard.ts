@@ -2,6 +2,7 @@
 // Worker and the design preview (preview/demo.ts) build it the same way.
 import type { Categories, Owed } from './classify.ts';
 import type { Tx } from './db.ts';
+import { review } from './review.ts';
 import { safeToSpend, summarize, type StatTx } from './stats.ts';
 import { addMonths, daysInMonth, monthName, monthOf } from './time.ts';
 
@@ -10,6 +11,19 @@ export interface DashboardSettings {
   goalName: string | null;
   goalAmount: number | null; // cents
   savingsStart: number; // cents already in savings before tracking started
+  name: string | null; // what the app calls you
+  caps: Record<string, number>; // this month's challenge: category → cents
+}
+
+/** The `caps` setting, {"taxi":15500,…}; anything malformed is dropped. */
+export function parseCaps(json: string | null | undefined): Record<string, number> {
+  try {
+    const c: unknown = JSON.parse(json ?? '{}');
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return {};
+    return Object.fromEntries(Object.entries(c).filter(([, v]) => Number.isInteger(v) && (v as number) > 0)) as Record<string, number>;
+  } catch {
+    return {};
+  }
 }
 
 export function readSettings(s: Record<string, string>): DashboardSettings {
@@ -19,6 +33,8 @@ export function readSettings(s: Record<string, string>): DashboardSettings {
     goalName: s.goal_name || null,
     goalAmount: cents(s.goal_amount),
     savingsStart: cents(s.savings_start) ?? 0,
+    name: s.name || null,
+    caps: parseCaps(s.caps),
   };
 }
 
@@ -35,6 +51,7 @@ export interface DashboardInput {
   debts: Owed[]; // what you still owe, across all months
   categories: Categories; // built-in plus yours
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
+  passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
 }
 
 export function dashboard(o: DashboardInput) {
@@ -44,6 +61,8 @@ export function dashboard(o: DashboardInput) {
   const savedTotal = o.savedByMonth.reduce((sum, m) => sum + m.saved, 0);
   // Pace for the goal: average of the last three months you saved anything in.
   const recent = o.savedByMonth.filter((m) => m.saved > 0).slice(0, 3);
+  const summary = summarize(o.txs);
+  const spentIn = new Map(summary.byCategory);
   return {
     month: o.month,
     name: monthName(o.month),
@@ -54,8 +73,20 @@ export function dashboard(o: DashboardInput) {
     budget: s.budget,
     safe: current && s.budget !== null ? safeToSpend(s.budget, o.txs, o.today) : null,
     streak: current ? o.streak : 0,
-    summary: summarize(o.txs),
-    prev: { realIncome: prev.realIncome, realSpent: prev.realSpent, saved: prev.saved },
+    summary,
+    you: s.name, // your name, if you set one
+    passedOn: o.passedOn ?? { in: 0, out: 0, kept: 0 },
+    // The challenge you took for this month: each cap with what's spent so far.
+    challenge: current && Object.keys(s.caps).length ? { budget: s.budget, caps: Object.entries(s.caps).map(([c, cap]) => ({ category: c, cap, spent: spentIn.get(c) ?? 0 })) } : null,
+    review: review({
+      month: o.month,
+      today: o.today,
+      txs: o.txs,
+      prevTxs: o.prevTxs,
+      categories: o.categories,
+      goal: { name: s.goalName, amount: s.goalAmount, saved: s.savingsStart + savedTotal },
+    }),
+    prev: { income: prev.income, spent: prev.spent, saved: prev.saved },
     savings: {
       goalName: s.goalName,
       goalAmount: s.goalAmount,

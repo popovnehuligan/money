@@ -2,7 +2,7 @@ import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSettings, getTx, latestBmail, loanPayments, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txBetween, txInMonth, uncategorize, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn] = await Promise.all([
     txBetween(env.DB, `${month}-01`, `${addMonths(month, 1)}-01`),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -21,6 +21,7 @@ async function summary(env: Env, asked?: string | null) {
     spendDaysSince(env.DB, since),
     loanPayments(env.DB),
     latestBmail(env.DB),
+    passedOnTotal(env.DB),
   ]);
   return dashboard({
     month,
@@ -33,6 +34,7 @@ async function summary(env: Env, asked?: string | null) {
     debts: owed(parseDebts(settings.debts ?? null), loans),
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
+    passedOn,
   });
 }
 
@@ -117,6 +119,13 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         if ('goalAmount' in body) values.goal_amount = cents(body.goalAmount)?.toString() ?? null;
         if ('savingsStart' in body) values.savings_start = cents(body.savingsStart)?.toString() ?? null;
         if ('goalName' in body) values.goal_name = String(body.goalName ?? '').trim().slice(0, 40) || null;
+        if ('name' in body) values.name = String(body.name ?? '').trim().slice(0, 30) || null;
+        if ('caps' in body) {
+          // Next month's challenge: {category: cents}, or null to end it.
+          const known = categoriesFrom(await getSetting(env.DB, 'categories'));
+          const caps = body.caps && typeof body.caps === 'object' ? Object.entries(body.caps as Record<string, unknown>).filter(([c]) => c in known).map(([c, v]) => [c, cents(v)]) : [];
+          values.caps = caps.length ? JSON.stringify(Object.fromEntries(caps.filter(([, v]) => v))) : null;
+        }
         for (const [key, value] of Object.entries(values)) await (value === null ? deleteSetting(env.DB, key) : setSetting(env.DB, key, value));
         return Response.json(await summary(env, String(body.month ?? '')));
       }

@@ -21,7 +21,7 @@ test('savings total, goal pace and labels', () => {
   });
   assert.equal(d.savings.total, 45000 + 35000);
   assert.equal(d.savings.perMonth, Math.round((5000 + 18000 + 12000) / 3)); // months with nothing saved are skipped
-  assert.equal(d.prev.realSpent, 3000);
+  assert.equal(d.prev.spent, 3000);
   assert.equal(d.safe?.allowance, Math.floor((60000 - 1250) / 13));
   assert.deepEqual(d.debts, [{ name: 'Mom', borrowed: 10000, paid: 4000, owed: 6000 }]);
   assert.deepEqual(d.tx.map((t) => [t.label, t.method, t.deletable]), [['Balance change', 'Balance change', true], ['LIDL', 'Card', false]]);

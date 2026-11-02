@@ -1,7 +1,7 @@
 import FORWARDER from '../apps-script/Code.gs';
 import APP_HTML from './app.html';
 import { derivedSecret } from './auth.ts';
-import { dashboardButton, handleUpdate, type Update } from './bot.ts';
+import { dashboardButton, handleUpdate, reviewButton, type Update } from './bot.ts';
 import { getSetting, setSetting, type Env, type RawEnv } from './db.ts';
 import { ingest, type IngestMessage } from './ingest.ts';
 import { api } from './miniapp.ts';
@@ -82,7 +82,10 @@ export default {
         const env = await withDefaults(rawEnv);
         if (!env.CHAT_ID) return;
         const today = dayOf(localStamp());
-        if (today.endsWith('-01')) await send(env, await wrapText(env, addMonths(monthOf(today), -1)));
+        if (today.endsWith('-01')) {
+          const last = addMonths(monthOf(today), -1);
+          await send(env, await wrapText(env, last), await reviewButton(env, last));
+        }
         await send(env, await morningText(env), await dashboardButton(env));
       })(),
     );

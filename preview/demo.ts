@@ -111,6 +111,7 @@ function summary(month = TODAY.slice(0, 7)) {
     debts: owed(parseDebts(settings.debts), txs.filter((t) => t.kind === 'loan')),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
+    passedOn: txs.filter((t) => t.kind === 'podmoga').reduce((p, t) => (t.amount > 0 ? { ...p, in: p.in + t.amount, kept: p.kept + t.amount } : { ...p, out: p.out - t.amount, kept: p.kept + t.amount }), { in: 0, out: 0, kept: 0 }),
   });
 }
 
@@ -174,6 +175,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         if (k in body) body[k] === null ? delete settings[key] : (settings[key] = String(body[k]));
       }
       if ('goalName' in body) settings.goal_name = String(body.goalName || '');
+      if ('name' in body) body.name ? (settings.name = String(body.name)) : delete settings.name;
+      if ('caps' in body) body.caps ? (settings.caps = JSON.stringify(body.caps)) : delete settings.caps;
       return json(summary(month));
   }
   return json({ error: 'Not found' }, 404);

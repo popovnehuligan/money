@@ -111,10 +111,13 @@ export async function txBetween(db: D1Database, from: string, to: string): Promi
   return results;
 }
 
-/** 🔁 Passed on payments since `from`, to pair someone's money with the bills it pays. */
-export async function passedOnSince(db: D1Database, from: string): Promise<Pick<Tx, 'amount' | 'merchant' | 'note'>[]> {
-  const { results } = await db.prepare("SELECT amount, merchant, note FROM tx WHERE kind = 'podmoga' AND ts >= ?").bind(from).all<Pick<Tx, 'amount' | 'merchant' | 'note'>>();
-  return results;
+/** Everything 🔁 Passed on so far: what came in, what went out, and what you kept (the running total). */
+export async function passedOnTotal(db: D1Database): Promise<{ in: number; out: number; kept: number }> {
+  const r = await db
+    .prepare("SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS i, COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END), 0) AS o FROM tx WHERE kind = 'podmoga'")
+    .first<{ i: number; o: number }>();
+  const i = r?.i ?? 0, o = r?.o ?? 0;
+  return { in: i, out: o, kept: i - o };
 }
 
 /** Names of your loans, for the "which loan?" buttons. */

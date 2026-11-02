@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CATEGORIES, categoryEmoji, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf, waitingToPassOn } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, categoryEmoji, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 const category = (r: ReturnType<typeof applyRules>) => (r && r !== 'ask' ? r.category : r);
@@ -30,7 +30,7 @@ test('rules ignore other names, money coming in and broken settings', () => {
   assert.equal(parseRules('[{"match":["x"],"category":"games"}]').length, 1); // your own categories are fine
 });
 
-const therapy = parseRules('[{"match":["dr novak"],"passOnFrom":["kovac maria"],"category":"health"}]');
+const therapy = parseRules('[{"match":["dr novak"],"passOnFrom":["kovac maria"],"multipleOf":3500,"max":14000,"category":"health"}]');
 
 test('money from someone else and the bill it pays belong to their pass-on rule', () => {
   assert.equal(passOnRule(therapy, 3500, 'KOVAC Maria')?.category, 'health');
@@ -39,14 +39,11 @@ test('money from someone else and the bill it pays belong to their pass-on rule'
   assert.equal(applyRules(therapy, -3500, 'DR NOVAK Peter'), null); // and plain rules leave it alone
 });
 
-test('a bill is passed on only while their money is waiting', () => {
-  const rule = therapy[0];
-  const mom = { amount: 3500, merchant: 'KOVAC Maria', note: null };
-  const session = { amount: -3500, merchant: 'DR NOVAK Peter', note: null };
-  const job = { amount: 50000, merchant: 'Event Agency', note: null };
-  assert.equal(waitingToPassOn(rule, [mom]), 3500);
-  assert.equal(waitingToPassOn(rule, [mom, session]), 0); // already passed on: a second session is yours
-  assert.equal(waitingToPassOn(rule, [job]), 0); // podmoga money doesn't pay for therapy
+test('only their money that fits the amounts is passed on; other money from them is not', () => {
+  assert.ok(passOnRule(therapy, 7000, 'KOVAC Maria')); // two sessions
+  assert.equal(passOnRule(therapy, 35000, 'KOVAC Maria'), null); // a gift: over the max
+  assert.equal(passOnRule(therapy, 2000, 'KOVAC Maria'), null); // not a multiple of 35 €
+  assert.ok(passOnRule(therapy, -7000, 'DR NOVAK Peter')); // every session payment, whoever paid for it
 });
 
 const debts = parseDebts('[{"name":"Mom","match":["kovac maria"],"amount":10000}]');

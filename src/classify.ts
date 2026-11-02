@@ -113,9 +113,10 @@ export function keyFor(merchant?: string, iban?: string): string | undefined {
  * automatic payment you never want to be asked about.
  *
  * With `passOnFrom`, a rule pairs someone else's money with the bill it pays, e.g.
- * [{"match":["dr novak"],"passOnFrom":["mom name"],"category":"health"}]: money from mom is
- * 🔁 Passed on, and so is a payment to Dr Novak while some of mom's money is still waiting.
- * When none is, you paid yourself, so it's spending in `category`.
+ * [{"match":["dr novak"],"passOnFrom":["mom name"],"multipleOf":3500,"max":14000,"category":"health"}]:
+ * every payment to Dr Novak is 🔁 Passed on, and so is money from mom that fits the amounts
+ * (other money from her is sorted as usual). Passed-on money is a running total, so a session
+ * you pay yourself simply lowers what you've kept. `category` labels the pair.
  */
 export interface Rule {
   match: string[];
@@ -153,15 +154,11 @@ export function applyRules(rules: Rule[], amount: number, ...names: Name[]): Rul
   return null;
 }
 
-/** The pass-on rule a payment belongs to: money coming in from `passOnFrom`, or a payment to `match`. */
-export function passOnRule(rules: Rule[], amount: number, ...names: Name[]): Rule | null {
-  return rules.find((r) => r.passOnFrom && mentions(amount > 0 ? r.passOnFrom : r.match, names)) ?? null;
-}
+const fitsAmount = (r: Rule, amount: number) => (!r.multipleOf || Math.abs(amount) % r.multipleOf === 0) && (!r.max || Math.abs(amount) <= r.max);
 
-/** How much of that someone's money is still waiting to be passed on, given recent 🔁 Passed on payments. */
-export function waitingToPassOn(rule: Rule, passedOn: { amount: number; merchant: string | null; note: string | null }[]): number {
-  const people = [...rule.match, ...(rule.passOnFrom ?? [])];
-  return passedOn.filter((t) => mentions(people, [t.merchant, t.note])).reduce((sum, t) => sum + t.amount, 0);
+/** The pass-on rule a payment belongs to: a payment to `match`, or money from `passOnFrom` whose amount fits. */
+export function passOnRule(rules: Rule[], amount: number, ...names: Name[]): Rule | null {
+  return rules.find((r) => r.passOnFrom && (amount > 0 ? mentions(r.passOnFrom, names) && fitsAmount(r, amount) : mentions(r.match, names))) ?? null;
 }
 
 /**

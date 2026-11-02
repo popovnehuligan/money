@@ -1,8 +1,22 @@
-import { debtFor, owed, owedText, parseDebts } from './classify.ts';
-import { firstDay, getBudget, getCategories, getSetting, loanPayments, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
-import { noSpendStreak, safeToSpend, summarize } from './stats.ts';
+import { debtFor, owed, owedText, parseDebts, type Categories } from './classify.ts';
+import { parseCaps } from './dashboard.ts';
+import { firstDay, getBudget, getCategories, getSetting, getSettings, loanPayments, passedOnTotal, savedByMonth, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
+import { review, reviewText } from './review.ts';
+import { noSpendStreak, safeToSpend, summarize, type Summary } from './stats.ts';
 import { eur } from './telegram.ts';
 import { addDays, addMonths, dayOf, localStamp, monthName, monthOf } from './time.ts';
+
+/** "🚕 45 of 155 €" for each cap of the month's challenge; over ones say so. */
+function capsLine(caps: Record<string, number>, s: Summary, cats: Categories, only?: string): string {
+  const spent = new Map(s.byCategory);
+  return Object.entries(caps)
+    .filter(([c]) => !only || c === only)
+    .map(([c, cap]) => {
+      const sp = spent.get(c) ?? 0, em = (cats[c] ?? '📦').split(' ')[0];
+      return sp > cap ? `${em} <b>${eur(sp)}</b> of ${eur(cap)}: over by ${eur(sp - cap)}` : `${em} ${eur(sp)} of ${eur(cap)}`;
+    })
+    .join(only ? '' : ' · ');
+}
 
 /** The line under each transaction message that says where you stand now. */
 export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
@@ -14,11 +28,14 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
     case 'spend': {
       const today = dayOf(localStamp());
       const budget = await getBudget(env.DB);
-      if (budget === null || dayOf(t.ts) !== today) return `Spent in ${name}: ${eur(s.spent)}`;
+      // This month's challenge: how this category stands against its cap.
+      const caps = month === monthOf(today) && t.category ? parseCaps(await getSetting(env.DB, 'caps')) : {};
+      const cap = t.category && caps[t.category] ? `\n${capsLine(caps, s, await getCategories(env.DB), t.category)} this month` : '';
+      if (budget === null || dayOf(t.ts) !== today) return `Spent in ${name}: ${eur(s.spent)}${cap}`;
       const safe = safeToSpend(budget, txs, today);
-      return safe.left >= 0
+      return (safe.left >= 0
         ? `Left for today: <b>${eur(safe.left)}</b>`
-        : `Over today's ${eur(safe.allowance)} by <b>${eur(-safe.left)}</b>, so the next days get a bit less`;
+        : `Over today's ${eur(safe.allowance)} by <b>${eur(-safe.left)}</b>, so the next days get a bit less`) + cap;
     }
     case 'loan': {
       const debts = parseDebts(await getSetting(env.DB, 'debts'));
@@ -28,12 +45,15 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
       const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === d);
       return owedText(owed([d], loans)[0], eur);
     }
-    case 'podmoga':
-      return `Passed on in ${name}: ${eur(s.podmogaIn)} in, ${eur(s.podmogaOut)} out → net <b>${eur(s.podmogaNet, true)}</b>`;
+    case 'podmoga': {
+      // Not income, not spending: only what you keep counts, as a running total.
+      const total = await passedOnTotal(env.DB);
+      return `🔁 Kept from passed-on money so far: <b>${eur(total.kept, true)}</b> (${name}: ${eur(s.podmogaNet, true)})`;
+    }
     case 'savings':
       return `Saved in ${name}: <b>${eur(s.saved)}</b> 🌱`;
     case 'income':
-      return `Income in ${name}: ${eur(s.realIncome)}`;
+      return `Income in ${name}: ${eur(s.income)}`;
     default:
       return undefined;
   }
@@ -61,28 +81,27 @@ export async function morningText(env: Env): Promise<string> {
   const streak = first ? noSpendStreak(spendDays, first > addDays(today, -90) ? first : addDays(today, -90), today) : 0;
   if (streak >= 2) lines.push(`🔥 No-spend streak: ${streak} days`);
   lines.push(`${monthName(month)} so far: spent ${eur(s.spent)}${budget === null ? '' : ` of ${eur(budget)}`} · saved ${eur(s.saved)}`);
+  const caps = parseCaps(await getSetting(env.DB, 'caps'));
+  if (Object.keys(caps).length) lines.push(`🎯 ${capsLine(caps, s, await getCategories(env.DB))}`);
   return lines.join('\n');
 }
 
+/** The month in review (the full one is in the dashboard), plus the passed-on running total. */
 export async function wrapText(env: Env, month: string): Promise<string> {
-  const prevMonth = addMonths(month, -1);
-  const [s, p] = (await Promise.all([txInMonth(env.DB, month), txInMonth(env.DB, prevMonth)])).map(summarize);
-  const vs =
-    p.realSpent > 0
-      ? ` (${s.realSpent <= p.realSpent ? '▼' : '▲'} ${Math.round((Math.abs(s.realSpent - p.realSpent) / p.realSpent) * 100)} % vs ${monthName(prevMonth)})`
-      : '';
-  const lines = [
-    `📊 <b>${monthName(month)} wrap-up</b>`,
-    '',
-    `💰 Real income: <b>${eur(s.realIncome)}</b>${s.podmogaNet ? ` (passed-on net ${eur(s.podmogaNet, true)})` : ''}`,
-    `💸 Spent: <b>${eur(s.realSpent)}</b>${vs}`,
-    `🏦 Saved: <b>${eur(s.saved)}</b>`,
-    `➡️ Left over: <b>${eur(s.left, true)}</b>`,
-  ];
-  if (s.byCategory.length) {
-    const cats = await getCategories(env.DB);
-    lines.push('', `Top: ${s.byCategory.slice(0, 3).map(([c, v]) => `${(cats[c] ?? '📦').split(' ')[0]} ${eur(v)}`).join(' · ')}`);
-  }
-  if (s.regret > 0 && s.spent > 0) lines.push(`👎 Regretted: ${eur(s.regret)} (${Math.round((s.regret / s.spent) * 100)} % of spending)`);
+  const [txs, prevTxs, settings, cats, saved, total] = await Promise.all([
+    txInMonth(env.DB, month),
+    txInMonth(env.DB, addMonths(month, -1)),
+    getSettings(env.DB),
+    getCategories(env.DB),
+    savedByMonth(env.DB),
+    passedOnTotal(env.DB),
+  ]);
+  const savedSoFar = Number(settings.savings_start ?? 0) + saved.reduce((sum, m) => sum + m.saved, 0);
+  const goal = { name: settings.goal_name || null, amount: settings.goal_amount ? Number(settings.goal_amount) : null, saved: savedSoFar };
+  const r = review({ month, today: dayOf(localStamp()), txs: txs as Tx[], prevTxs, categories: cats, goal });
+  const lines = [reviewText(r, cats)];
+  if (total.in || total.out) lines.push('', `🔁 Kept from passed-on money so far: <b>${eur(total.kept, true)}</b>`);
+  const caps = parseCaps(settings.caps);
+  if (r.partial && Object.keys(caps).length) lines.push('', `🎯 ${capsLine(caps, summarize(txs), cats)}`);
   return lines.join('\n');
 }

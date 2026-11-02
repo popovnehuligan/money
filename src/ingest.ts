@@ -1,9 +1,8 @@
-import { applyRules, defaultKind, joinGap, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, waitingToPassOn, type Kind } from './classify.ts';
-import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnSince, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, defaultKind, joinGap, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, type Kind } from './classify.ts';
+import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { edit, esc, send, tg, txKeyboard, txText } from './telegram.ts';
-import { addDays, dayOf } from './time.ts';
 
 export interface IngestMessage {
   id: string; // Gmail message id, used to skip duplicates
@@ -26,11 +25,7 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
   const pass = passOnRule(rules, t.amount, t.merchant, t.note);
-  if (pass && t.amount > 0) return store('podmoga', null);
-  if (pass) {
-    const waiting = waitingToPassOn(pass, await passedOnSince(env.DB, addDays(dayOf(t.ts), -60)));
-    return waiting >= -t.amount ? store('podmoga', null) : store('spend', pass.category ?? null);
-  }
+  if (pass) return store('podmoga', pass.category ?? null);
 
   const debts = parseDebts(await getSetting(env.DB, 'debts'));
   const repaid = debts.length ? repaymentOf(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note) : undefined;

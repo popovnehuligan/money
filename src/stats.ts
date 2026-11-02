@@ -13,13 +13,13 @@ export interface Summary {
   income: number;
   spent: number;
   saved: number;
+  // 🔁 Passed on: someone else's money through your account. Never income or spending;
+  // only what you keep counts, as a running total (see passedOnTotal in db.ts).
   podmogaIn: number;
   podmogaOut: number;
-  podmogaNet: number;
-  realIncome: number; // income + podmoga net when positive
-  realSpent: number; // spending + podmoga net when negative
+  podmogaNet: number; // this month's change of that running total
   loans: number; // borrowed minus paid back (negative when you paid back more)
-  left: number; // realIncome - realSpent - saved + loans
+  left: number; // income - spent - saved + loans
   regret: number; // spending you marked 👎
   byCategory: [string, number][]; // biggest first
 }
@@ -42,20 +42,15 @@ export function summarize(txs: StatTx[]): Summary {
       if (t.worth === 0) regret -= t.amount;
     }
   }
-  const podmogaNet = podmogaIn - podmogaOut;
-  const realIncome = income + Math.max(podmogaNet, 0);
-  const realSpent = spent + Math.max(-podmogaNet, 0);
   return {
     income,
     spent,
     saved,
     podmogaIn,
     podmogaOut,
-    podmogaNet,
-    realIncome,
-    realSpent,
+    podmogaNet: podmogaIn - podmogaOut,
     loans,
-    left: realIncome - realSpent - saved + loans,
+    left: income - spent - saved + loans,
     regret,
     byCategory: [...cats].filter(([, v]) => v !== 0).sort((a, b) => b[1] - a[1]),
   };

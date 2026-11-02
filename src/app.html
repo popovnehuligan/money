@@ -212,6 +212,33 @@ svg { display: block; }
 .pod h3 { margin: 0 0 4px; font: 600 14px var(--f-ui); color: var(--podmoga); }
 .pod p { margin: 0; color: var(--ink-2); }
 .pod p b { color: var(--good); }
+.pod .big-kept { margin: 2px 0 6px; font: 700 30px/1 var(--f-ui); letter-spacing: -.04em; color: var(--good); }
+.pod .big-kept.neg { color: var(--coral); }
+
+/* month in review */
+.review-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; margin-top: 14px; padding: 0 16px; border-radius: 20px; background: var(--glass-2); color: var(--ink); font-weight: 600; font-size: 14px; }
+.rv-head { margin: 2px 0 0; font: 700 25px/1.15 var(--f-ui); letter-spacing: -.03em; }
+.rv-kicker { margin: 0; font: 600 13px var(--f-ui); letter-spacing: .02em; color: var(--aqua); }
+.rv-cut { margin-top: 10px; padding: 14px 16px 16px; border-radius: 20px; background: var(--glass-2); }
+.rv-cut-top { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; }
+.rv-cut-top span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-cut-top b { color: var(--good); white-space: nowrap; font-weight: 700; }
+.rv-cut p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink-2); }
+.rv-p { margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.rv-cut p b, .rv-p b, .rv-note b { color: var(--ink); }
+.rv-notes { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 12px; }
+.rv-note { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 8px; font-size: 14px; line-height: 1.45; color: var(--ink-2); overflow-wrap: anywhere; }
+.rv-plan { margin-top: 28px; padding: 18px 18px 20px; border-radius: 24px; background: linear-gradient(160deg, rgba(56, 232, 214, .2), rgba(143, 134, 255, .16)); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08); }
+.rv-plan h3 { margin: 0; font: 700 19px var(--f-ui); letter-spacing: -.02em; }
+.rv-caps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rv-caps span { padding: 7px 12px; border-radius: 16px; background: rgba(0, 0, 0, .25); font-weight: 600; font-size: 14px; white-space: nowrap; }
+.rv-on { margin: 16px 0 0; padding: 12px 14px; border-radius: 16px; background: rgba(62, 224, 161, .14); color: var(--good); font-weight: 600; font-size: 14px; }
+.caps { display: grid; gap: 4px; margin-top: 6px; }
+#month .caps { gap: 0; margin: 10px 0 14px; }
+#month .caps .bar-row { gap: 5px; padding: 5px 0; }
+#month .caps .bar-top { font-size: 14px; }
+#month .caps .meter { height: 6px; }
+.caps .bar-top b.over { color: var(--coral); }
 
 /* jar */
 .jar-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); align-items: center; gap: 10px; margin-top: 18px; }
@@ -837,14 +864,14 @@ function renderToday() {
     // No budget: the pool is what's really on your account, the number your bank app shows.
     const b = d.balance;
     over = b.amount < 0;
-    f = clamp(b.amount / Math.max(b.amount + s.realSpent, 1), 0, 1);
+    f = clamp(b.amount / Math.max(b.amount + s.spent, 1), 0, 1);
     value = b.amount;
     label.textContent = 'On your account';
-    sub.innerHTML = `as of ${esc(dayLabel(b.ts.slice(0, 10), d.today).toLowerCase())}, ${b.ts.slice(11, 16)} · spent this month&nbsp;<b>${eur(s.realSpent)}</b><br>Set a monthly budget and this becomes your daily pool.`;
+    sub.innerHTML = `as of ${esc(dayLabel(b.ts.slice(0, 10), d.today).toLowerCase())}, ${b.ts.slice(11, 16)} · spent this month&nbsp;<b>${eur(s.spent)}</b><br>Set a monthly budget and this becomes your daily pool.`;
   } else {
     label.textContent = 'Spent this month';
     f = 0.5;
-    value = s.realSpent;
+    value = s.spent;
     sub.textContent = 'Set a monthly budget and this becomes your daily pool.';
   }
   num.dry.innerHTML = num.wet.innerHTML = money(value);
@@ -879,7 +906,10 @@ function renderToday() {
       <div class="deep-row"><p><span><span class="num-tab">${eur0(s.spent)} / ${eur0(d.budget)}</span> in ${esc(d.name)}</span> · <span>${d.days - dayNum} days left</span> · ${ahead <= 0 ? '<span class="ok">on pace</span>' : `<span class="warn">${eur0(ahead)} over pace</span>`}</p>
       <button class="dive" data-go="month" aria-label="Dive into ${esc(d.name)}">${ICON.down}</button></div>`;
   } else {
-    info.innerHTML = `<div class="deep-row"><button class="cta-glass" data-act="settings">Set a monthly budget</button><button class="dive" data-go="month" aria-label="Dive into ${esc(d.name)}">${ICON.down}</button></div>`;
+    // Early in a month, last month's review (and its challenge) is the way in; later, the budget.
+    const last = shiftMonth(d.month, -1);
+    const cta = dayNum <= 10 ? `<button class="cta-glass" data-act="review" data-month="${last}">📋 Your ${MONTH[+last.slice(5) - 1]} review</button>` : '<button class="cta-glass" data-act="settings">Set a monthly budget</button>';
+    info.innerHTML = `<div class="deep-row">${cta}<button class="dive" data-go="month" aria-label="Dive into ${esc(d.name)}">${ICON.down}</button></div>`;
   }
   requestAnimationFrame(measureNum);
 }
@@ -915,7 +945,9 @@ function renderMonth() {
         <button class="orb" data-act="next" aria-label="Next month" ${d.month >= state.cur.month ? 'disabled' : ''}>${ICON.right}</button>
       </div>
     </div>
-    <div class="stats-line"><span><b>${eur0(s.realSpent)}</b> spent</span>${d.budget ? `<span>of <b>${eur0(d.budget)}</b></span>` : ''}${d.streak ? `<span class="streak">✦ ${d.streak}-day dry streak</span>` : ''}</div>
+    <div class="stats-line"><span><b>${eur0(s.spent)}</b> spent</span>${d.budget ? `<span>of <b>${eur0(d.budget)}</b></span>` : ''}${d.streak ? `<span class="streak">✦ ${d.streak}-day dry streak</span>` : ''}</div>
+    <button class="review-btn" data-act="review" data-month="${d.month}">📋 ${esc(d.name)} ${d.current ? 'so far' : 'in review'}</button>
+    ${d.challenge ? `<div class="caps">${capsHTML(d.challenge)}</div>` : ''}
     <div class="glasses">${cells.join('')}</div>
     ${keys ? `<div class="keys">${keys}</div>` : ''}
     <p class="legend-note">Each glass is a day${d.budget ? `, full at ${eur0(cap)} (twice your daily budget); the line marks one day’s budget` : ''}. ✦ means nothing spent. A dripping glass was a big day.</p>`;
@@ -933,19 +965,20 @@ function renderFlow() {
     </button>`;
   }).join('');
   let pod = '';
-  if (s.podmogaIn || s.podmogaOut) {
-    const kept = Math.max(s.podmogaNet, 0), top = Math.max(s.podmogaIn, s.podmogaOut, 1);
+  const po = d.passedOn;
+  if (po.in || po.out) {
+    // Someone else's money through your account: never income or spending. Only what you keep counts, as a running total.
     pod = `<div class="pod">
-      <h3>Passed on</h3>
-      <p>${eur0(s.podmogaIn)} came in, ${eur0(s.podmogaOut)} went out. ${s.podmogaNet >= 0 ? `You kept <b>${eur0(kept)}</b>.` : `You lost <b>${eur0(-s.podmogaNet)}</b>.`}</p>
-      <div class="split" role="img" aria-label="${eur0(Math.min(s.podmogaIn, s.podmogaOut))} passed on, ${eur0(kept)} kept"><i style="--w:${((100 * Math.min(s.podmogaIn, s.podmogaOut)) / top).toFixed(1)}%;--c:rgba(255,255,255,.18)"></i>${kept ? `<i style="--w:${((100 * kept) / top).toFixed(1)}%;--c:var(--good)"></i>` : ''}</div>
+      <h3>🔁 Passed on · kept so far</h3>
+      <p class="big-kept${po.kept < 0 ? ' neg' : ''}">${eur0(po.kept, true)}</p>
+      <p>${eur0(po.in)} came in and ${eur0(po.out)} went out since you started. None of it counts as income or spending; only what you keep does.${s.podmogaIn || s.podmogaOut ? ` ${esc(d.name)}: ${eur0(s.podmogaNet, true)}.` : ''}</p>
     </div>`;
   }
   $('#flow').innerHTML = `
     <h2 class="title" id="flow-title">Where it went</h2>
     <div class="totals">
-      <div><span>Came in</span><b>${eur0(s.realIncome)}</b></div>
-      <div><span>Spent</span><b>${eur0(s.realSpent)}</b></div>
+      <div><span>Came in</span><b>${eur0(s.income)}</b></div>
+      <div><span>Spent</span><b>${eur0(s.spent)}</b></div>
       <div><span>Saved</span><b class="gold">${eur0(s.saved)}</b></div>
     </div>
     ${bars ? `<div class="bars">${bars}</div>` : '<div class="empty"><b>Nothing spent yet</b>Categories show up here as you sort payments.</div>'}
@@ -1050,7 +1083,7 @@ function renderAll() {
   CATS = state.cur.categories;
   const h = new Date().getHours();
   const part = h < 5 ? 'Late swim' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  $('#hello').innerHTML = `${esc(part)}<b>${esc(TG?.initDataUnsafe?.user?.first_name || 'Your pool')}</b>`;
+  $('#hello').innerHTML = `${esc(part)}<b>${esc(state.cur.you || TG?.initDataUnsafe?.user?.first_name || 'Your pool')}</b>`;
   renderToday();
   renderMonth();
   renderFlow();
@@ -1062,6 +1095,8 @@ async function load() {
   try {
     state.cur = state.view = await api('/api/summary');
     renderAll();
+    const want = new URLSearchParams(location.search).get('review'); // the bot's "Open the review" button
+    if (want && /^\d{4}-\d{2}$/.test(want)) openReview(want);
   } catch (e) {
     $('#num-label').textContent = tg ? 'The pool is unreachable' : 'Open this from your Telegram bot';
     num.dry.textContent = num.wet.textContent = '—';
@@ -1161,6 +1196,54 @@ function editorHTML(t) {
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
 }
 
+/* ---------- month in review ---------- */
+/** Review texts mark numbers with *stars*; everything else is escaped. */
+const rich = (t) => esc(t).replace(/\*([^*]+)\*/g, '<b>$1</b>');
+function capsHTML(ch) {
+  return ch.caps.map(({ category, cap, spent }) => {
+    const m = catMeta(category), over = spent > cap, f = Math.min(1, spent / cap);
+    const c = over ? 'var(--coral)' : f > 0.8 ? 'var(--amber)' : 'var(--good)';
+    return `<div class="bar-row" role="img" aria-label="${esc(m.name)}: ${eur0(spent)} of ${eur0(cap)}${over ? ', over' : ''}" style="--c:${c}">
+      <span class="bar-top"><span>${m.emoji} ${esc(m.name)}</span><b class="${over ? 'over' : ''}">${eur0(spent)} / ${eur0(cap)}</b></span>
+      <span class="meter"><i style="--w:${(100 * f).toFixed(1)}%"></i></span></div>`;
+  }).join('');
+}
+function reviewHTML(d) {
+  const r = d.review, cur = state.cur;
+  const forNow = r.plan && shiftMonth(r.month, 1) === cur.month; // the plan is for the month we're in
+  const on = forNow && cur.challenge && cur.budget === r.plan.budget;
+  const cuts = r.cuts.map((c) => { const m = catMeta(c.category); return `<div class="rv-cut" style="--c:${m.c}">
+      <div class="rv-cut-top"><span>${m.emoji} ${esc(m.name)} · ${eur0(c.spent)}</span><b>save ${eur0(c.save)}</b></div>
+      <p>${rich(c.text)}</p></div>`; }).join('');
+  const notes = r.notes.map((x) => `<li class="rv-note"><span aria-hidden="true">${esc(x.icon)}</span><span>${rich(x.text)}</span></li>`).join('');
+  const plan = r.plan && forNow ? `<div class="rv-plan">
+      <p class="rv-kicker">${esc(r.nextName)} is the real one</p>
+      <h3>🎯 The ${esc(r.nextName)} challenge</h3>
+      <p class="rv-p">${rich(r.plan.text)}</p>
+      <div class="rv-caps">${r.plan.caps.map(([c, v]) => { const m = catMeta(c); return `<span>${m.emoji} ${esc(m.name)} ≤ ${eur0(v)}</span>`; }).join('')}</div>
+      ${on ? `<p class="rv-on">✓ Challenge on. Each payment in these categories now tells you how close you are to the cap.</p>`
+        : `<button type="button" class="primary" data-act="take-challenge">Take the challenge</button>
+           <p class="hint">Sets your ${esc(r.nextName)} budget to ${eur0(r.plan.budget)} and the caps above. You’ll see each cap fill up as you pay.</p>`}
+    </div>` : '';
+  const live = r.partial && cur.challenge && d.month === cur.month ? `<h3 class="sh-sub">🎯 Your challenge</h3><div class="caps">${capsHTML(cur.challenge)}</div>
+      <button type="button" class="textbtn" data-act="end-challenge">End the challenge</button>` : '';
+  return `<p class="rv-kicker">${r.partial ? 'So far' : 'Month in review'}</p>
+    <h2 class="rv-head" id="sheet-title">${esc(r.headline)}</h2>
+    <div class="totals"><div><span>Came in</span><b>${eur0(r.income)}</b></div><div><span>Spent</span><b>${eur0(r.spent)}</b></div><div><span>Saved</span><b class="gold">${eur0(r.saved)}</b></div></div>
+    ${live}${plan}
+    ${cuts ? `<h3 class="sh-sub">Where to cut</h3>${cuts}` : ''}
+    <h3 class="sh-sub">To have money to spare</h3>${r.earn.map((x) => `<p class="rv-p">${rich(x)}</p>`).join('')}
+    ${notes ? `<h3 class="sh-sub">Worth knowing</h3><ul class="rv-notes">${notes}</ul>` : ''}`;
+}
+async function openReview(month) {
+  haptic.pick();
+  try {
+    const d = month === state.view.month ? state.view : month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
+    state.review = d;
+    openSheet('review', reviewHTML(d));
+  } catch (e) { toast(e.message); }
+}
+
 const listSheetHTML = (title, list, row = {}) => `<h2 class="sh-h" id="sheet-title">${esc(title)}</h2>
   <div style="margin-top:10px">${list.length ? list.map((t) => rowHTML(t, row)).join('') : '<div class="empty"><b>Dry</b>Nothing spent.</div>'}</div>`;
 
@@ -1196,6 +1279,7 @@ function settingsHTML() {
   const v = (c) => (c ? NUM.format(c / 100).replace(/\s/g, '') : '');
   return `<h2 class="sh-h" id="sheet-title">Your pool</h2>
     <form id="settings-form" novalidate>
+      <label class="field"><span class="field-name">Your name</span><input class="input" id="set-name" maxlength="30" autocomplete="given-name" placeholder="${esc(TG?.initDataUnsafe?.user?.first_name || 'Your name')}" value="${esc(d.you || '')}"></label>
       <label class="field"><span class="field-name">Monthly spending budget</span><span class="suffix"><input id="set-budget" inputmode="decimal" placeholder="600" value="${v(d.budget)}"><b>€</b></span><small>${d.budget ? `About ${eur0(d.budget / d.days)} a day. Water you don’t use flows into tomorrow.` : 'This fills your daily pool. Water you don’t use flows into tomorrow.'}</small></label>
       <label class="field"><span class="field-name">Saving for</span><input class="input" id="set-goal-name" maxlength="40" placeholder="Japan trip, new laptop…" value="${esc(sv.goalName || '')}"></label>
       <label class="field"><span class="field-name">Goal amount</span><span class="suffix"><input id="set-goal" inputmode="decimal" placeholder="2000" value="${v(sv.goalAmount)}"><b>€</b></span></label>
@@ -1291,6 +1375,15 @@ function goTo(id) {
 }
 
 const actions = {
+  review: (el) => openReview(el.dataset.month),
+  'take-challenge': () => {
+    const r = state.review.review, p = r.plan;
+    mutate('/api/settings', { budget: p.budget, caps: Object.fromEntries(p.caps), month: state.cur.month }, () => {
+      haptic.ok(); confetti(); toast(`${r.nextName} challenge on. Let’s go 💪`);
+      openSheet('review', reviewHTML(state.review));
+    });
+  },
+  'end-challenge': async () => { if (await ask('End the challenge? Your budget stays.')) mutate('/api/settings', { caps: null, month: state.cur.month }, () => { toast('Challenge ended'); closeSheet(); }); },
   retry: () => load(),
   settings: () => openSheet('settings', settingsHTML()),
   close: closeSheet,
@@ -1555,7 +1648,7 @@ document.addEventListener('submit', (e) => {
       const n = Number(raw);
       return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : NaN;
     };
-    const body = { budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value, month: state.cur.month };
+    const body = { name: $('#set-name').value, budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value, month: state.cur.month };
     if ([body.budget, body.goalAmount, body.savingsStart].some(Number.isNaN)) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50.'; return; }
     mutate('/api/settings', body, () => { haptic.ok(); closeSheet(); toast('Saved'); splash(0.5, 30); });
   }

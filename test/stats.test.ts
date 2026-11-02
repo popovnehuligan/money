@@ -12,18 +12,17 @@ const tx = (ts: string, amount: number, kind: StatTx['kind'], extra: Partial<Sta
   ...extra,
 });
 
-test('podmoga pass-through only counts the net', () => {
-  // 500 in, 400 out the same day: you earned 100 and spent nothing.
-  const s = summarize([tx('2026-10-05T10:00', 50000, 'podmoga'), tx('2026-10-05T15:00', -40000, 'podmoga')]);
-  assert.equal(s.realIncome, 10000);
-  assert.equal(s.realSpent, 0);
-  assert.equal(s.podmogaNet, 10000);
+test('passed-on money is never income or spending; only its net moves', () => {
+  // 300 in, three people paid 50 each: you kept 150, and nothing was spent.
+  const s = summarize([tx('2026-10-05T10:00', 30000, 'podmoga'), ...[1, 2, 3].map((i) => tx(`2026-10-0${5 + i}T15:00`, -5000, 'podmoga'))]);
+  assert.equal(s.income, 0);
+  assert.equal(s.spent, 0);
+  assert.equal(s.podmogaNet, 15000);
 });
 
-test('a podmoga job that lost money counts as spending', () => {
-  const s = summarize([tx('2026-10-05T10:00', 30000, 'podmoga'), tx('2026-10-05T15:00', -35000, 'podmoga')]);
-  assert.equal(s.realIncome, 0);
-  assert.equal(s.realSpent, 5000);
+test('a session paid with mom\'s 35 € nets to nothing', () => {
+  const s = summarize([tx('2026-10-05T10:00', 3500, 'podmoga'), tx('2026-10-05T15:00', -3500, 'podmoga')]);
+  assert.deepEqual([s.income, s.spent, s.podmogaNet], [0, 0, 0]);
 });
 
 test('savings transfers are saved, not spent', () => {
@@ -43,15 +42,15 @@ test('savings transfers are saved, not spent', () => {
 
 test('loans are neither income nor spending, but they move what is left', () => {
   const s = summarize([tx('2026-10-01T08:00', 150000, 'income'), tx('2026-10-20T09:00', -4000, 'loan'), tx('2026-10-21T09:00', -2000, 'spend', { category: 'food' })]);
-  assert.equal(s.realIncome, 150000);
-  assert.equal(s.realSpent, 2000);
+  assert.equal(s.income, 150000);
+  assert.equal(s.spent, 2000);
   assert.equal(s.loans, -4000);
   assert.equal(s.left, 150000 - 2000 - 4000);
 });
 
 test('ignored transfers do not count anywhere', () => {
   const s = summarize([tx('2026-10-01T08:00', -20000, 'ignore')]);
-  assert.equal(s.realSpent + s.realIncome + s.saved, 0);
+  assert.equal(s.spent + s.income + s.saved, 0);
 });
 
 test('safe to spend rolls leftovers forward', () => {
