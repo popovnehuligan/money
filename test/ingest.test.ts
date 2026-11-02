@@ -183,3 +183,19 @@ test('a wage paid early can count for next month; an income rule names who paid'
   await applyChoice(env, (await getTx(env.DB, 1))!, { countsFor: '2026-10' }); // back to its own month
   assert.equal((await getTx(env.DB, 1))!.month, null);
 });
+
+test('any part of money going out can pay a loan back, a cash withdrawal included', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('debts', ?)").bind('[{"name":"Friend","match":[],"amount":17520}]').run();
+  await bmail(env, '2026-11-02 17:17', -180, 20, 'Vyber kartou 4405**0000, SOME STREET BRATISLAVA');
+  const atm = (await getTx(env.DB, 1))!;
+  assert.equal(atm.kind, 'cash');
+  await applyChoice(env, atm, { repay: { debt: 'Friend', amount: 17500 } }); // 175 € of the 180 € taken out
+  const debts = parseDebts('[{"name":"Friend","match":[],"amount":17520}]');
+  assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, 20); // 0,20 € to go
+  await assert.rejects(applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Friend', amount: 18001 } })); // more than the payment
+  await applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Friend', amount: 18000 } }); // all of it
+  assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, -480);
+  await applyChoice(env, (await getTx(env.DB, 1))!, { kind: 'ignore' }); // not money out to anyone: the repayment goes
+  assert.equal((await getTx(env.DB, 1))!.loan_part, null);
+});

@@ -1,8 +1,8 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, newCategory, owed, parseDebts } from './classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, debtFor, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore, history] = await Promise.all([
     txInMonth(env.DB, month),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -25,7 +25,9 @@ async function summary(env: Env, asked?: string | null) {
     unratedCount(env.DB),
     passedOnBefore(env.DB, `${month}-01`),
     passedOnBefore(env.DB, `${addMonths(month, -1)}-01`),
+    loanHistory(env.DB),
   ]);
+  const debts = parseDebts(settings.debts ?? null);
   return dashboard({
     month,
     today,
@@ -35,7 +37,8 @@ async function summary(env: Env, asked?: string | null) {
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
     debts: owed(parseDebts(settings.debts ?? null), loans),
-    loans: parseDebts(settings.debts ?? null).map((d) => ({ name: d.name, amount: d.amount })),
+    loans: debts.map((d) => ({ name: d.name, amount: d.amount })),
+    loanHistory: history.map((t) => ({ n: t.n, ts: t.ts, part: t.part, debt: debtFor(debts, { ...t, amount: t.part })?.name ?? t.debt, label: t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Payment') })),
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
     passedOn,
@@ -82,9 +85,14 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
       case '/api/cash': {
         const amount = Math.round(Number(body.amount));
         if (!Number.isFinite(amount) || amount === 0 || Math.abs(amount) > 1e8) throw new BadInput('Enter an amount.');
+        // A cash payment back to someone you owe (or cash they lent you) is a 🤝 Loan entry for that debt.
+        const debt = typeof body.debt === 'string' ? body.debt : undefined;
+        if (debt && !parseDebts(await getSetting(env.DB, 'debts')).some((d) => d.name === debt)) throw new BadInput(`Unknown loan "${debt}"`);
+        const ts = typeof body.ts === 'string' && body.ts ? body.ts : localStamp();
+        if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(ts)) throw new BadInput('Pick a date and time.');
         const tx = await record(env, {
           ext_id: `app-${crypto.randomUUID()}`,
-          ts: localStamp(),
+          ts,
           amount,
           currency: 'EUR',
           balance: null,
@@ -96,7 +104,7 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           raw: null,
         });
         if (tx) {
-          const sorted = typeof body.newCategory === 'string' ? await applyChoice(env, tx, { newCategory: body.newCategory }) : typeof body.category === 'string' ? await applyChoice(env, tx, { category: body.category }) : tx;
+          const sorted = debt ? await applyChoice(env, tx, { debt }) : typeof body.newCategory === 'string' ? await applyChoice(env, tx, { newCategory: body.newCategory }) : typeof body.category === 'string' ? await applyChoice(env, tx, { category: body.category }) : tx;
           await notify(env, sorted); // so it's in the chat too, like everything else
         }
         return Response.json(await summary(env));

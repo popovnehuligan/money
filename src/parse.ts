@@ -128,7 +128,7 @@ export function parseBmail(subject: string, body: string): ParsedTx | null {
   const ibans = [...text.matchAll(IBAN)]
     .filter((m) => !OWN_ACCOUNT.test(fold(text.slice(Math.max(0, m.index - 30), m.index))))
     .map((m) => m[0].replace(/ /g, ''));
-  const method: Method = /bankomat|\batm\b|vyber hotovost|cash withdrawal/.test(folded)
+  const method: Method = /bankomat|\batm\b|vyber hotovost|vyber kartou|cash withdrawal/.test(folded) // Tatra: "Vyber kartou 4405**…, <ATM place>"
     ? 'atm'
     : /kart|\bcard\b|google pay|apple pay|\bpos\b/.test(folded)
       ? 'card'

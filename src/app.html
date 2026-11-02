@@ -259,6 +259,23 @@ svg { display: block; }
 .debts { margin-top: 30px; padding: 18px; border-radius: 22px; background: var(--glass-2); }
 .debts h3 { margin: 0; font: 600 14px var(--f-ui); color: var(--loan); }
 .debt + .debt { margin-top: 18px; }
+.debts .cta-glass { margin-top: 16px; }
+.chip { display: inline-flex; align-items: center; height: 36px; padding: 0 14px; border-radius: 18px; background: rgba(255, 255, 255, .08); font: 600 14px var(--f-ui); white-space: nowrap; }
+.chip.go { background: var(--loan); color: #04203a; }
+.debt-card { margin-top: 14px; padding: 16px; border-radius: 22px; background: var(--glass-2); }
+.debt-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.debt-top b { font: 700 18px var(--f-ui); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.debt-top span { font: 700 18px var(--f-ui); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.debt-card .split { margin-top: 10px; }
+.debt-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.debt-hist { margin-top: 10px; border-top: 1px solid var(--line); }
+.debt-row { display: flex; justify-content: space-between; gap: 10px; width: 100%; padding: 9px 2px; text-align: left; font-size: 14px; color: var(--ink-2); border-bottom: 1px solid var(--line); }
+.debt-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.debt-row b { white-space: nowrap; color: var(--ink); font-variant-numeric: tabular-nums; }
+.debt-new { display: grid; gap: 8px; margin-top: 10px; }
+.debt-new .primary { margin-top: 4px; }
+.repay-amt { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; align-items: center; margin-top: 10px; }
+.repay-amt .suffix { height: 44px; padding: 0 12px; }
 .debt .amt { margin: 4px 0; font: 700 32px/1 var(--f-ui); letter-spacing: -.04em; }
 .debt p { margin: 0; color: var(--ink-2); font-size: 14px; }
 .debt p b { color: var(--ink); }
@@ -1128,7 +1145,7 @@ function renderJar() {
         <p>still owed to <b>${esc(o.name)}</b>. ${o.paid ? `${eurExact(o.paid)} of ${eurExact(o.borrowed)} paid back.` : 'Tap 🤝 Loan on a payment to them and this counts down.'}</p>
         <div class="split" role="img" aria-label="${eurExact(o.paid)} paid back, ${eurExact(o.owed)} to go">${o.paid ? `<i style="--w:${w(o.paid)}%;--c:var(--loan)"></i>` : ''}<i style="--w:${w(o.owed)}%;--c:rgba(255,255,255,.14)"></i></div>
       </div>`;
-  }).join('')}</div>` : '';
+  }).join('')}<button type="button" class="cta-glass" data-act="debts">🤝 Manage debts</button></div>` : '';
 
   const spend = d.tx.filter((t) => t.kind === 'spend' && t.amount < 0);
   const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - own(t), 0);
@@ -1157,7 +1174,7 @@ function renderJar() {
 /** One payment. Lists without day headings (a category's payments) show its date instead of the time. */
 function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
-  const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.kind === 'spend' && t.loanPart ? ` · ½ ${t.debt}` : '');
+  const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.loanPart ? ` · ${short(-t.loanPart)} to ${t.debt}` : '');
   const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.countsFor ? ` · for ${MONTH[+t.countsFor.slice(5) - 1]}` : '');
   const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
@@ -1217,6 +1234,7 @@ async function load() {
   try {
     state.cur = state.view = await api('/api/summary');
     state.months[state.cur.month] = state.cur;
+    Object.assign(state, { debts: state.cur.debts, loans: state.cur.loans, loanHistory: state.cur.loanHistory });
     renderAll();
     const want = new URLSearchParams(location.search).get('review'); // the bot's "Open the review" button
     if (want && /^\d{4}-\d{2}$/.test(want)) openReview(want);
@@ -1238,6 +1256,7 @@ async function loadView(month) {
 }
 function accept(d) {
   state.months[d.month] = d;
+  Object.assign(state, { debts: d.debts, loans: d.loans, loanHistory: d.loanHistory }); // the same in every month's summary
   if (d.month === state.cur.month) state.cur = d;
   if (d.month === state.view.month) state.view = d;
   renderAll();
@@ -1299,7 +1318,7 @@ function swipeCardHTML(t) {
       <span class="sw-cat"><i></i>${m ? `${m.emoji} ${esc(m.name)}` : 'No category yet'}</span>
       <h3 class="sw-name">${esc(t.label)}</h3>
       <p class="sw-when">${esc(shortDay(day))}${day.slice(0, 4) !== today().slice(0, 4) ? ` ${day.slice(0, 4)}` : ''} · ${t.ts.slice(11, 16)} · ${esc(t.method)}</p>
-      ${t.loanPart ? `<p class="sw-when">½ paid back ${esc(t.debt)}</p>` : ''}
+      ${t.loanPart ? `<p class="sw-when">${eurExact(-t.loanPart)} of it paid back ${esc(t.debt)}</p>` : ''}
     </div>
     <p class="sw-amt">${money(t.amount)}</p>
     <span class="sw-stamp yes">Worth it</span><span class="sw-stamp no">Not worth it</span><span class="sw-stamp need">Necessary</span>
@@ -1476,7 +1495,7 @@ function openSheet(kind, html, view = {}) {
   nav.cur = { kind, key, label: view.label ?? 'Back', render: view.render ?? (() => html) };
   state.sheet = kind;
   sheetBody.innerHTML = backHTML() + html;
-  if (sheet.hidden) {
+  if (sheet.hidden || !sheet.classList.contains('open')) { // closed, or still closing: open it (again)
     lastFocus = document.activeElement;
     sheet.hidden = backdrop.hidden = false;
     requestAnimationFrame(() => { sheet.classList.add('open'); backdrop.classList.add('open'); });
@@ -1561,15 +1580,16 @@ function editorHTML(t) {
     <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
     ${t.kind === 'income' ? countsForHTML(t) : ''}
-    ${t.kind === 'loan' && state.view.debts?.length > 1 ? `<p class="label" id="debt-label">Which loan?</p>
-      <div class="seg" role="radiogroup" aria-labelledby="debt-label">${state.view.debts.map((o) => `<button type="button" role="radio" aria-checked="${t.debt === o.name}" data-act="debt" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)}</button>`).join('')}</div>` : ''}
+    ${t.kind === 'loan' && state.debts?.length > 1 ? `<p class="label" id="debt-label">Which loan?</p>
+      <div class="seg halves" role="radiogroup" aria-labelledby="debt-label">${state.debts.map((o) => `<button type="button" role="radio" aria-checked="${t.debt === o.name}" data-act="debt" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)}</button>`).join('')}</div>` : ''}
     ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
       <p class="label">Worth it?</p>
       <div class="worth">
         <button type="button" class="yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="em">👍</span>Worth it</button>
         <button type="button" class="need" data-act="worth" data-worth="2" data-n="${t.n}" aria-pressed="${t.worth === 2}"><span class="em">🧱</span>Necessary</button>
         <button type="button" class="no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="em">👎</span>Regret</button>
-      </div>${halfHTML(t)}` : ''}
+      </div>` : ''}
+    ${repayHTML(t)}
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
 }
 
@@ -1581,18 +1601,83 @@ function countsForHTML(t) {
     <p class="hint">${cur !== own ? `Paid in ${name(own)}, counted in ${name(cur)}’s earnings.` : 'A wage paid early or late can count for the month it’s for.'}</p>`;
 }
 
-/** "Half of it paid someone back": for spending, while you owe someone (or it already did). */
-function halfHTML(t) {
-  const open = (state.view.debts || []).filter((o) => o.owed > 0 || t.debt === o.name);
-  if (t.amount >= 0 || !open.length) return '';
-  const half = Math.round(-t.amount / 2);
-  return `<p class="label" id="half-label">Half of it paid someone back?</p>
-    <div class="seg halves" role="radiogroup" aria-labelledby="half-label">
-      <button type="button" role="radio" aria-checked="${!t.loanPart}" data-act="half" data-debt="" data-n="${t.n}">No</button>
-      ${open.map((o) => `<button type="button" role="radio" aria-checked="${!!t.loanPart && t.debt === o.name}" data-act="half" data-debt="${esc(o.name)}" data-n="${t.n}">½ ${esc(o.name)}</button>`).join('')}
+/** "Paid back a loan with it?": all or part of any money going out (spending, or cash you took out). */
+function repayHTML(t) {
+  if (t.amount >= 0 || (t.kind !== 'spend' && t.kind !== 'cash')) return '';
+  const on = t.loanPart ? t.debt : null, part = t.loanPart ? -t.loanPart : 0, full = -t.amount;
+  const open = (state.debts || []).filter((o) => o.owed > 0 || o.name === on);
+  if (!open.length) return '';
+  const now = open.find((o) => o.name === on);
+  return `<p class="label" id="repay-label">Paid back a loan with it?</p>
+    <div class="seg halves" role="radiogroup" aria-labelledby="repay-label">
+      <button type="button" role="radio" aria-checked="${!on}" data-act="repay" data-debt="" data-n="${t.n}">No</button>
+      ${open.map((o) => `<button type="button" role="radio" aria-checked="${on === o.name}" data-act="repay" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)}</button>`).join('')}
     </div>
-    <p class="hint">${t.loanPart ? `${eur(half)} of it paid back ${esc(t.debt)}; only the other half counts as spending.` : `Half (${eur(half)}) counts as paying them back, the rest as spending.`}${open.filter((o) => o.owed > 0).map((o) => ` <span class="nowrap">${esc(o.name)}: ${eur(o.owed)} to go.</span>`).join('')}</p>`;
+    ${on ? `<div class="repay-amt">
+        <span class="suffix"><input id="repay-amount" inputmode="decimal" value="${NUM.format(part / 100).replace(/\s/g, '')}" aria-label="How much of it paid back ${esc(on)}" enterkeyhint="done"><b>€</b></span>
+        <button type="button" class="chip" data-act="repay-amount" data-v="${full}" data-n="${t.n}">All</button>
+        <button type="button" class="chip" data-act="repay-amount" data-v="${Math.round(full / 2)}" data-n="${t.n}">Half</button>
+        <button type="button" class="chip go" data-act="repay-amount" data-n="${t.n}">Save</button>
+      </div>
+      <p class="hint">${eurExact(part)} of ${eurExact(full)} paid back ${esc(on)}${t.kind === 'spend' && part < full ? '; only the rest counts as spending' : ''}. <span class="nowrap">${esc(on)}: ${now && now.owed > 0 ? `${eurExact(now.owed)} to go` : 'paid back in full 🎉'}</span></p>`
+      : `<p class="hint">Pick who it paid back: all of it or part.${open.filter((o) => o.owed > 0).map((o) => ` <span class="nowrap">${esc(o.name)}: ${eurExact(o.owed)} to go.</span>`).join('')}</p>`}`;
 }
+
+/* ---------- debts: what you owe, paying it back, borrowing more ---------- */
+const localNow = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); };
+function debtsHTML() {
+  const list = state.debts || [], starts = state.loans || [], hist = state.loanHistory || [];
+  const total = list.reduce((a, o) => a + Math.max(0, o.owed), 0);
+  const card = (o) => {
+    const start = starts.find((s) => s.name === o.name), rows = hist.filter((h) => h.debt === o.name);
+    const w = (v) => ((100 * v) / Math.max(o.borrowed, 1)).toFixed(1);
+    return `<div class="debt-card">
+      <div class="debt-top"><b>${esc(o.name)}</b><span>${o.owed > 0 ? `${eurExact(o.owed)} to go` : 'paid back 🎉'}</span></div>
+      <div class="split" role="img" aria-label="${eurExact(o.paid)} of ${eurExact(o.borrowed)} paid back">${o.paid ? `<i style="--w:${w(Math.min(o.paid, o.borrowed))}%;--c:var(--loan)"></i>` : ''}${o.owed > 0 ? `<i style="--w:${w(o.owed)}%;--c:rgba(255,255,255,.14)"></i>` : ''}</div>
+      <p class="hint">${eurExact(o.paid)} of ${eurExact(o.borrowed)} paid back${start?.amount ? ` · you owed ${eurExact(start.amount)} when the app started` : ''}</p>
+      <div class="debt-actions">
+        ${o.owed > 0 ? `<button type="button" class="chip go" data-act="debt-pay" data-debt="${esc(o.name)}" data-dir="-1">Pay back</button>` : ''}
+        <button type="button" class="chip" data-act="debt-pay" data-debt="${esc(o.name)}" data-dir="1">Borrowed more</button>
+        <button type="button" class="chip" data-act="debt-edit" data-debt="${esc(o.name)}">Edit</button>
+      </div>
+      ${rows.length ? `<div class="debt-hist">${rows.slice(0, 10).map((h) => `<button type="button" class="debt-row" data-act="debt-tx" data-n="${h.n}" data-m="${h.ts.slice(0, 7)}"><span>${esc(shortDay(h.ts.slice(0, 10)))} · ${esc(h.label)}</span><b>${h.part < 0 ? `paid ${eurExact(-h.part)}` : `borrowed ${eurExact(h.part)}`}</b></button>`).join('')}</div>${rows.length > 10 ? `<p class="hint">and ${rows.length - 10} earlier</p>` : ''}` : ''}
+    </div>`;
+  };
+  return `<p class="rv-kicker">Debts</p>
+    <h2 class="rv-head" id="sheet-title">${total ? `You owe ${eurExact(total)}` : 'You owe nobody 🎉'}</h2>
+    ${list.map(card).join('')}
+    <h3 class="sh-sub">New debt</h3>
+    <form id="debt-new" class="debt-new" novalidate>
+      <input class="input" id="debt-new-name" maxlength="40" placeholder="Who? e.g. Ben" autocomplete="off">
+      <span class="suffix"><input id="debt-new-amount" inputmode="decimal" placeholder="How much you owe them"><b>€</b></span>
+      <p class="form-error" id="debt-new-error" role="alert"></p>
+      <button class="primary" type="submit">Add the debt</button>
+    </form>
+    <p class="hint">Paid back by card or transfer? Open that payment and pick who it paid back, all of it or part. Paid in cash? Tap “Pay back”.</p>`;
+}
+function debtPayHTML(name, dir) {
+  const o = (state.debts || []).find((x) => x.name === name), owe = dir < 0 && o?.owed > 0 ? o.owed : 0;
+  return `<h2 class="sh-h" id="sheet-title">${dir < 0 ? `Pay back ${esc(name)}` : `Borrowed more from ${esc(name)}`}</h2>
+    <form id="debt-pay" data-debt="${esc(name)}" data-dir="${dir}" novalidate>
+      <label class="field"><span class="field-name">How much</span><span class="suffix"><input id="dp-amount" inputmode="decimal" placeholder="0" value="${owe ? NUM.format(owe / 100).replace(/\s/g, '') : ''}"><b>€</b></span>${owe ? `<small>All of it is ${eurExact(owe)}.</small>` : ''}</label>
+      <label class="field"><span class="field-name">When</span><input class="input" id="dp-ts" type="datetime-local" value="${localNow()}"></label>
+      <p class="hint">${dir < 0 ? 'For cash, or anything that isn’t a bank payment here. Paid by card or transfer? Open that payment instead and pick who it paid back.' : 'Cash they lent you. If it came into your account, open that payment and pick 🤝 Loan.'}</p>
+      <p class="form-error" id="dp-error" role="alert"></p>
+      <button class="primary" type="submit">${dir < 0 ? 'Pay back' : 'Add it'}</button>
+    </form>`;
+}
+function debtEditHTML(name) {
+  const start = (state.loans || []).find((l) => l.name === name);
+  return `<h2 class="sh-h" id="sheet-title">${esc(name)}</h2>
+    <form id="debt-edit" data-debt="${esc(name)}" novalidate>
+      <label class="field"><span class="field-name">What you owed when the app started</span><span class="suffix"><input id="de-amount" inputmode="decimal" placeholder="0" value="${start?.amount ? NUM.format(start.amount / 100).replace(/\s/g, '') : ''}"><b>€</b></span><small>Payments that paid them back count down from this, and money they lent you since counts it up.</small></label>
+      <p class="form-error" id="de-error" role="alert"></p>
+      <button class="primary" type="submit">Save</button>
+    </form>
+    <div class="sh-foot"><button type="button" class="textbtn danger" data-act="debt-del" data-debt="${esc(name)}">${ICON.trash}Delete this debt</button></div>`;
+}
+const openDebts = () => openSheet('debts', debtsHTML(), { key: 'debts', label: 'Debts', render: debtsHTML });
+const saveLoans = (loans, done) => mutate('/api/settings', { loans, month: state.cur.month }, done);
 
 /* ---------- earnings: a donut of where the money came from ---------- */
 // Categorical slots for the dark surface, in fixed order (validated: adjacent CVD ΔE ≥ 8.4, ≥ 3:1 on the sheet).
@@ -1763,10 +1848,7 @@ function settingsHTML() {
       ${d.challenge ? `<p class="field-name" style="margin-top:22px">${esc(d.name)} challenge caps</p>
         ${d.challenge.caps.map(({ category, cap, spent }) => { const m = catMeta(category); return `<label class="edit-row caps-row"><span class="who">${m.emoji} ${esc(m.name)}<small>${eur0(spent)} spent so far</small></span><span class="suffix"><input data-cap="${category}" inputmode="decimal" placeholder="none" value="${v(cap)}" aria-label="${esc(m.name)} cap"><b>€</b></span></label>`; }).join('')}
         <small class="hint">Empty a cap to drop it.</small>` : ''}
-      <p class="field-name" style="margin-top:22px">Loans</p>
-      <div id="loan-rows">${(d.loans || []).map((l) => { const o = (d.debts || []).find((x) => x.name === l.name); return `<div class="edit-row" data-loan-row="${esc(l.name)}"><span class="who">${esc(l.name)}<small>${o ? (o.owed > 0 ? `${eur(o.owed)} to go` : 'paid back') : ''}</small></span><span class="suffix"><input data-loan="${esc(l.name)}" inputmode="decimal" placeholder="0" value="${v(l.amount)}" aria-label="What you owed ${esc(l.name)} at the start"><b>€</b></span><button type="button" class="icon-btn" data-act="loan-del" aria-label="Delete the loan ${esc(l.name)}">${ICON.trash}</button></div>`; }).join('')}</div>
-      <div class="edit-row"><input class="input" id="loan-new-name" maxlength="40" placeholder="New loan: who?" aria-label="New loan: who"><span class="suffix"><input id="loan-new-amount" inputmode="decimal" placeholder="0" aria-label="New loan: how much"><b>€</b></span><span></span></div>
-      <small class="hint">What you owed each person when the app started counting. 🤝 Loan payments count it up or down from there, so “to go” is always worked out.</small>
+      <button type="button" class="cta-glass" data-act="debts" style="margin-top:22px">🤝 Debts: what you owe, paying back</button>
       <p class="form-error" id="settings-error" role="alert"></p>
       <button class="primary" type="submit">Save</button>
     </form>
@@ -1875,12 +1957,6 @@ const actions = {
   },
   'end-challenge': async () => { if (await ask('End the challenge? Your budget stays.')) mutate('/api/settings', { caps: null, month: state.cur.month }, () => { toast('Challenge ended'); sheetRedraw(); }); },
   'sheet-back': () => sheetBack(),
-  'loan-del': async (el) => {
-    const row = el.closest('[data-loan-row]'), name = row.dataset.loanRow;
-    if (!(await ask(`Delete the loan ${name}? Its payments stay 🤝 Loan. Save to confirm.`))) return;
-    row.remove();
-    haptic.pick();
-  },
   retry: () => load(),
   settings: () => openSheet('settings', settingsHTML(), { label: 'Settings', render: settingsHTML }),
   close: closeSheet,
@@ -1917,10 +1993,28 @@ const actions = {
       if (state.sheet === 'edit') findTx(n) ? openEditor(n) : sheetBack();
     });
   },
-  half: (el) => {
+  debts: () => openDebts(),
+  'debt-pay': (el) => { haptic.pick(); const name = el.dataset.debt, dir = Number(el.dataset.dir); openSheet('debt-pay', debtPayHTML(name, dir), { key: `debt-pay:${name}:${dir}`, label: dir < 0 ? `Pay back ${name}` : `Borrowed from ${name}`, render: () => debtPayHTML(name, dir) }); },
+  'debt-edit': (el) => { haptic.pick(); const name = el.dataset.debt; openSheet('debt-edit', debtEditHTML(name), { key: `debt-edit:${name}`, label: name, render: () => ((state.loans || []).some((l) => l.name === name) ? debtEditHTML(name) : null) }); },
+  'debt-del': async (el) => {
+    const name = el.dataset.debt;
+    if (!(await ask(`Delete ${name}? Payments marked as paying them back stay as they are.`))) return;
+    saveLoans((state.loans || []).filter((l) => l.name !== name), () => { toast(`${name} deleted`); sheetBack(); });
+  },
+  'debt-tx': async (el) => { haptic.tap(); try { await loadMonth(el.dataset.m); } catch {} openEditor(el.dataset.n); },
+  repay: (el) => {
     haptic.pick();
-    const n = el.dataset.n, debt = el.dataset.debt || null;
-    mutate('/api/tx', { n: Number(n), half: debt, month: state.view.month }, () => { if (debt) toast(`Half paid back ${debt}.`); if (state.sheet === 'edit') openEditor(n); });
+    const n = Number(el.dataset.n), t = findTx(n), debt = el.dataset.debt;
+    const o = (state.debts || []).find((x) => x.name === debt);
+    const amount = debt ? Math.min(-t.amount, o && o.owed > 0 ? o.owed : -t.amount) : 0; // up to what's still owed
+    mutate('/api/tx', { n, repay: debt ? { debt, amount } : null, month: state.view.month }, () => { if (debt) toast(`${eurExact(amount)} paid back ${debt}`); if (state.sheet === 'edit') openEditor(n); });
+  },
+  'repay-amount': (el) => {
+    const n = Number(el.dataset.n), t = findTx(n);
+    const amount = el.dataset.v ? Number(el.dataset.v) : parseEuro($('#repay-amount').value);
+    if (!amount || amount > -t.amount) { haptic.err(); toast(`Between 0,01 and ${eurExact(-t.amount)}.`); return; }
+    haptic.pick();
+    mutate('/api/tx', { n, repay: { debt: t.debt, amount }, month: state.view.month }, () => { toast(`${eurExact(amount)} paid back ${t.debt}`); if (state.sheet === 'edit') openEditor(n); });
   },
   debt: (el) => {
     haptic.pick();
@@ -2155,6 +2249,23 @@ document.addEventListener('submit', (e) => {
     else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
     mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
   }
+  if (e.target.id === 'debt-new') {
+    const name = $('#debt-new-name').value.trim(), amount = parseEuro($('#debt-new-amount').value);
+    if (!name) { haptic.err(); $('#debt-new-error').textContent = 'Who do you owe?'; return; }
+    if ((state.loans || []).some((l) => l.name.toLowerCase() === name.toLowerCase())) { haptic.err(); $('#debt-new-error').textContent = `You already have ${name}: use Borrowed more.`; return; }
+    if ($('#debt-new-amount').value.trim() && !amount) { haptic.err(); $('#debt-new-error').textContent = 'Enter how much, e.g. 100 or 175,20.'; return; }
+    saveLoans([...(state.loans || []), { name, amount: amount || 0 }], () => { haptic.ok(); toast(`${name} added`); sheetRedraw(); });
+  }
+  if (e.target.id === 'debt-pay') {
+    const name = e.target.dataset.debt, dir = Number(e.target.dataset.dir), cents = parseEuro($('#dp-amount').value), ts = $('#dp-ts').value;
+    if (!cents) { haptic.err(); $('#dp-error').textContent = 'Enter how much, e.g. 50 or 175,20.'; return; }
+    mutate('/api/cash', { amount: dir * cents, note: dir < 0 ? `Paid back ${name}` : `Borrowed from ${name}`, debt: name, ts, month: state.cur.month }, () => { haptic.ok(); toast(dir < 0 ? `${eurExact(cents)} paid back ${name}` : `${eurExact(cents)} more from ${name}`); sheetBack(); });
+  }
+  if (e.target.id === 'debt-edit') {
+    const name = e.target.dataset.debt, raw = $('#de-amount').value.trim(), amount = raw ? parseEuro(raw) : 0;
+    if (raw && !amount) { haptic.err(); $('#de-error').textContent = 'Enter how much, e.g. 100 or 175,20.'; return; }
+    saveLoans((state.loans || []).map((l) => (l.name === name ? { ...l, amount } : l)), () => { haptic.ok(); toast('Saved'); sheetBack(); });
+  }
   if (e.target.id === 'settings-form') {
     const read = (id) => {
       const raw = $(id).value.replace(/\s/g, '').replace(',', '.');
@@ -2169,10 +2280,7 @@ document.addEventListener('submit', (e) => {
       const caps = Object.fromEntries(capInputs.map((i) => [i.dataset.cap, read(`[data-cap="${i.dataset.cap}"]`)]).filter(([, c]) => c));
       body.caps = Object.keys(caps).length ? caps : null;
     }
-    body.loans = $$('[data-loan]').map((i) => ({ name: i.dataset.loan, amount: read(`[data-loan="${CSS.escape(i.dataset.loan)}"]`) ?? 0 }));
-    const newName = $('#loan-new-name').value.trim();
-    if (newName) body.loans.push({ name: newName, amount: read('#loan-new-amount') ?? 0 });
-    const numbers = [body.budget, body.goalAmount, body.savingsStart, ...body.loans.map((l) => l.amount), ...Object.values(body.caps || {})];
+    const numbers = [body.budget, body.goalAmount, body.savingsStart, ...Object.values(body.caps || {})];
     if (numbers.some(Number.isNaN) || !Number.isInteger(target) || target < 0 || target > 90) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50 (and 0–90 % to keep).'; return; }
     mutate('/api/settings', body, () => { haptic.ok(); sheetBack(); toast('Saved'); splash(0.5, 30); });
   }

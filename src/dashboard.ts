@@ -56,6 +56,7 @@ export interface DashboardInput {
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
   loans?: { name: string; amount: number }[]; // each loan's starting amount (what you owed when tracking started)
+  loanHistory?: { n: number; ts: string; part: number; debt: string | null; label: string }[]; // every payment that moved a loan
   passedOnBefore?: number; // passed-on running total before this month
   prevPassedOnBefore?: number; // …and before the previous month
 }
@@ -137,6 +138,7 @@ export function dashboard(o: DashboardInput) {
     },
     debts: o.debts,
     loans: o.loans ?? [],
+    loanHistory: o.loanHistory ?? [],
     saveTarget: s.saveTarget,
     categories: o.categories,
     balance: current ? o.balance ?? null : null,

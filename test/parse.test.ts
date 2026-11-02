@@ -133,3 +133,12 @@ test('messages without an amount or a direction are left for a human', () => {
   assert.equal(parseBmail('Nový výpis', 'Váš výpis za september je pripravený.'), null);
   assert.equal(parseBmail('Info', 'Suma 20,00 EUR'), null);
 });
+
+test('Tatra b-mail: "Vyber kartou" is cash taken out of an ATM', () => {
+  const tx = parseBmail(
+    'Debit on your account (ID=021126/000000-2)',
+    'Dear client,\r\n\r\nat 02/11/2026, 17:17 the balance on your account SK0000000000000000000000 was decreased by 180.00 EUR.\r\nLedger balance: 20.00 EUR\r\nActual balance: 20.00 EUR\r\nDispo balance: 20.00 EUR\r\n\r\nTransaction description: Vyber kartou 4405**0000, SOME STREET BRATISLAVA\r\n',
+  );
+  assert.equal(tx?.method, 'atm');
+  assert.equal(tx?.amount, -18000);
+});
