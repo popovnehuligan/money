@@ -40,8 +40,16 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   if (repaid) return store('loan', null, repaid.name);
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
-  if (rule === 'ask') return store('spend', null);
-  if (rule) return store(rule.kind ?? 'spend', (rule.kind ?? 'spend') === 'spend' ? (rule.category ?? null) : null, undefined, rule.quiet);
+  if (rule === 'ask') return store(defaultKind(t.amount), null);
+  if (rule) {
+    const kind = rule.kind ?? defaultKind(t.amount);
+    const tx = await store(kind, kind === 'spend' ? (rule.category ?? null) : null, undefined, rule.quiet);
+    if (tx && rule.label) {
+      await updateTx(env.DB, tx.n, { label: rule.label }); // your name for who pays you, e.g. "Studio work"
+      return { ...tx, label: rule.label };
+    }
+    return tx;
+  }
   const prior = key ? await learned(env.DB, key, t.amount) : null;
   if (prior) return store(prior.kind, prior.category);
   return store(t.method === 'atm' ? 'cash' : defaultKind(t.amount), null); // an ATM: a suggestion to approve

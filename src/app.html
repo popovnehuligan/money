@@ -1150,7 +1150,7 @@ function renderJar() {
 function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
   const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.kind === 'spend' && t.loanPart ? ` · ½ ${t.debt}` : '');
-  const worth = t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '';
+  const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.countsFor ? ` · for ${MONTH[+t.countsFor.slice(5) - 1]}` : '');
   const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
     <span class="drop" style="--c:${v.c}"><span>${un ? '?' : v.icon}</span></span>
@@ -1511,6 +1511,7 @@ function editorHTML(t) {
     <p class="label" id="kind-label">What was it?</p>
     <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
+    ${t.kind === 'income' ? countsForHTML(t) : ''}
     ${t.kind === 'loan' && state.view.debts?.length > 1 ? `<p class="label" id="debt-label">Which loan?</p>
       <div class="seg" role="radiogroup" aria-labelledby="debt-label">${state.view.debts.map((o) => `<button type="button" role="radio" aria-checked="${t.debt === o.name}" data-act="debt" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)}</button>`).join('')}</div>` : ''}
     ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
@@ -1521,6 +1522,14 @@ function editorHTML(t) {
         <button type="button" class="no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="em">👎</span>Regret</button>
       </div>${halfHTML(t)}` : ''}
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
+}
+
+/** A wage paid early (or late) can count for the month it's for: its date stays the bank's. */
+function countsForHTML(t) {
+  const own = t.ts.slice(0, 7), cur = t.countsFor || own, name = (m) => MONTH[+m.slice(5) - 1];
+  return `<p class="label" id="month-label">Counts for</p>
+    <div class="seg" role="radiogroup" aria-labelledby="month-label">${[shiftMonth(own, -1), own, shiftMonth(own, 1)].map((m) => `<button type="button" role="radio" aria-checked="${cur === m}" data-act="counts-for" data-m="${m}" data-n="${t.n}">${name(m)}</button>`).join('')}</div>
+    <p class="hint">${cur !== own ? `Paid in ${name(own)}, counted in ${name(cur)}’s earnings.` : 'A wage paid early or late can count for the month it’s for.'}</p>`;
 }
 
 /** "Half of it paid someone back": for spending, while you owe someone (or it already did). */
@@ -1829,6 +1838,15 @@ const actions = {
     const n = el.dataset.n, kind = el.dataset.kind;
     applyLocal(n, { kind, confirmed: true });
     mutate('/api/tx', { n: Number(n), kind, month: state.view.month }, () => state.sheet === 'edit' && openEditor(n));
+  },
+  'counts-for': (el) => {
+    haptic.pick();
+    const n = Number(el.dataset.n), m = el.dataset.m;
+    mutate('/api/tx', { n, countsFor: m, month: state.view.month }, async () => {
+      toast(`Counts for ${MONTH[+m.slice(5) - 1]}`);
+      try { accept(await api('/api/summary')); if (state.view.month !== state.cur.month) accept(await api(`/api/summary?month=${state.view.month}`)); } catch {}
+      if (state.sheet === 'edit') findTx(n) ? openEditor(n) : closeSheet();
+    });
   },
   half: (el) => {
     haptic.pick();

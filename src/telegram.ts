@@ -1,5 +1,6 @@
 import { DEFAULT_CATEGORIES, KINDS, categoryEmoji, defaultKind, type Categories, type Kind } from './classify.ts';
 import type { Env, Tx } from './db.ts';
+import { monthName } from './time.ts';
 
 type Button = { text: string; callback_data: string } | { text: string; web_app: { url: string } };
 export type Keyboard = Button[][];
@@ -54,7 +55,7 @@ export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGO
   const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
   const half = t.kind === 'spend' && t.loan_part && t.debt ? ` · ½ paid back ${esc(t.debt)}` : '';
   const label = (t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind]) + half;
-  const worth = t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '';
+  const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.month ? ` · for ${monthName(t.month)}` : '');
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);
   return lines.join('\n');

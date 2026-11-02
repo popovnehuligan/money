@@ -73,6 +73,7 @@ export function txView(t: Tx) {
     deletable: t.source !== 'bmail',
     debt: t.debt,
     loanPart: t.loan_part ?? 0, // part that paid back the loan in `debt`
+    countsFor: t.month ?? null, // the month it counts for, if not the one it arrived in
   };
 }
 

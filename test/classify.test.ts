@@ -140,3 +140,12 @@ test('a built-in category you deleted is gone; Other stays whatever happens', ()
   assert.equal(cats['coffee-food'], '☕ Cafe');
   assert.equal(Object.keys(cats).at(-1), 'other');
 });
+
+test('rules for money coming in: who pays you gets your name for them', () => {
+  const r = parseRules('[{"match":["kovac"],"in":true,"kind":"income","label":"Studio work"},{"match":["novak"],"in":true,"multipleOf":35000,"max":35000,"kind":"income","label":"Day job"}]');
+  const side = applyRules(r, 25000, 'KOVAC Peter');
+  assert.ok(side && side !== 'ask' && side.label === 'Studio work');
+  assert.equal((applyRules(r, 35000, 'NOVAK Maria') as { label: string }).label, 'Day job');
+  assert.equal(applyRules(r, 1500, 'NOVAK Maria'), 'ask'); // other money from her: yours to sort
+  assert.equal(applyRules(r, -2000, 'KOVAC Peter'), null); // money you send them isn't covered
+});

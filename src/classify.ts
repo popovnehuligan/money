@@ -134,6 +134,8 @@ export interface Rule {
   category?: string;
   kind?: Kind; // instead of a category, e.g. "ignore"
   quiet?: boolean; // approved without asking
+  in?: boolean; // for money coming in (rules are for payments out otherwise)
+  label?: string; // your name for what it sorts, e.g. "Studio work"
   passOnFrom?: string[];
 }
 
@@ -152,12 +154,16 @@ const mentions = (list: string[], names: Name[]) => {
   return list.some((m) => text.includes(fold(m)));
 };
 
-/** The rule that decides a payment, 'ask' when a rule's name matches but the amount doesn't, else null. */
+/**
+ * The rule that decides a payment, 'ask' when a rule's name matches but the amount doesn't, else
+ * null. Rules are for payments out; ones with "in": true for money coming in, e.g.
+ * {"match":["client name"],"in":true,"kind":"income","label":"Studio work"}.
+ */
 export function applyRules(rules: Rule[], amount: number, ...names: Name[]): Rule | 'ask' | null {
-  if (amount >= 0) return null;
+  if (amount === 0) return null;
   for (const r of rules) {
-    if (r.passOnFrom || !mentions(r.match, names)) continue;
-    const fits = (!r.multipleOf || -amount % r.multipleOf === 0) && (!r.max || -amount <= r.max);
+    if (r.passOnFrom || !!r.in !== amount > 0 || !mentions(r.match, names)) continue;
+    const fits = (!r.multipleOf || Math.abs(amount) % r.multipleOf === 0) && (!r.max || Math.abs(amount) <= r.max);
     return fits ? r : 'ask';
   }
   return null;

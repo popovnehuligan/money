@@ -89,6 +89,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
     debt: null,
     label: null,
     loan_part: null,
+    month: null,
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
@@ -96,7 +97,7 @@ const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan tr
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
 function summary(month = TODAY.slice(0, 7)) {
-  const inMonth = (m: string) => txs.filter((t) => t.ts.startsWith(m)).sort((a, b) => b.ts.localeCompare(a.ts) || b.n - a.n);
+  const inMonth = (m: string) => txs.filter((t) => (t.month ?? t.ts.slice(0, 7)) === m).sort((a, b) => b.ts.localeCompare(a.ts) || b.n - a.n);
   const byMonth = new Map<string, number>();
   for (const t of txs) if (t.kind === 'savings') byMonth.set(t.ts.slice(0, 7), (byMonth.get(t.ts.slice(0, 7)) ?? 0) - t.amount);
   const savedByMonth = [...[...byMonth].map(([m, saved]) => ({ month: m, saved })).sort((a, b) => b.month.localeCompare(a.month)), ...EARLIER_SAVINGS];
@@ -145,6 +146,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
       if (body.worth !== undefined) t.worth = body.worth;
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
+      if (body.countsFor !== undefined) t.month = body.countsFor === t.ts.slice(0, 7) ? null : body.countsFor;
       if (body.half !== undefined) Object.assign(t, body.half ? { loan_part: Math.round(t.amount / 2), debt: body.half } : { loan_part: null, debt: null });
       if (body.label !== undefined) t.label = String(body.label ?? '').trim() || null;
       if (body.amount !== undefined && t.source !== 'bmail') t.amount = body.amount;

@@ -1,5 +1,6 @@
 import { isKind, learnLender, newCategory, parseDebts } from './classify.ts';
 import { addCategory, getCategories, getSetting, setSetting, updateTx, type Env, type Tx } from './db.ts';
+import { addMonths, monthOf } from './time.ts';
 import { footerFor } from './reports.ts';
 import { edit, txKeyboard, txText } from './telegram.ts';
 
@@ -15,6 +16,7 @@ export interface Choice {
   amount?: number; // cents; only for entries you added yourself
   ts?: string; // "YYYY-MM-DDTHH:MM"; only for entries you added yourself
   half?: string | null; // half of this spending paid back that loan (a name from debts); null undoes it
+  countsFor?: string | null; // 'YYYY-MM': the month it counts for (a wage paid early); its own month or null resets
 }
 
 /**
@@ -62,6 +64,11 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(c.ts))) throw new BadInput('Pick a date and time.');
       patch.ts = c.ts;
     }
+  }
+  if (c.countsFor !== undefined) {
+    const own = monthOf(patch.ts ?? t.ts), m = c.countsFor;
+    if (m !== null && ![addMonths(own, -1), own, addMonths(own, 1)].includes(String(m))) throw new BadInput('A payment can count for its own month or the one before or after.');
+    patch.month = m === own ? null : m;
   }
   let debts = parseDebts(await getSetting(env.DB, 'debts'));
   if (c.half !== undefined) {

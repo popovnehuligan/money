@@ -7,7 +7,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Env } from '../src/db.ts';
 import { applyChoice } from '../src/actions.ts';
 import { owed, parseDebts } from '../src/classify.ts';
-import { getTx, loanPayments } from '../src/db.ts';
+import { getTx, loanPayments, txInMonth } from '../src/db.ts';
 import { ingest } from '../src/ingest.ts';
 import { summarize } from '../src/stats.ts';
 
@@ -165,4 +165,21 @@ test('marking half of a payment as paying back a loan counts the loan down and h
   await applyChoice(env, after, { half: null }); // undo
   assert.equal((await getTx(env.DB, 1))!.loan_part, null);
   await assert.rejects(applyChoice(env, (await getTx(env.DB, 1))!, { half: 'Nobody' }));
+});
+
+test('a wage paid early can count for next month; an income rule names who paid', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('rules', ?)").bind('[{"match":["employer"],"in":true,"multipleOf":35000,"max":35000,"kind":"income","label":"Day job"}]').run();
+  await ingest(env, {
+    id: `w${++n}`, date: '2026-10-30T11:52', subject: 'Credit on your account (ID=1)',
+    body: 'at 30/10/2026, 11:52 the balance on your account SK0000000000000000000000 was increased by 350.00 EUR.\r\nActual balance: 400.00 EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: EMPLOYER s.r.o.\r\n',
+  });
+  const t = (await getTx(env.DB, 1))!;
+  assert.deepEqual([t.kind, t.label], ['income', 'Day job']);
+  await applyChoice(env, t, { countsFor: '2026-11' });
+  assert.equal((await txInMonth(env.DB, '2026-10')).length, 0);
+  assert.deepEqual((await txInMonth(env.DB, '2026-11')).map((x) => [x.amount, x.month]), [[35000, '2026-11']]);
+  await assert.rejects(applyChoice(env, (await getTx(env.DB, 1))!, { countsFor: '2027-01' })); // only next door
+  await applyChoice(env, (await getTx(env.DB, 1))!, { countsFor: '2026-10' }); // back to its own month
+  assert.equal((await getTx(env.DB, 1))!.month, null);
 });

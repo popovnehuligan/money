@@ -40,15 +40,16 @@ export interface Tx {
   debt: string | null; // which loan a 🤝 Loan payment belongs to (or the loan loan_part paid back)
   label: string | null; // your own name for it, shown instead of the bank's
   loan_part?: number | null; // part of a spending payment that paid back the loan in `debt` (e.g. half)
+  month?: string | null; // the month it counts for, if not the month of ts (a wage paid early)
 }
 
-export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'loan_part'> & {
+export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'loan_part' | 'month'> & {
   raw: string | null;
   debt?: string | null;
   approved?: boolean; // stored as already sorted: nothing to ask in the chat
 };
 
-const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label, loan_part';
+const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label, loan_part, month';
 
 /** Returns the stored row, or null if this ext_id was already imported. */
 export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
@@ -64,7 +65,7 @@ export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
 
 export const getTx = (db: D1Database, n: number) => db.prepare(`SELECT ${COLS} FROM tx WHERE n = ?`).bind(n).first<Tx>();
 
-type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts' | 'key' | 'loan_part'>>;
+type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts' | 'key' | 'loan_part' | 'month'>>;
 
 export async function updateTx(db: D1Database, n: number, patch: Patch): Promise<void> {
   const keys = Object.keys(patch) as (keyof Patch)[];
@@ -146,7 +147,14 @@ export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 
   return results;
 }
 
-export const txInMonth = (db: D1Database, month: string): Promise<StatTx[]> => txBetween(db, `${month}-01`, `${addMonths(month, 1)}-01`);
+/** Everything that counts for a month: what arrived in it, minus what counts for another month, plus what was moved into it. */
+export async function txInMonth(db: D1Database, month: string): Promise<Tx[]> {
+  const { results } = await db
+    .prepare(`SELECT ${COLS} FROM tx WHERE (month IS NULL AND ts >= ? AND ts < ?) OR month = ? ORDER BY ts DESC, n DESC`)
+    .bind(`${month}-01`, `${addMonths(month, 1)}-01`, month)
+    .all<Tx>();
+  return results;
+}
 
 export async function spendDaysSince(db: D1Database, day: string): Promise<Set<string>> {
   const { results } = await db
@@ -207,7 +215,7 @@ export const deleteSetting = (db: D1Database, key: string) => db.prepare('DELETE
 /** Euro cents moved into savings per month, newest first, for the months that have any. */
 export async function savedByMonth(db: D1Database): Promise<{ month: string; saved: number }[]> {
   const { results } = await db
-    .prepare("SELECT substr(ts, 1, 7) AS month, -SUM(amount) AS saved FROM tx WHERE kind = 'savings' GROUP BY month ORDER BY month DESC")
-    .all<{ month: string; saved: number }>();
-  return results;
+    .prepare("SELECT COALESCE(month, substr(ts, 1, 7)) AS m, -SUM(amount) AS saved FROM tx WHERE kind = 'savings' GROUP BY m ORDER BY m DESC")
+    .all<{ m: string; saved: number }>();
+  return results.map((r) => ({ month: r.m, saved: r.saved }));
 }
