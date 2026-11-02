@@ -85,6 +85,15 @@ export function dashboard(o: DashboardInput) {
   const recent = o.savedByMonth.filter((m) => m.saved > 0).slice(0, 3);
   const summary = summarize(o.txs, o.passedOnBefore ?? 0);
   const spentIn = new Map(summary.byCategory);
+  // Where the month's earnings came from: income by who paid it (your name for the payment if you
+  // gave one), biggest first. What you kept from passed-on money is earned too, as one part.
+  const sources = new Map<string, { amount: number; count: number }>();
+  for (const t of o.txs) {
+    if (t.kind !== 'income' || t.amount <= 0) continue;
+    const name = t.label ?? t.merchant ?? t.note ?? 'Cash';
+    const x = sources.get(name) ?? { amount: 0, count: 0 };
+    sources.set(name, { amount: x.amount + t.amount, count: x.count + 1 });
+  }
   return {
     month: o.month,
     name: monthName(o.month),
@@ -96,6 +105,10 @@ export function dashboard(o: DashboardInput) {
     safe: current && s.budget !== null ? safeToSpend(s.budget, o.txs, o.today) : null,
     streak: current ? o.streak : 0,
     summary,
+    earnedFrom: {
+      sources: [...sources].map(([name, x]) => ({ name, ...x })).sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name)),
+      keptPassedOn: Math.max(0, summary.podmogaNet),
+    },
     you: s.name, // your name, if you set one
     passedOn: o.passedOn ?? { in: 0, out: 0, kept: 0 },
     // The challenge you took for this month: each cap with what's spent so far.

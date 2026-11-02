@@ -40,3 +40,20 @@ test('your account balance is shown for the current month only', () => {
   assert.deepEqual(dashboard({ ...base, month: '2026-11' }).balance, { amount: 5981, ts: '2026-11-01T11:42' });
   assert.equal(dashboard({ ...base, month: '2026-10' }).balance, null);
 });
+
+test('earnings by source: income grouped by who paid it, biggest first, plus what passed-on money left you', () => {
+  const d = dashboard({
+    month: '2026-10', today: '2026-10-19', prevTxs: [], settings: readSettings({}), savedByMonth: [], streak: 0, debts: [],
+    txs: [
+      tx(1, '2026-10-01T09:00', 35000, { merchant: 'NOVAK Maria' }),
+      tx(2, '2026-10-20T09:00', 25000, { merchant: 'Client s.r.o.' }),
+      tx(3, '2026-10-30T09:00', 35000, { merchant: 'NOVAK Maria' }),
+      tx(4, '2026-10-05T09:00', 30000, { kind: 'podmoga', merchant: 'Job' }),
+      tx(5, '2026-10-06T09:00', -15000, { kind: 'podmoga', merchant: 'Crew' }),
+      tx(6, '2026-10-07T09:00', -500, { merchant: 'Shop' }),
+    ],
+  });
+  assert.deepEqual(d.earnedFrom.sources, [{ name: 'NOVAK Maria', amount: 70000, count: 2 }, { name: 'Client s.r.o.', amount: 25000, count: 1 }]);
+  assert.equal(d.earnedFrom.keptPassedOn, 15000);
+  assert.equal(d.summary.earned, 70000 + 25000 + 15000);
+});

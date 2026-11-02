@@ -22,7 +22,7 @@ The dashboard treats money as water. Scrolling down is diving deeper:
   - Today's payments hang in the sky above, because that money has left the pool. Drag one into a category to sort it, or tap it to edit.
   - Touch the water to make ripples; in Telegram 8.0+ it sloshes when you tilt the phone.
 - **The month:** one glass per day, filled with that day's spending by category. ✦ marks days with nothing spent, and a dripping glass was a big day. 📋 opens the month in review (below), and the caps of a challenge you took show here as they fill.
-- **Where it went:** what you earned, what you spent and what you saved, then spending by category and what you've kept from passed-on money so far.
+- **Where it went:** what you earned, what you spent and what you saved, then spending by category and what you've kept from passed-on money so far. Tap **Earned** for where it came from: a donut of your biggest sources (plus what you kept from passed-on money, and "Other" for the rest), with each source's amount and share below; tap one to see its payments.
 - **Savings jar:** gold liquid with the goal date at your current pace, plus "leaks": what you marked 👎.
 - **Every drop:** the full list, with filters.
 

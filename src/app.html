@@ -371,6 +371,29 @@ svg { display: block; }
 .worth button[aria-pressed="true"].need { background: rgba(108, 196, 255, .14); box-shadow: inset 0 0 0 2px var(--loan); }
 .worth button { gap: 6px; padding: 0 6px; font-size: 14px; white-space: nowrap; }
 
+/* earnings: where the money came from */
+.totals > button { padding: 12px 12px 13px; border-radius: 18px; background: var(--glass-2); min-width: 0; text-align: left; box-shadow: inset 0 0 0 1px rgba(62, 224, 161, .22); transition: transform .18s var(--spring); }
+.totals > button:active { transform: scale(.96); }
+.totals > button span { display: block; font-size: 13px; color: var(--ink-2); }
+.totals > button b { display: block; margin-top: 2px; font-size: 20px; font-weight: 700; letter-spacing: -.035em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.totals > button span::after { content: " ›"; color: var(--good); }
+.donut { position: relative; width: min(232px, 66vw); margin: 14px auto 0; }
+.donut svg { display: block; width: 100%; height: auto; overflow: visible; }
+.donut .slice { cursor: pointer; transition: opacity .2s; }
+.donut.focus .slice:not(.on) { opacity: .3; }
+.donut-mid { position: absolute; inset: 22%; display: grid; place-content: center; text-align: center; pointer-events: none; }
+.donut-mid b { font: 700 clamp(22px, 7vw, 28px)/1.05 var(--f-ui); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.donut-mid span { display: block; margin-top: 5px; font-size: 12px; line-height: 1.3; color: var(--ink-2); overflow-wrap: anywhere; }
+.earn-list { margin-top: 18px; }
+.earn-row { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 10px; gap: 10px; align-items: center; width: 100%; padding: 11px 2px; text-align: left; border-bottom: 1px solid var(--line); }
+.earn-row > i { width: 12px; height: 12px; border-radius: 4px; background: var(--c); }
+.earn-row .nm { min-width: 0; }
+.earn-row .nm b, .earn-row .am b { display: block; font-weight: 600; }
+.earn-row .nm b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.earn-row .nm span, .earn-row .am span { display: block; font-size: 13px; color: var(--ink-2); }
+.earn-row .am { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.earn-row .go { color: var(--muted); }
+
 /* rate by swiping */
 .rate-orb { position: relative; }
 .rate-orb .badge { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--coral); color: #fff; font: 700 11px/18px var(--f-ui); text-align: center; }
@@ -1062,7 +1085,7 @@ function renderFlow() {
   $('#flow').innerHTML = `
     <h2 class="title" id="flow-title">Where it went</h2>
     <div class="totals">
-      <div><span>Earned</span><b>${eur0(s.earned)}</b></div>
+      <button type="button" data-act="earnings" data-month="${d.month}" aria-label="Earned ${eur0(s.earned)}: where it came from"><span>Earned</span><b>${eur0(s.earned)}</b></button>
       <div><span>Spent</span><b>${eur0(s.spent)}</b></div>
       <div><span>Saved</span><b class="gold">${eur0(s.saved)}</b></div>
     </div>
@@ -1513,6 +1536,81 @@ function halfHTML(t) {
     <p class="hint">${t.loanPart ? `${eur(half)} of it paid back ${esc(t.debt)}; only the other half counts as spending.` : `Half (${eur(half)}) counts as paying them back, the rest as spending.`}${open.filter((o) => o.owed > 0).map((o) => ` <span class="nowrap">${esc(o.name)}: ${eur(o.owed)} to go.</span>`).join('')}</p>`;
 }
 
+/* ---------- earnings: a donut of where the money came from ---------- */
+// Categorical slots for the dark surface, in fixed order (validated: adjacent CVD ΔE ≥ 8.4, ≥ 3:1 on the sheet).
+const EARN_COLORS = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#9085e9'];
+const OTHER_COLOR = '#7085ad';
+/** At most six slices: the biggest sources, then what passed-on money left you, then "Other" for the rest. */
+function earningParts(d) {
+  const { sources, keptPassedOn } = d.earnedFrom;
+  const room = 6 - (keptPassedOn ? 1 : 0);
+  const shown = sources.length <= room ? sources : sources.slice(0, room - 1);
+  const rest = sources.slice(shown.length);
+  const parts = shown.map((x) => ({ ...x, kind: 'source', names: [x.name] }));
+  if (keptPassedOn) parts.push({ name: 'Kept from passed-on money', amount: keptPassedOn, count: 0, kind: 'kept' });
+  parts.forEach((p, i) => (p.color = EARN_COLORS[i]));
+  if (rest.length) parts.push({ name: `Other (${rest.length})`, amount: rest.reduce((a, x) => a + x.amount, 0), count: rest.reduce((a, x) => a + x.count, 0), kind: 'other', names: rest.map((x) => x.name), color: OTHER_COLOR });
+  return parts;
+}
+const share = (part, total) => { const p = (100 * part) / total; return p < 1 ? '<1 %' : `${Math.round(p)} %`; };
+function donutSVG(parts, total) {
+  const C = 100, R = 94, r = 62;
+  const at = (rad, a) => `${(C + rad * Math.cos(a)).toFixed(2)} ${(C + rad * Math.sin(a)).toFixed(2)}`;
+  let a = -Math.PI / 2;
+  return parts.map((p, i) => {
+    const sweep = (2 * Math.PI * p.amount) / total, b = a + sweep, large = sweep > Math.PI ? 1 : 0;
+    const d = sweep > 2 * Math.PI - 1e-4 // one part: a whole ring
+      ? `M ${at(R, -Math.PI / 2)} A ${R} ${R} 0 1 1 ${at(R, Math.PI / 2)} A ${R} ${R} 0 1 1 ${at(R, -Math.PI / 2)} M ${at(r, -Math.PI / 2)} A ${r} ${r} 0 1 0 ${at(r, Math.PI / 2)} A ${r} ${r} 0 1 0 ${at(r, -Math.PI / 2)} Z`
+      : `M ${at(R, a)} A ${R} ${R} 0 ${large} 1 ${at(R, b)} L ${at(r, b)} A ${r} ${r} 0 ${large} 0 ${at(r, a)} Z`;
+    a = b;
+    return `<path class="slice" data-act="earn-slice" data-i="${i}" d="${d}" fill="${p.color}" fill-rule="evenodd" stroke="#101f4c" stroke-width="2" stroke-linejoin="round"><title>${esc(p.name)}: ${eur0(p.amount)} (${share(p.amount, total)})</title></path>`;
+  }).join('');
+}
+function earningsHTML(d) {
+  const parts = earningParts(d), total = parts.reduce((a, p) => a + p.amount, 0);
+  if (!total) return `<p class="rv-kicker">Where it came from</p><h2 class="rv-head" id="sheet-title">${esc(d.name)} earnings</h2>
+    <div class="empty"><b>Nothing earned yet</b>Money people send you shows up here as 💰 Income, and so does what you keep from passed-on money.</div>`;
+  const row = (p, i, color = p.color) => `<button type="button" class="earn-row" data-act="earn-row" data-i="${i}" style="--c:${color}">
+      <i aria-hidden="true"></i>
+      <span class="nm"><b>${esc(p.name)}</b><span>${p.kind === 'kept' ? 'net of 🔁 Passed on' : `${p.count} payment${p.count === 1 ? '' : 's'}`}</span></span>
+      <span class="am"><b>${eur0(p.amount)}</b><span>${share(p.amount, total)}</span></span>
+      <span class="go" aria-hidden="true">${p.kind === 'kept' ? '' : '›'}</span></button>`;
+  return `<p class="rv-kicker">Where it came from</p>
+    <h2 class="rv-head" id="sheet-title">${esc(d.name)} earnings</h2>
+    <div class="donut" id="donut" role="img" aria-label="${esc(parts.map((p) => `${p.name} ${share(p.amount, total)}`).join(', '))}">
+      <svg viewBox="0 0 200 200" aria-hidden="true">${donutSVG(parts, total)}</svg>
+      <div class="donut-mid" id="donut-mid"><b>${eur0(total)}</b><span>earned in ${esc(d.name)}</span></div>
+    </div>
+    <div class="earn-list">${parts.map((p, i) => row(p, i)).join('')}</div>
+    <p class="hint">Earned is your income plus what you kept from passed-on money, never the money that only passed through. Tap a part to see its payments.</p>`;
+}
+async function openEarnings(month) {
+  haptic.pick();
+  try {
+    const d = month === state.view.month ? state.view : month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
+    state.earnings = d;
+    openSheet('earnings', earningsHTML(d));
+  } catch (e) { toast(e.message); }
+}
+/** A slice tapped: it stands out and the middle says what it is; tapped again, back to the total. */
+function focusSlice(i) {
+  const d = state.earnings, parts = earningParts(d), total = parts.reduce((a, p) => a + p.amount, 0);
+  const donut = $('#donut'), p = parts[i], same = donut.dataset.focus === String(i);
+  donut.dataset.focus = same ? '' : String(i);
+  donut.classList.toggle('focus', !same);
+  for (const s of $$('.slice', donut)) s.classList.toggle('on', !same && s.dataset.i === String(i));
+  $('#donut-mid').innerHTML = same ? `<b>${eur0(total)}</b><span>earned in ${esc(d.name)}</span>` : `<b>${share(p.amount, total)}</b><span>${esc(p.name)} · ${eur0(p.amount)}</span>`;
+  haptic.pick();
+}
+/** A source's payments (the date on each), with the way back to the donut. */
+function earningPayments(i) {
+  const d = state.earnings, p = earningParts(d)[i];
+  if (p.kind === 'kept') return focusSlice(i);
+  const who = (t) => t.label;
+  const list = d.tx.filter((t) => t.kind === 'income' && t.amount > 0 && p.names.includes(who(t)));
+  openSheet('list', `<button type="button" class="textbtn" data-act="earnings" data-month="${d.month}">‹ ${esc(d.name)} earnings</button>` + listSheetHTML(p.name, list, { date: true, category: false }));
+}
+
 /* ---------- month in review ---------- */
 /** Review texts mark numbers with *stars*; everything else is escaped. */
 const rich = (t) => esc(t).replace(/\*([^*]+)\*/g, '<b>$1</b>');
@@ -1546,7 +1644,7 @@ function reviewHTML(d) {
       <button type="button" class="textbtn" data-act="end-challenge">End the challenge</button>` : '';
   return `<p class="rv-kicker">${r.partial ? 'So far' : 'Month in review'}</p>
     <h2 class="rv-head" id="sheet-title">${esc(r.headline)}</h2>
-    <div class="totals"><div><span>Earned</span><b>${eur0(r.earned)}</b></div><div><span>Spent</span><b>${eur0(r.spent)}</b></div><div><span>Saved</span><b class="gold">${eur0(r.saved)}</b></div></div>
+    <div class="totals"><button type="button" data-act="earnings" data-month="${d.month}" aria-label="Earned ${eur0(r.earned)}: where it came from"><span>Earned</span><b>${eur0(r.earned)}</b></button><div><span>Spent</span><b>${eur0(r.spent)}</b></div><div><span>Saved</span><b class="gold">${eur0(r.saved)}</b></div></div>
     ${live}${plan}
     ${cuts ? `<h3 class="sh-sub">Where to cut</h3>${cuts}` : ''}
     <h3 class="sh-sub">To have money to spare</h3>${r.earn.map((x) => `<p class="rv-p">${rich(x)}</p>`).join('')}
@@ -1692,6 +1790,9 @@ function goTo(id) {
 }
 
 const actions = {
+  earnings: (el) => openEarnings(el.dataset.month),
+  'earn-slice': (el) => focusSlice(Number(el.dataset.i)),
+  'earn-row': (el) => earningPayments(Number(el.dataset.i)),
   rate: () => openSwiper(),
   swipe: (el) => fling(el.dataset.dir),
   'swipe-back': () => swipeBack(),
