@@ -112,10 +112,10 @@ export async function txBetween(db: D1Database, from: string, to: string): Promi
 }
 
 /** Everything 🔁 Passed on so far: what came in, what went out, and what you kept (the running total). */
-export async function passedOnTotal(db: D1Database): Promise<{ in: number; out: number; kept: number }> {
-  const r = await db
-    .prepare("SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS i, COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END), 0) AS o FROM tx WHERE kind = 'podmoga'")
-    .first<{ i: number; o: number }>();
+export async function passedOnTotal(db: D1Database, category?: string): Promise<{ in: number; out: number; kept: number }> {
+  const sql = `SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS i, COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END), 0) AS o FROM tx WHERE kind = 'podmoga'${category ? ' AND category = ?' : ''}`;
+  const st = db.prepare(sql);
+  const r = await (category ? st.bind(category) : st).first<{ i: number; o: number }>();
   const i = r?.i ?? 0, o = r?.o ?? 0;
   return { in: i, out: o, kept: i - o };
 }

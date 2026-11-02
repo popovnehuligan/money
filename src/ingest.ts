@@ -1,5 +1,5 @@
-import { applyRules, defaultKind, joinGap, keyFor, repaymentOf, parseDebts, parseRules, passOnRule, type Kind } from './classify.ts';
-import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind } from './classify.ts';
+import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { edit, esc, send, tg, txKeyboard, txText } from './telegram.ts';
@@ -25,9 +25,17 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
   const pass = passOnRule(rules, t.amount, t.merchant, t.note);
+  const debts = parseDebts(await getSetting(env.DB, 'debts'));
+  if (pass && t.amount < 0) {
+    // Their bill, paid with your own money while you owe them: that's you paying them back.
+    const lender = lenderOf(debts, pass);
+    if (lender && (await passedOnTotal(env.DB, pass.category)).kept < -t.amount) {
+      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === lender);
+      if (owed([lender], loans)[0].owed > 0) return store('loan', null, lender.name);
+    }
+  }
   if (pass) return store('podmoga', pass.category ?? null);
 
-  const debts = parseDebts(await getSetting(env.DB, 'debts'));
   const repaid = debts.length ? repaymentOf(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note) : undefined;
   if (repaid) return store('loan', null, repaid.name);
 

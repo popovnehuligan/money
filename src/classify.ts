@@ -116,7 +116,8 @@ export function keyFor(merchant?: string, iban?: string): string | undefined {
  * [{"match":["dr novak"],"passOnFrom":["mom name"],"multipleOf":3500,"max":14000,"category":"health"}]:
  * every payment to Dr Novak is 🔁 Passed on, and so is money from mom that fits the amounts
  * (other money from her is sorted as usual). Passed-on money is a running total, so a session
- * you pay yourself simply lowers what you've kept. `category` labels the pair.
+ * you pay yourself simply lowers what you've kept. `category` labels the pair. While you owe
+ * mom (a loan in `debts`), a session her money doesn't cover is you paying her back instead.
  */
 export interface Rule {
   match: string[];
@@ -224,6 +225,11 @@ export function repaymentOf(debts: Debt[], loans: LoanTx[], amount: number, ...n
   if (amount >= 0) return undefined;
   const d = debts.find((x) => x.match.length && mentions(x.match, names));
   return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
+}
+
+/** The loan you owe to whoever normally pays this bill (a pass-on rule's `passOnFrom`), if any. */
+export function lenderOf(debts: Debt[], rule: Rule): Debt | undefined {
+  return debts.find((d) => d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
 }
 
 /** Picking a loan for a bank payment teaches its counterparty's name to that loan (and only that one). */

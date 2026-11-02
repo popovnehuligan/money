@@ -125,3 +125,23 @@ test('cash out of an ATM is suggested as 💵 Cash: not spending, waiting for yo
   const t = await env.DB.prepare('SELECT kind, method, confirmed FROM tx').first();
   assert.deepEqual({ ...t }, { kind: 'cash', method: 'atm', confirmed: 0 });
 });
+
+test('while you owe mom, a session her money does not cover is paying her back; once paid, it is passed on again', async () => {
+  const { env } = setup();
+  const set = (k: string, v: string) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').bind(k, v).run();
+  await set('rules', '[{"match":["dr novak"],"passOnFrom":["kovac maria"],"multipleOf":3500,"max":14000,"category":"health"}]');
+  await set('debts', '[{"name":"Mom","match":["KOVAC Maria"],"amount":5000}]');
+  let balance = 100;
+  const transfer = (when: string, euros: number, name: string) =>
+    ingest(env, {
+      id: `t${++n}`, date: when.replace(' ', 'T'), subject: `${euros < 0 ? 'Debit' : 'Credit'} on your account (ID=1)`,
+      body: `at ${when.slice(8, 10)}/${when.slice(5, 7)}/${when.slice(0, 4)}, ${when.slice(11)} the balance on your account SK0000000000000000000000 was ${euros < 0 ? 'decreased' : 'increased'} by ${Math.abs(euros).toFixed(2)} EUR.\r\nActual balance: ${(balance += euros).toFixed(2)} EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: ${name}\r\n`,
+    });
+  await transfer('2026-11-03 10:00', 35, 'KOVAC Maria'); // mom's money for a session
+  await transfer('2026-11-03 18:00', -35, 'DR NOVAK Peter'); // paid with it
+  await transfer('2026-11-10 18:00', -35, 'DR NOVAK Peter'); // yours: pays back 35 of the 50 €
+  await transfer('2026-11-17 18:00', -35, 'DR NOVAK Peter'); // yours: 15 € left, so it pays that off
+  await transfer('2026-11-24 18:00', -35, 'DR NOVAK Peter'); // nothing owed any more: from your own pocket
+  const rows = (await env.DB.prepare("SELECT kind, debt FROM tx WHERE source = 'bmail' ORDER BY n").all<{ kind: string; debt: string | null }>()).results;
+  assert.deepEqual(rows.map((r) => `${r.kind}${r.debt ? ` ${r.debt}` : ''}`), ['podmoga', 'podmoga', 'loan Mom', 'loan Mom', 'podmoga']);
+});
