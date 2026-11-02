@@ -13,6 +13,7 @@ export interface DashboardSettings {
   savingsStart: number; // cents already in savings before tracking started
   name: string | null; // what the app calls you
   caps: Record<string, number>; // this month's challenge: category → cents
+  saveTarget: number; // % of earnings the month review aims to keep (default 20)
 }
 
 /** The `caps` setting, {"taxi":15500,…}; anything malformed is dropped. */
@@ -35,6 +36,7 @@ export function readSettings(s: Record<string, string>): DashboardSettings {
     savingsStart: cents(s.savings_start) ?? 0,
     name: s.name || null,
     caps: parseCaps(s.caps),
+    saveTarget: s.save_target !== undefined && s.save_target !== '' && Number.isFinite(Number(s.save_target)) ? Number(s.save_target) : 20,
   };
 }
 
@@ -53,6 +55,7 @@ export interface DashboardInput {
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
+  loans?: { name: string; amount: number }[]; // each loan's starting amount (what you owed when tracking started)
   passedOnBefore?: number; // passed-on running total before this month
   prevPassedOnBefore?: number; // …and before the previous month
 }
@@ -121,6 +124,7 @@ export function dashboard(o: DashboardInput) {
       prevTxs: o.prevTxs,
       categories: o.categories,
       passedOnBefore: o.passedOnBefore ?? 0,
+      saveTarget: s.saveTarget,
       goal: { name: s.goalName, amount: s.goalAmount, saved: s.savingsStart + savedTotal },
     }),
     prev: { earned: prev.earned, spent: prev.spent, saved: prev.saved },
@@ -132,6 +136,8 @@ export function dashboard(o: DashboardInput) {
       perMonth: recent.length ? Math.round(recent.reduce((sum, m) => sum + m.saved, 0) / recent.length) : 0,
     },
     debts: o.debts,
+    loans: o.loans ?? [],
+    saveTarget: s.saveTarget,
     categories: o.categories,
     balance: current ? o.balance ?? null : null,
     tx: o.txs.map(txView),

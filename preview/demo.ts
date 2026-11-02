@@ -110,6 +110,7 @@ function summary(month = TODAY.slice(0, 7)) {
     settings: readSettings(settings),
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
+    loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount })),
     debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => t.kind === 'spend' && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
@@ -187,6 +188,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if ('goalName' in body) settings.goal_name = String(body.goalName || '');
       if ('name' in body) body.name ? (settings.name = String(body.name)) : delete settings.name;
       if ('caps' in body) body.caps ? (settings.caps = JSON.stringify(body.caps)) : delete settings.caps;
+      if ('saveTarget' in body) settings.save_target = String(body.saveTarget);
+      if ('loans' in body) {
+        const before = parseDebts(settings.debts);
+        settings.debts = JSON.stringify(body.loans.map((l: { name: string; amount: number }) => ({ name: l.name, match: before.find((d) => d.name === l.name)?.match ?? [], amount: l.amount })));
+      }
       return json(summary(month));
   }
   return json({ error: 'Not found' }, 404);

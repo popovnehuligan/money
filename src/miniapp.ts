@@ -35,6 +35,7 @@ async function summary(env: Env, asked?: string | null) {
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
     debts: owed(parseDebts(settings.debts ?? null), loans),
+    loans: parseDebts(settings.debts ?? null).map((d) => ({ name: d.name, amount: d.amount })),
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
     passedOn,
@@ -129,6 +130,24 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         if ('savingsStart' in body) values.savings_start = cents(body.savingsStart)?.toString() ?? null;
         if ('goalName' in body) values.goal_name = String(body.goalName ?? '').trim().slice(0, 40) || null;
         if ('name' in body) values.name = String(body.name ?? '').trim().slice(0, 30) || null;
+        if ('saveTarget' in body) {
+          const pct = Number(body.saveTarget);
+          if (body.saveTarget !== null && (!Number.isInteger(pct) || pct < 0 || pct > 90)) throw new BadInput('Keep between 0 and 90 % a month.');
+          values.save_target = body.saveTarget === null ? null : String(pct);
+        }
+        if ('loans' in body) {
+          // Each loan: who, and what you owed them when tracking started. The bank names they're
+          // known by (match) stay; a loan you leave out is gone (its payments stay 🤝 Loan).
+          if (!Array.isArray(body.loans)) throw new BadInput('Loans must be a list.');
+          const before = parseDebts(await getSetting(env.DB, 'debts'));
+          const next = (body.loans as { name?: unknown; amount?: unknown }[]).map((l) => {
+            const name = String(l?.name ?? '').trim().slice(0, 40);
+            if (!name) throw new BadInput('Each loan needs a name.');
+            return { name, match: before.find((d) => d.name === name)?.match ?? [], amount: cents(l.amount) ?? 0 };
+          });
+          if (new Set(next.map((d) => d.name)).size !== next.length) throw new BadInput('Two loans have the same name.');
+          values.debts = JSON.stringify(next);
+        }
         if ('caps' in body) {
           // Next month's challenge: {category: cents}, or null to end it.
           const known = categoriesFrom(await getSetting(env.DB, 'categories'));

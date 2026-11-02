@@ -85,3 +85,8 @@ test('what you marked necessary is never counted as something to cut', () => {
   assert.ok(!r2.cuts.some((c) => c.category === 'taxi'));
   assert.match(plain(r2.notes.map((n) => n.text).join('\n')), /\*160 €\* \(12 %\) of spending you marked necessary/);
 });
+
+test('the share to keep is yours to set', () => {
+  const r30 = review({ month: '2026-10', today: '2026-11-02', txs: october, prevTxs: [], categories: cats, saveTarget: 30 });
+  assert.match(plain(r30.earn[1]), /To keep 30 % of what you earn at this spending, you'd need about \*1 870 €\*/); // 1 304 € ÷ 0.7
+});

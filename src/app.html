@@ -355,6 +355,13 @@ svg { display: block; }
 .cat-row { display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px; }
 .cat-row .em { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; font-size: 20px; background: color-mix(in oklab, var(--c) 22%, rgba(0, 0, 0, .2)); }
 .cat-row .input { height: 44px; }
+.edit-row { display: grid; grid-template-columns: minmax(0, 1fr) 118px 40px; align-items: center; gap: 8px; margin-top: 8px; }
+.edit-row .who { min-width: 0; font-weight: 600; }
+.edit-row .who small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
+.edit-row .who, .edit-row .who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edit-row .suffix { height: 44px; padding: 0 12px; }
+.edit-row .input { height: 44px; }
+.edit-row.caps-row { grid-template-columns: minmax(0, 1fr) 118px; }
 .icon-btn { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 14px; color: var(--bad); background: rgba(255, 112, 118, .1); }
 .icon-btn svg { width: 18px; height: 18px; }
 .new-cat { display: flex; gap: 8px; margin-top: 10px; }
@@ -454,6 +461,7 @@ svg { display: block; }
 .sh-foot { display: flex; justify-content: center; margin-top: 16px; }
 .textbtn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 4px; font-weight: 600; font-size: 14px; color: var(--ink-2); }
 .textbtn.danger { color: var(--bad); }
+.textbtn.sheet-back { margin: -6px 0 6px -4px; color: var(--aqua); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .textbtn svg { width: 16px; height: 16px; }
 .primary { display: flex; align-items: center; justify-content: center; width: 100%; height: 54px; margin-top: 22px; border-radius: 27px; background: linear-gradient(180deg, #7ff5e9, var(--aqua)); color: #04203a; font-weight: 700; font-size: 16px; box-shadow: 0 12px 30px -10px rgba(56, 232, 214, .6); transition: transform .18s var(--spring); }
 .primary:active { transform: scale(.97); }
@@ -671,7 +679,7 @@ async function api(path, body) {
 
 /* ---------- state ---------- */
 // cur: this month, which drives the pool. view: the month shown in the deeper scenes.
-const state = { cur: null, view: null, filter: 'all', sheet: null };
+const state = { cur: null, view: null, filter: 'all', sheet: null, months: {} }; // months: every month loaded, by "YYYY-MM"
 
 function dailyOf(d) {
   const days = Array.from({ length: d.days + 1 }, () => ({ spent: 0, count: 0, cats: {} }));
@@ -1208,6 +1216,7 @@ function renderAll() {
 async function load() {
   try {
     state.cur = state.view = await api('/api/summary');
+    state.months[state.cur.month] = state.cur;
     renderAll();
     const want = new URLSearchParams(location.search).get('review'); // the bot's "Open the review" button
     if (want && /^\d{4}-\d{2}$/.test(want)) openReview(want);
@@ -1222,15 +1231,22 @@ async function load() {
 }
 async function loadView(month) {
   try {
-    state.view = month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
+    state.view = await loadMonth(month);
     state.filter = 'all';
     renderMonth(); renderFlow(); renderJar(); renderLedger();
   } catch (e) { toast(e.message); }
 }
 function accept(d) {
+  state.months[d.month] = d;
   if (d.month === state.cur.month) state.cur = d;
   if (d.month === state.view.month) state.view = d;
   renderAll();
+}
+/** A month's data: the freshest copy we have (every change returns its month, which accept() keeps). */
+const monthData = (m) => state.months[m] || (m === state.cur.month ? state.cur : m === state.view.month ? state.view : null);
+async function loadMonth(m) {
+  if (monthData(m)) return monthData(m);
+  return (state.months[m] = await api(`/api/summary?month=${m}`));
 }
 
 /* =========================================================================
@@ -1449,9 +1465,17 @@ document.addEventListener('keydown', (e) => {
    ========================================================================= */
 const sheet = $('#sheet'), backdrop = $('#backdrop'), sheetBody = $('#sheet-body');
 let lastFocus = null;
-function openSheet(kind, html) {
+// Sheets stack: a sheet opened from another one remembers it, and Back (or finishing an edit) returns
+// there, redrawn from the latest data, instead of dropping you on the main screen.
+// A view is { key, label, render }: the same key redraws in place; a new key goes on top.
+const nav = { stack: [], cur: null };
+const backHTML = () => (nav.stack.length ? `<button type="button" class="textbtn sheet-back" data-act="sheet-back">‹ ${esc(nav.stack.at(-1).label)}</button>` : '');
+function openSheet(kind, html, view = {}) {
+  const key = view.key ?? kind;
+  if (!sheet.hidden && nav.cur && nav.cur.key !== key) nav.stack.push(nav.cur);
+  nav.cur = { kind, key, label: view.label ?? 'Back', render: view.render ?? (() => html) };
   state.sheet = kind;
-  sheetBody.innerHTML = html;
+  sheetBody.innerHTML = backHTML() + html;
   if (sheet.hidden) {
     lastFocus = document.activeElement;
     sheet.hidden = backdrop.hidden = false;
@@ -1461,7 +1485,26 @@ function openSheet(kind, html) {
   const first = sheetBody.querySelector('input') || sheetBody.querySelector('button');
   setTimeout(() => first?.focus({ preventScroll: true }), 60);
 }
+/** Back one level: the sheet underneath, redrawn; from the first sheet, close. */
+async function sheetBack() {
+  const prev = nav.stack.pop();
+  if (!prev) return closeSheet();
+  nav.cur = null; // not pushed again
+  haptic.pick();
+  const html = await prev.render();
+  if (html == null) return sheetBack(); // what it showed is gone (e.g. deleted)
+  openSheet(prev.kind, html, prev);
+}
+/** Redraw the sheet you're on (after a change elsewhere). */
+async function sheetRedraw() {
+  if (!nav.cur) return;
+  const html = await nav.cur.render();
+  if (html == null) return sheetBack();
+  sheetBody.innerHTML = backHTML() + html;
+}
 function closeSheet() {
+  nav.stack = [];
+  nav.cur = null;
   if (sheet.hidden) return;
   state.sheet = null;
   sheet.classList.remove('open');
@@ -1484,7 +1527,13 @@ function closeSheet() {
   });
 })();
 
-const findTx = (n) => [...state.cur.tx, ...(state.view !== state.cur ? state.view.tx : [])].find((t) => t.n === Number(n));
+/** A payment from any month we've loaded (the earnings or review of another month included). */
+const findTx = (n) => {
+  for (const d of [state.cur, state.view, ...Object.values(state.months)]) {
+    const t = d?.tx.find((x) => x.n === Number(n));
+    if (t) return t;
+  }
+};
 const today = () => state.cur.today;
 
 function tilesHTML(selected, act, n) {
@@ -1596,9 +1645,9 @@ function earningsHTML(d) {
 async function openEarnings(month) {
   haptic.pick();
   try {
-    const d = month === state.view.month ? state.view : month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
-    state.earnings = d;
-    openSheet('earnings', earningsHTML(d));
+    const d = await loadMonth(month);
+    const render = () => { state.earnings = monthData(month); return earningsHTML(state.earnings); };
+    openSheet('earnings', render(), { key: `earnings:${month}`, label: `${d.name} earnings`, render });
   } catch (e) { toast(e.message); }
 }
 /** A slice tapped: it stands out and the middle says what it is; tapped again, back to the total. */
@@ -1615,9 +1664,11 @@ function focusSlice(i) {
 function earningPayments(i) {
   const d = state.earnings, p = earningParts(d)[i];
   if (p.kind === 'kept') return focusSlice(i);
-  const who = (t) => t.label;
-  const list = d.tx.filter((t) => t.kind === 'income' && t.amount > 0 && p.names.includes(who(t)));
-  openSheet('list', `<button type="button" class="textbtn" data-act="earnings" data-month="${d.month}">‹ ${esc(d.name)} earnings</button>` + listSheetHTML(p.name, list, { date: true, category: false }));
+  const render = () => {
+    const now = monthData(d.month), part = earningParts(now).find((x) => x.name === p.name) ?? { names: [] };
+    return listSheetHTML(p.name, now.tx.filter((t) => t.kind === 'income' && t.amount > 0 && part.names.includes(t.label)), { date: true, category: false });
+  };
+  openSheet('list', render(), { key: `earn:${d.month}:${p.name}`, label: p.name, render });
 }
 
 /* ---------- month in review ---------- */
@@ -1662,9 +1713,9 @@ function reviewHTML(d) {
 async function openReview(month) {
   haptic.pick();
   try {
-    const d = month === state.view.month ? state.view : month === state.cur.month ? state.cur : await api(`/api/summary?month=${month}`);
-    state.review = d;
-    openSheet('review', reviewHTML(d));
+    const d = await loadMonth(month);
+    const render = () => { state.review = monthData(month); return reviewHTML(state.review); };
+    openSheet('review', render(), { key: `review:${month}`, label: `${d.name} review`, render });
   } catch (e) { toast(e.message); }
 }
 
@@ -1708,6 +1759,14 @@ function settingsHTML() {
       <label class="field"><span class="field-name">Saving for</span><input class="input" id="set-goal-name" maxlength="40" placeholder="Japan trip, new laptop…" value="${esc(sv.goalName || '')}"></label>
       <label class="field"><span class="field-name">Goal amount</span><span class="suffix"><input id="set-goal" inputmode="decimal" placeholder="2000" value="${v(sv.goalAmount)}"><b>€</b></span></label>
       <label class="field"><span class="field-name">Already in savings</span><span class="suffix"><input id="set-start" inputmode="decimal" placeholder="0" value="${v(sv.start)}"><b>€</b></span><small>What was in your savings account before the app started counting.</small></label>
+      <label class="field"><span class="field-name">Keep each month</span><span class="suffix"><input id="set-target" inputmode="numeric" placeholder="20" value="${d.saveTarget ?? 20}"><b>%</b></span><small>Of what you earn. The month review works out what you’d need to earn to keep this much.</small></label>
+      ${d.challenge ? `<p class="field-name" style="margin-top:22px">${esc(d.name)} challenge caps</p>
+        ${d.challenge.caps.map(({ category, cap, spent }) => { const m = catMeta(category); return `<label class="edit-row caps-row"><span class="who">${m.emoji} ${esc(m.name)}<small>${eur0(spent)} spent so far</small></span><span class="suffix"><input data-cap="${category}" inputmode="decimal" placeholder="none" value="${v(cap)}" aria-label="${esc(m.name)} cap"><b>€</b></span></label>`; }).join('')}
+        <small class="hint">Empty a cap to drop it.</small>` : ''}
+      <p class="field-name" style="margin-top:22px">Loans</p>
+      <div id="loan-rows">${(d.loans || []).map((l) => { const o = (d.debts || []).find((x) => x.name === l.name); return `<div class="edit-row" data-loan-row="${esc(l.name)}"><span class="who">${esc(l.name)}<small>${o ? (o.owed > 0 ? `${eur(o.owed)} to go` : 'paid back') : ''}</small></span><span class="suffix"><input data-loan="${esc(l.name)}" inputmode="decimal" placeholder="0" value="${v(l.amount)}" aria-label="What you owed ${esc(l.name)} at the start"><b>€</b></span><button type="button" class="icon-btn" data-act="loan-del" aria-label="Delete the loan ${esc(l.name)}">${ICON.trash}</button></div>`; }).join('')}</div>
+      <div class="edit-row"><input class="input" id="loan-new-name" maxlength="40" placeholder="New loan: who?" aria-label="New loan: who"><span class="suffix"><input id="loan-new-amount" inputmode="decimal" placeholder="0" aria-label="New loan: how much"><b>€</b></span><span></span></div>
+      <small class="hint">What you owed each person when the app started counting. 🤝 Loan payments count it up or down from there, so “to go” is always worked out.</small>
       <p class="form-error" id="settings-error" role="alert"></p>
       <button class="primary" type="submit">Save</button>
     </form>
@@ -1785,7 +1844,7 @@ async function mutate(path, body, done) {
 }
 function openEditor(n) {
   const t = findTx(n);
-  if (t) openSheet('edit', editorHTML(t));
+  if (t) openSheet('edit', editorHTML(t), { key: `edit:${t.n}`, label: t.label, render: () => { const x = findTx(n); return x ? editorHTML(x) : null; } });
 }
 function applyLocal(n, patch) {
   const t = findTx(n);
@@ -1811,12 +1870,19 @@ const actions = {
     const r = state.review.review, p = r.plan;
     mutate('/api/settings', { budget: p.budget, caps: Object.fromEntries(p.caps), month: state.cur.month }, () => {
       haptic.ok(); confetti(); toast(`${r.nextName} challenge on. Let’s go 💪`);
-      openSheet('review', reviewHTML(state.review));
+      sheetRedraw();
     });
   },
-  'end-challenge': async () => { if (await ask('End the challenge? Your budget stays.')) mutate('/api/settings', { caps: null, month: state.cur.month }, () => { toast('Challenge ended'); closeSheet(); }); },
+  'end-challenge': async () => { if (await ask('End the challenge? Your budget stays.')) mutate('/api/settings', { caps: null, month: state.cur.month }, () => { toast('Challenge ended'); sheetRedraw(); }); },
+  'sheet-back': () => sheetBack(),
+  'loan-del': async (el) => {
+    const row = el.closest('[data-loan-row]'), name = row.dataset.loanRow;
+    if (!(await ask(`Delete the loan ${name}? Its payments stay 🤝 Loan. Save to confirm.`))) return;
+    row.remove();
+    haptic.pick();
+  },
   retry: () => load(),
-  settings: () => openSheet('settings', settingsHTML()),
+  settings: () => openSheet('settings', settingsHTML(), { label: 'Settings', render: settingsHTML }),
   close: closeSheet,
   immersive: () => { try { TG.isFullscreen ? TG.exitFullscreen() : TG.requestFullscreen(); } catch {} },
   prev: () => loadView(shiftMonth(state.view.month, -1)),
@@ -1825,12 +1891,15 @@ const actions = {
   day: (el) => {
     haptic.pick();
     const day = el.dataset.day;
-    openSheet('list', listSheetHTML(shortDay(day), state.view.tx.filter((t) => t.ts.startsWith(day))));
+    const m = state.view.month, render = () => listSheetHTML(shortDay(day), monthData(m).tx.filter((t) => t.ts.startsWith(day)));
+    openSheet('list', render(), { key: `day:${day}`, label: shortDay(day), render });
   },
   cat: (el) => {
     haptic.pick();
     const c = el.dataset.cat, m = catMeta(c);
-    openSheet('list', listSheetHTML(`${m.emoji} ${m.name} in ${state.view.name}`, state.view.tx.filter((t) => t.kind === 'spend' && (t.category || 'other') === c), { date: true, category: false }));
+    const month = state.view.month, title = `${m.emoji} ${m.name} in ${state.view.name}`;
+    const render = () => listSheetHTML(title, monthData(month).tx.filter((t) => t.kind === 'spend' && (t.category || 'other') === c), { date: true, category: false });
+    openSheet('list', render(), { key: `cat:${month}:${c}`, label: `${m.name} in ${state.view.name}`, render });
   },
   tx: (el) => { haptic.tap(); openEditor(el.dataset.n); },
   kind: (el) => {
@@ -1845,7 +1914,7 @@ const actions = {
     mutate('/api/tx', { n, countsFor: m, month: state.view.month }, async () => {
       toast(`Counts for ${MONTH[+m.slice(5) - 1]}`);
       try { accept(await api('/api/summary')); if (state.view.month !== state.cur.month) accept(await api(`/api/summary?month=${state.view.month}`)); } catch {}
-      if (state.sheet === 'edit') findTx(n) ? openEditor(n) : closeSheet();
+      if (state.sheet === 'edit') findTx(n) ? openEditor(n) : sheetBack();
     });
   },
   half: (el) => {
@@ -1879,7 +1948,7 @@ const actions = {
   delete: (el) => {
     const t = findTx(el.dataset.n);
     if (el.dataset.confirm !== '1') { el.dataset.confirm = '1'; el.innerHTML = `${ICON.trash}Tap again to delete ${esc(eur(t.amount, true))}`; return; }
-    mutate('/api/delete', { n: t.n, month: state.view.month }, () => { haptic.ok(); closeSheet(); toast('Deleted'); });
+    mutate('/api/delete', { n: t.n, month: state.view.month }, () => { haptic.ok(); toast('Deleted'); sheetBack(); });
   },
   sort: () => {
     state.sortQueue = state.view.tx.filter(isUnsorted).reverse();
@@ -1927,7 +1996,7 @@ const actions = {
   'cat-del': async (el) => {
     const m = catMeta(el.dataset.cat);
     if (!(await ask(`Delete ${m.emoji} ${m.name}? Its payments go back to “to sort”.`))) return;
-    mutate('/api/category', { remove: el.dataset.cat, month: state.view.month }, () => { toast(`${m.name} deleted`); openSheet('settings', settingsHTML()); });
+    mutate('/api/category', { remove: el.dataset.cat, month: state.view.month }, () => { toast(`${m.name} deleted`); sheetRedraw(); });
   },
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
@@ -2048,10 +2117,10 @@ document.addEventListener('change', (e) => {
   if (!id) return;
   const name = e.target.value.trim();
   if (!name || name === catMeta(id).name) { e.target.value = catMeta(id).name; return; }
-  mutate('/api/category', { rename: id, label: name, month: state.view.month }, () => { haptic.ok(); toast('Renamed'); openSheet('settings', settingsHTML()); });
+  mutate('/api/category', { rename: id, label: name, month: state.view.month }, () => { haptic.ok(); toast('Renamed'); sheetRedraw(); });
 });
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeSheet();
+  if (e.key === 'Escape') sheetBack();
   if (e.key === 'Enter' && e.target.dataset?.catId) e.target.blur(); // saves the rename (change event)
   if (e.key === 'Enter' && e.target.closest?.('.new-cat')) { e.preventDefault(); addCategory(e.target.closest('.new-cat')); } // not the cash form's submit
 });
@@ -2062,7 +2131,7 @@ function addCategory(box) {
   if (!name) return;
   haptic.ok();
   if (to === 'settings') {
-    mutate('/api/category', { add: name, month: state.view.month }, () => { toast(`${name} added`); openSheet('settings', settingsHTML()); });
+    mutate('/api/category', { add: name, month: state.view.month }, () => { toast(`${name} added`); sheetRedraw(); });
   } else if (to === 'cash-cat') {
     // Created when the cash entry is saved; until then the name stands in for the picked tile.
     Object.assign(state, { cashNewCat: name, cashCat: null });
@@ -2084,7 +2153,7 @@ document.addEventListener('submit', (e) => {
     const body = { amount: state.cashDir * cents, note: $('#cash-note').value };
     if (state.cashDir < 0 && state.cashNewCat) body.newCategory = state.cashNewCat;
     else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
-    mutate('/api/cash', body, () => { haptic.ok(); closeSheet(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
+    mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
   }
   if (e.target.id === 'settings-form') {
     const read = (id) => {
@@ -2093,9 +2162,19 @@ document.addEventListener('submit', (e) => {
       const n = Number(raw);
       return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : NaN;
     };
-    const body = { name: $('#set-name').value, budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value, month: state.cur.month };
-    if ([body.budget, body.goalAmount, body.savingsStart].some(Number.isNaN)) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50.'; return; }
-    mutate('/api/settings', body, () => { haptic.ok(); closeSheet(); toast('Saved'); splash(0.5, 30); });
+    const target = $('#set-target').value.trim() === '' ? 20 : Number($('#set-target').value.trim());
+    const body = { name: $('#set-name').value, budget: read('#set-budget'), goalAmount: read('#set-goal'), savingsStart: read('#set-start'), goalName: $('#set-goal-name').value, saveTarget: target, month: state.cur.month };
+    const capInputs = $$('[data-cap]');
+    if (capInputs.length) {
+      const caps = Object.fromEntries(capInputs.map((i) => [i.dataset.cap, read(`[data-cap="${i.dataset.cap}"]`)]).filter(([, c]) => c));
+      body.caps = Object.keys(caps).length ? caps : null;
+    }
+    body.loans = $$('[data-loan]').map((i) => ({ name: i.dataset.loan, amount: read(`[data-loan="${CSS.escape(i.dataset.loan)}"]`) ?? 0 }));
+    const newName = $('#loan-new-name').value.trim();
+    if (newName) body.loans.push({ name: newName, amount: read('#loan-new-amount') ?? 0 });
+    const numbers = [body.budget, body.goalAmount, body.savingsStart, ...body.loans.map((l) => l.amount), ...Object.values(body.caps || {})];
+    if (numbers.some(Number.isNaN) || !Number.isInteger(target) || target < 0 || target > 90) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50 (and 0–90 % to keep).'; return; }
+    mutate('/api/settings', body, () => { haptic.ok(); sheetBack(); toast('Saved'); splash(0.5, 30); });
   }
 });
 
@@ -2129,7 +2208,7 @@ if (TG) {
   TG.expand();
   try { TG.disableVerticalSwipes?.(); } catch {}
   try { TG.setHeaderColor?.('#060a22'); TG.setBackgroundColor?.('#060a22'); TG.setBottomBarColor?.('#020716'); } catch {}
-  TG.BackButton?.onClick(() => (swipe.open ? closeSwiper() : closeSheet()));
+  TG.BackButton?.onClick(() => (swipe.open ? closeSwiper() : sheetBack()));
   if (TG.isVersionAtLeast?.('8.0') && TG.requestFullscreen) $('#immersive').hidden = false;
 }
 seedPool();

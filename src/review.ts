@@ -46,6 +46,7 @@ export interface ReviewInput {
   prevTxs: StatTx[];
   categories: Categories;
   passedOnBefore?: number; // passed-on running total before the month
+  saveTarget?: number; // % of earnings to keep (your setting, 20 by default)
   goal?: { name: string | null; amount: number | null; saved: number } | null;
 }
 
@@ -165,15 +166,16 @@ export function review(o: ReviewInput): Review {
   // 2. What you'd need to earn: keep 20 % of income (the 50/30/20 rule) at this spending.
   const earn: string[] = [];
   const spent = partial ? Math.round((s.spent * daysInMonth(o.month)) / daysSoFar) : s.spent;
-  const need = (sp: number) => Math.ceil(sp / 0.8 / 1000) * 1000;
+  const target = Math.min(90, Math.max(0, o.saveTarget ?? 20)), keep = target / 100;
+  const need = (sp: number) => Math.ceil(sp / (1 - keep) / 1000) * 1000;
   if (partial) earn.push(`So far: *${e0(s.earned)}* earned, *${e0(s.spent)}* spent. At this pace ${name} ends at about *${e0(spent)}* spent.`);
   else if (s.earned > 0) earn.push(`You earned *${e0(s.earned)}* and spent *${e0(s.spent)}*: ${spare >= 0 ? `*${e0(spare)}* to spare, ${pct(spare, s.earned)} % of what you earned.` : `*${e0(-spare)}* more than you earned.`}`);
   else earn.push(`You earned nothing this month, and spent *${e0(s.spent)}*.`);
   const more = Math.max(0, need(spent) - s.earned), moreWithCuts = Math.max(0, need(spent - cutTotal) - s.earned);
   if (more > 0) {
-    earn.push(`To keep 20 % of what you earn at this spending, you'd need about *${e0(need(spent))}* a month: *${e0(more)}* more, roughly *${e0(more / 4.33)}* a week.`);
-    if (cutTotal) earn.push(moreWithCuts > 0 ? `With the cuts above it's *${e0(moreWithCuts)}* more, ${e0(moreWithCuts / 4.33)} a week.` : `With the cuts above you'd keep 20 % without earning a cent more.`);
-  } else if (!partial) earn.push(`That's at least 20 % kept: right where it should be. 🎉`);
+    earn.push(`To keep ${target} % of what you earn at this spending, you'd need about *${e0(need(spent))}* a month: *${e0(more)}* more, roughly *${e0(more / 4.33)}* a week.`);
+    if (cutTotal) earn.push(moreWithCuts > 0 ? `With the cuts above it's *${e0(moreWithCuts)}* more, ${e0(moreWithCuts / 4.33)} a week.` : `With the cuts above you'd keep ${target} % without earning a cent more.`);
+  } else if (!partial) earn.push(`That's at least ${target} % kept: right where you want it. 🎉`);
   if (s.podmogaNet > 0) earn.push(`Earned includes *${e0(s.podmogaNet)}* you kept from passed-on money.`);
   if (s.overdraft > 0) earn.push(`Spent includes *${e0(s.overdraft)}* more passed on than came in for it.`);
 
@@ -252,7 +254,7 @@ export function review(o: ReviewInput): Review {
 
   const headline = partial
     ? `${name} so far`
-    : s.earned > 0 && spare >= s.earned * 0.2
+    : s.earned > 0 && spare >= s.earned * Math.max(keep, 0.01)
       ? `${name}: you kept ${pct(spare, s.earned)} % of what you earned`
       : spare >= 0
         ? `${name}: you broke about even`

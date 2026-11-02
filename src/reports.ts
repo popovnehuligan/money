@@ -105,7 +105,7 @@ export async function wrapText(env: Env, month: string): Promise<string> {
   ]);
   const savedSoFar = Number(settings.savings_start ?? 0) + saved.reduce((sum, m) => sum + m.saved, 0);
   const goal = { name: settings.goal_name || null, amount: settings.goal_amount ? Number(settings.goal_amount) : null, saved: savedSoFar };
-  const r = review({ month, today: dayOf(localStamp()), txs: txs as Tx[], prevTxs, categories: cats, goal, passedOnBefore: before });
+  const r = review({ month, today: dayOf(localStamp()), txs: txs as Tx[], prevTxs, categories: cats, goal, passedOnBefore: before, saveTarget: settings.save_target ? Number(settings.save_target) : 20 });
   const lines = [reviewText(r, cats)];
   if (total.in || total.out) lines.push('', `🔁 Kept from passed-on money so far: <b>${eur(total.kept, true)}</b>`);
   const caps = parseCaps(settings.caps);
