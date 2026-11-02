@@ -7,7 +7,11 @@ export interface StatTx {
   kind: Kind;
   category: string | null;
   worth: number | null;
+  loan_part?: number | null; // part of a spending payment that paid back a loan
 }
+
+/** What a payment cost you as spending: all of it, minus any part that paid back a loan. */
+export const ownPart = (t: Pick<StatTx, 'amount' | 'loan_part'>) => t.amount - (t.loan_part ?? 0);
 
 export interface Summary {
   income: number;
@@ -35,11 +39,14 @@ export function summarize(txs: StatTx[]): Summary {
       if (t.amount > 0) podmogaIn += t.amount;
       else podmogaOut -= t.amount;
     } else if (t.kind === 'spend') {
-      // A refund is a positive "spend" and simply lowers the total.
-      spent -= t.amount;
+      // A refund is a positive "spend" and simply lowers the total. Half a bar bill that paid a
+      // loan back is half spending, half paying back.
+      const own = ownPart(t);
+      spent -= own;
+      loans += t.loan_part ?? 0;
       const c = t.category ?? 'other';
-      cats.set(c, (cats.get(c) ?? 0) - t.amount);
-      if (t.worth === 0) regret -= t.amount;
+      cats.set(c, (cats.get(c) ?? 0) - own);
+      if (t.worth === 0) regret -= own;
     }
   }
   return {
@@ -57,7 +64,7 @@ export function summarize(txs: StatTx[]): Summary {
 }
 
 const spendOn = (txs: StatTx[], test: (day: string) => boolean) =>
-  txs.reduce((sum, t) => (t.kind === 'spend' && test(dayOf(t.ts)) ? sum - t.amount : sum), 0);
+  txs.reduce((sum, t) => (t.kind === 'spend' && test(dayOf(t.ts)) ? sum - ownPart(t) : sum), 0);
 
 /**
  * Daily allowance that rolls over: whatever is left of the monthly budget,

@@ -5,7 +5,11 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { Env } from '../src/db.ts';
+import { applyChoice } from '../src/actions.ts';
+import { owed, parseDebts } from '../src/classify.ts';
+import { getTx, loanPayments } from '../src/db.ts';
 import { ingest } from '../src/ingest.ts';
+import { summarize } from '../src/stats.ts';
 
 /** The handful of D1 calls the Worker makes, on top of node:sqlite. */
 function d1(): D1Database {
@@ -144,4 +148,21 @@ test('while you owe mom, a session her money does not cover is paying her back; 
   await transfer('2026-11-24 18:00', -35, 'DR NOVAK Peter'); // nothing owed any more: from your own pocket
   const rows = (await env.DB.prepare("SELECT kind, debt FROM tx WHERE source = 'bmail' ORDER BY n").all<{ kind: string; debt: string | null }>()).results;
   assert.deepEqual(rows.map((r) => `${r.kind}${r.debt ? ` ${r.debt}` : ''}`), ['podmoga', 'podmoga', 'loan Mom', 'loan Mom', 'podmoga']);
+});
+
+test('marking half of a payment as paying back a loan counts the loan down and halves the spending', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('debts', ?)").bind('[{"name":"Friend","match":[],"amount":10000}]').run();
+  await bmail(env, '2026-10-10 23:00', -12, 88, 'Platba kartou 4405**0000, SOME BAR');
+  const t = (await getTx(env.DB, 1))!;
+  await applyChoice(env, t, { category: 'eat' });
+  await applyChoice(env, (await getTx(env.DB, 1))!, { half: 'Friend' });
+  const after = (await getTx(env.DB, 1))!;
+  assert.deepEqual([after.kind, after.category, after.loan_part, after.debt], ['spend', 'eat', -600, 'Friend']);
+  const debts = parseDebts('[{"name":"Friend","match":[],"amount":10000}]');
+  assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, 9400);
+  assert.equal(summarize([after]).spent, 600);
+  await applyChoice(env, after, { half: null }); // undo
+  assert.equal((await getTx(env.DB, 1))!.loan_part, null);
+  await assert.rejects(applyChoice(env, (await getTx(env.DB, 1))!, { half: 'Nobody' }));
 });

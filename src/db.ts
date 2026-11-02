@@ -37,17 +37,18 @@ export interface Tx {
   confirmed: number;
   source: string;
   tg_msg: number | null;
-  debt: string | null; // which loan a 🤝 Loan payment belongs to
+  debt: string | null; // which loan a 🤝 Loan payment belongs to (or the loan loan_part paid back)
   label: string | null; // your own name for it, shown instead of the bank's
+  loan_part?: number | null; // part of a spending payment that paid back the loan in `debt` (e.g. half)
 }
 
-export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label'> & {
+export type NewTx = Omit<Tx, 'n' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'loan_part'> & {
   raw: string | null;
   debt?: string | null;
   approved?: boolean; // stored as already sorted: nothing to ask in the chat
 };
 
-const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label';
+const COLS = 'n, ext_id, ts, amount, currency, balance, merchant, iban, note, method, key, kind, category, worth, confirmed, source, tg_msg, debt, label, loan_part';
 
 /** Returns the stored row, or null if this ext_id was already imported. */
 export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
@@ -63,7 +64,7 @@ export function insertTx(db: D1Database, t: NewTx): Promise<Tx | null> {
 
 export const getTx = (db: D1Database, n: number) => db.prepare(`SELECT ${COLS} FROM tx WHERE n = ?`).bind(n).first<Tx>();
 
-type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts' | 'key'>>;
+type Patch = Partial<Pick<Tx, 'kind' | 'category' | 'worth' | 'confirmed' | 'tg_msg' | 'debt' | 'label' | 'amount' | 'ts' | 'key' | 'loan_part'>>;
 
 export async function updateTx(db: D1Database, n: number, patch: Patch): Promise<void> {
   const keys = Object.keys(patch) as (keyof Patch)[];
@@ -123,9 +124,11 @@ export async function passedOnTotal(db: D1Database, category?: string): Promise<
 /** Names of your loans, for the "which loan?" buttons. */
 export const debtNames = async (db: D1Database) => parseDebts(await getSetting(db, 'debts')).map((d) => d.name);
 
-/** Every 🤝 Loan payment, to work out what's still owed. */
+/** Every 🤝 Loan payment, and the parts of spending that paid a loan back, to work out what's still owed. */
 export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>[]> {
-  const { results } = await db.prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan'").all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>>();
+  const { results } = await db
+    .prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan' UNION ALL SELECT loan_part, merchant, note, debt FROM tx WHERE kind = 'spend' AND loan_part IS NOT NULL")
+    .all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>>();
   return results;
 }
 

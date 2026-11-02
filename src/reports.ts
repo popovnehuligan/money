@@ -30,7 +30,13 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
       const budget = await getBudget(env.DB);
       // This month's challenge: how this category stands against its cap.
       const caps = month === monthOf(today) && t.category ? parseCaps(await getSetting(env.DB, 'caps')) : {};
-      const cap = t.category && caps[t.category] ? `\n${capsLine(caps, s, await getCategories(env.DB), t.category)} this month` : '';
+      let cap = t.category && caps[t.category] ? `\n${capsLine(caps, s, await getCategories(env.DB), t.category)} this month` : '';
+      if (t.loan_part && t.debt) {
+        // Half of it paid a loan back: where that loan stands now.
+        const debts = parseDebts(await getSetting(env.DB, 'debts'));
+        const d = debts.find((x) => x.name === t.debt);
+        if (d) cap += `\n${owedText(owed([d], (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === d))[0], eur)}`;
+      }
       if (budget === null || dayOf(t.ts) !== today) return `Spent in ${name}: ${eur(s.spent)}${cap}`;
       const safe = safeToSpend(budget, txs, today);
       return (safe.left >= 0

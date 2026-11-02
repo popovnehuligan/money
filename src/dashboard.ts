@@ -110,6 +110,7 @@ export function dashboard(o: DashboardInput) {
       method: METHOD[t.method] ?? t.method,
       deletable: t.source !== 'bmail',
       debt: t.debt,
+      loanPart: t.loan_part ?? 0, // part that paid back the loan in `debt`
     })),
   };
 }

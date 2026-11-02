@@ -52,7 +52,8 @@ const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7)
 
 export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGORIES): string {
   const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
-  const label = t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind];
+  const half = t.kind === 'spend' && t.loan_part && t.debt ? ` · ½ paid back ${esc(t.debt)}` : '';
+  const label = (t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind]) + half;
   const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
   const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);

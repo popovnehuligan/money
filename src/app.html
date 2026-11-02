@@ -332,6 +332,9 @@ svg { display: block; }
 .label { margin: 20px 0 9px; font: 600 14px var(--f-ui); color: var(--ink-2); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 18px; background: rgba(0, 0, 0, .25); }
 .seg.kinds { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); }
+.seg.halves { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.seg.halves button { overflow: hidden; text-overflow: ellipsis; padding-inline: 8px; }
+.nowrap { white-space: nowrap; }
 .seg button { padding: 10px 2px; border-radius: 14px; font-size: 13px; font-weight: 600; text-align: center; color: var(--ink-2); white-space: nowrap; transition: background .2s, color .2s, transform .15s; }
 .seg button[aria-checked="true"] { background: rgba(255, 255, 255, .14); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18); }
 .seg button:active { transform: scale(.95); }
@@ -544,6 +547,8 @@ const catMeta = (id) => {
 };
 const visual = (t) => (t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
 const isUnsorted = (t) => t.kind === 'spend' && !t.category && t.amount < 0;
+/** What a payment cost as spending: half a bar bill that paid a loan back costs half. */
+const own = (t) => t.amount - (t.loanPart || 0);
 
 /* ---------- Telegram glue ---------- */
 const haptic = {
@@ -574,10 +579,10 @@ function dailyOf(d) {
   for (const t of d.tx) {
     if (t.kind !== 'spend') continue;
     const day = days[+t.ts.slice(8, 10)];
-    day.spent -= t.amount;
+    day.spent -= own(t);
     if (t.amount < 0) day.count++;
     const c = t.category || 'other';
-    day.cats[c] = (day.cats[c] || 0) - t.amount;
+    day.cats[c] = (day.cats[c] || 0) - own(t);
   }
   return days;
 }
@@ -893,7 +898,7 @@ function renderToday() {
     return `<button class="buoy${un ? ' is-unsorted' : ''}" data-n="${t.n}" style="--c:${v.c}" aria-label="${esc(t.label)}, ${eur(t.amount, true)}${un ? ', needs a category: drag it into one or tap it' : ''}"><span class="e">${un ? '?' : v.icon}</span>${short(t.amount, true)}</button>`;
   }).join('');
   buoys.list = $$('.buoy', box).map((el) => ({ el }));
-  const gone = todays.reduce((a, t) => (t.kind === 'spend' ? a - t.amount : a), 0);
+  const gone = todays.reduce((a, t) => (t.kind === 'spend' ? a - own(t) : a), 0);
   const cap = $('#sky-cap');
   cap.hidden = !todays.length;
   cap.innerHTML = gone > 0 ? `Spent today · <b>${eur(gone)}</b>` : 'Today';
@@ -1015,12 +1020,12 @@ function renderJar() {
   }).join('')}</div>` : '';
 
   const spend = d.tx.filter((t) => t.kind === 'spend' && t.amount < 0);
-  const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - t.amount, 0);
-  const no = spend.filter((t) => t.worth === 0).reduce((a, t) => a - t.amount, 0);
-  const all = spend.reduce((a, t) => a - t.amount, 0);
+  const yes = spend.filter((t) => t.worth === 1).reduce((a, t) => a - own(t), 0);
+  const no = spend.filter((t) => t.worth === 0).reduce((a, t) => a - own(t), 0);
+  const all = spend.reduce((a, t) => a - own(t), 0);
   const none = all - yes - no;
   const by = {};
-  for (const t of spend) if (t.worth === 0) by[t.label] = (by[t.label] || 0) - t.amount;
+  for (const t of spend) if (t.worth === 0) by[t.label] = (by[t.label] || 0) - own(t);
   const topLeak = Object.entries(by).sort((a, b) => b[1] - a[1])[0];
   const w = (v) => ((100 * v) / Math.max(all, 1)).toFixed(1);
   const text = no
@@ -1039,7 +1044,7 @@ function renderJar() {
 /** One payment. Lists without day headings (a category's payments) show its date instead of the time. */
 function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
-  const what = t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name;
+  const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.kind === 'spend' && t.loanPart ? ` · ½ ${t.debt}` : '');
   const worth = t.worth === 1 ? ' · 👍' : t.worth === 0 ? ' · 👎' : '';
   const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
@@ -1065,7 +1070,7 @@ function renderLedger() {
       const dd = t.ts.slice(0, 10);
       if (dd !== day) {
         day = dd;
-        const spent = list.filter((x) => x.ts.startsWith(dd) && x.kind === 'spend').reduce((a, x) => a - x.amount, 0);
+        const spent = list.filter((x) => x.ts.startsWith(dd) && x.kind === 'spend').reduce((a, x) => a - own(x), 0);
         body += `<div class="day-head"><span>${esc(dayLabel(dd, d.today))}</span><span>${spent > 0 ? short(spent) : ''}</span></div>`;
       }
       body += rowHTML(t);
@@ -1192,8 +1197,21 @@ function editorHTML(t) {
       <div class="worth">
         <button type="button" class="yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="em">👍</span>Worth it</button>
         <button type="button" class="no" data-act="worth" data-worth="0" data-n="${t.n}" aria-pressed="${t.worth === 0}"><span class="em">👎</span>Regret</button>
-      </div>` : ''}
+      </div>${halfHTML(t)}` : ''}
     ${t.deletable ? `<div class="sh-foot"><button type="button" class="textbtn danger" data-act="delete" data-n="${t.n}">${ICON.trash}Delete this entry</button></div>` : ''}`;
+}
+
+/** "Half of it paid someone back": for spending, while you owe someone (or it already did). */
+function halfHTML(t) {
+  const open = (state.view.debts || []).filter((o) => o.owed > 0 || t.debt === o.name);
+  if (t.amount >= 0 || !open.length) return '';
+  const half = Math.round(-t.amount / 2);
+  return `<p class="label" id="half-label">Half of it paid someone back?</p>
+    <div class="seg halves" role="radiogroup" aria-labelledby="half-label">
+      <button type="button" role="radio" aria-checked="${!t.loanPart}" data-act="half" data-debt="" data-n="${t.n}">No</button>
+      ${open.map((o) => `<button type="button" role="radio" aria-checked="${!!t.loanPart && t.debt === o.name}" data-act="half" data-debt="${esc(o.name)}" data-n="${t.n}">½ ${esc(o.name)}</button>`).join('')}
+    </div>
+    <p class="hint">${t.loanPart ? `${eur(half)} of it paid back ${esc(t.debt)}; only the other half counts as spending.` : `Half (${eur(half)}) counts as paying them back, the rest as spending.`}${open.filter((o) => o.owed > 0).map((o) => ` <span class="nowrap">${esc(o.name)}: ${eur(o.owed)} to go.</span>`).join('')}</p>`;
 }
 
 /* ---------- month in review ---------- */
@@ -1407,6 +1425,11 @@ const actions = {
     const n = el.dataset.n, kind = el.dataset.kind;
     applyLocal(n, { kind, confirmed: true });
     mutate('/api/tx', { n: Number(n), kind, month: state.view.month }, () => state.sheet === 'edit' && openEditor(n));
+  },
+  half: (el) => {
+    haptic.pick();
+    const n = el.dataset.n, debt = el.dataset.debt || null;
+    mutate('/api/tx', { n: Number(n), half: debt, month: state.view.month }, () => { if (debt) toast(`Half paid back ${debt}.`); if (state.sheet === 'edit') openEditor(n); });
   },
   debt: (el) => {
     haptic.pick();

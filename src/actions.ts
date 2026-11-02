@@ -14,6 +14,7 @@ export interface Choice {
   label?: string | null; // your own name for the payment; empty (or the bank's name) goes back to the bank's
   amount?: number; // cents; only for entries you added yourself
   ts?: string; // "YYYY-MM-DDTHH:MM"; only for entries you added yourself
+  half?: string | null; // half of this spending paid back that loan (a name from debts); null undoes it
 }
 
 /**
@@ -40,6 +41,7 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
   if (c.kind !== undefined) {
     if (!isKind(c.kind)) throw new BadInput(`Unknown kind "${c.kind}"`);
     Object.assign(patch, { kind: c.kind, confirmed: 1 });
+    if (c.kind !== 'spend' && t.loan_part) patch.loan_part = null; // only spending can be half a repayment
   }
   if (c.worth !== undefined) {
     if (c.worth !== null && c.worth !== 0 && c.worth !== 1) throw new BadInput('worth must be 1, 0 or null');
@@ -62,6 +64,14 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
     }
   }
   let debts = parseDebts(await getSetting(env.DB, 'debts'));
+  if (c.half !== undefined) {
+    if (c.half === null) Object.assign(patch, { loan_part: null, debt: null });
+    else {
+      if (!debts.some((d) => d.name === c.half)) throw new BadInput(`Unknown loan "${c.half}"`);
+      if ((patch.kind ?? t.kind) !== 'spend' || t.amount >= 0) throw new BadInput('Only spending can be half a repayment.');
+      Object.assign(patch, { loan_part: Math.round((patch.amount ?? t.amount) / 2), debt: c.half });
+    }
+  } else if (patch.amount !== undefined && t.loan_part) patch.loan_part = Math.round(patch.amount / 2);
   if (c.debt !== undefined) {
     if (!debts.some((d) => d.name === c.debt)) throw new BadInput(`Unknown loan "${c.debt}"`);
     Object.assign(patch, { kind: 'loan', debt: c.debt, confirmed: 1 });

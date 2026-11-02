@@ -88,6 +88,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
     tg_msg: null,
     debt: null,
     label: null,
+    loan_part: null,
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
@@ -108,7 +109,7 @@ function summary(month = TODAY.slice(0, 7)) {
     settings: readSettings(settings),
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
-    debts: owed(parseDebts(settings.debts), txs.filter((t) => t.kind === 'loan')),
+    debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => t.kind === 'spend' && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
     passedOn: txs.filter((t) => t.kind === 'podmoga').reduce((p, t) => (t.amount > 0 ? { ...p, in: p.in + t.amount, kept: p.kept + t.amount } : { ...p, out: p.out - t.amount, kept: p.kept + t.amount }), { in: 0, out: 0, kept: 0 }),
@@ -143,6 +144,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
       if (body.worth !== undefined) t.worth = body.worth;
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
+      if (body.half !== undefined) Object.assign(t, body.half ? { loan_part: Math.round(t.amount / 2), debt: body.half } : { loan_part: null, debt: null });
       if (body.label !== undefined) t.label = String(body.label ?? '').trim() || null;
       if (body.amount !== undefined && t.source !== 'bmail') t.amount = body.amount;
       if (body.ts !== undefined && t.source !== 'bmail') t.ts = body.ts;

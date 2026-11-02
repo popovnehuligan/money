@@ -3,10 +3,10 @@
 // design preview build it the same way. Texts mark the numbers to stress with *stars*.
 import { DEFAULT_CATEGORIES, type Categories } from './classify.ts';
 import type { Tx } from './db.ts';
-import { summarize, type StatTx } from './stats.ts';
+import { ownPart, summarize, type StatTx } from './stats.ts';
 import { addMonths, daysInMonth, monthName } from './time.ts';
 
-export type ReviewTx = Pick<Tx, 'ts' | 'amount' | 'kind' | 'category' | 'worth' | 'merchant' | 'note' | 'label'>;
+export type ReviewTx = Pick<Tx, 'ts' | 'amount' | 'kind' | 'category' | 'worth' | 'merchant' | 'note' | 'label' | 'loan_part'>;
 
 export interface Cut {
   category: string;
@@ -107,9 +107,9 @@ function statsOf(txs: ReviewTx[]): Map<string, Stats> {
     if (t.kind !== 'spend' || t.amount >= 0) continue;
     const c = t.category ?? 'other';
     const x = m.get(c) ?? { spent: 0, count: 0, avg: 0, regret: 0, regrets: 0, night: 0, list: [] };
-    x.spent -= t.amount;
+    x.spent -= ownPart(t);
     x.count++;
-    if (t.worth === 0) (x.regret -= t.amount), x.regrets++;
+    if (t.worth === 0) (x.regret -= ownPart(t)), x.regrets++;
     if (atNight(t)) x.night++;
     x.list.push(t);
     m.set(c, x);
@@ -182,7 +182,7 @@ export function review(o: ReviewInput): Review {
 
   const spends = o.txs.filter((t) => t.kind === 'spend' && t.amount < 0);
   const night = spends.filter(atNight);
-  const nightSum = -night.reduce((sum, t) => sum + t.amount, 0);
+  const nightSum = -night.reduce((sum, t) => sum + ownPart(t), 0);
   if (pct(nightSum, s.spent) >= 15) {
     const byCat = statsOf(night);
     const top = [...byCat].sort((a, b) => b[1].spent - a[1].spent).slice(0, 2).map(([c, x]) => `${emoji(c)} ${e0(x.spent)}`);
@@ -190,7 +190,7 @@ export function review(o: ReviewInput): Review {
   }
 
   const byDay = new Map<string, number>();
-  for (const t of spends) byDay.set(t.ts.slice(0, 10), (byDay.get(t.ts.slice(0, 10)) ?? 0) - t.amount);
+  for (const t of spends) byDay.set(t.ts.slice(0, 10), (byDay.get(t.ts.slice(0, 10)) ?? 0) - ownPart(t));
   const [bigDay, bigSum] = [...byDay].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
   if (bigDay) {
     const biggest = spends.filter((t) => t.ts.startsWith(bigDay)).sort((a, b) => a.amount - b.amount)[0];

@@ -69,3 +69,11 @@ test('merchant keys ignore terminal numbers and towns', () => {
   assert.equal(keyFor('LIDL SK 0123 BRATISLAVA'), keyFor('LIDL SK 0456 KOSICE'));
   assert.equal(keyFor('Jana', 'SK3112000000198742637541'), 'SK3112000000198742637541');
 });
+
+test('half a bar bill that paid a loan back is half spending, half paying back', () => {
+  const s = summarize([tx('2026-10-10T23:00', -1200, 'spend', { category: 'eat', worth: 0, loan_part: -600 })]);
+  assert.equal(s.spent, 600);
+  assert.equal(s.loans, -600);
+  assert.equal(s.regret, 600);
+  assert.deepEqual(s.byCategory, [['eat', 600]]);
+});
