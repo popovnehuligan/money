@@ -101,7 +101,7 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         return Response.json(await summary(env));
       }
       case '/api/category': {
-        // ⚙ Categories: add one, rename one (built-in ones too), or delete one of yours.
+        // ⚙ Categories: add one, rename one, or delete one (built-in ones too, except 📦 Other).
         const mine = await myCategories(env.DB);
         const cats = categoriesFrom(JSON.stringify(mine));
         if (typeof body.add === 'string') {
@@ -112,8 +112,9 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           const label = categoryLabel(String(body.label ?? ''), cats[body.rename].split(' ')[0]);
           if (!label) throw new BadInput('Type a name for it, e.g. 🎮 Games');
           mine[body.rename] = label;
-        } else if (typeof body.remove === 'string' && body.remove in mine && !(body.remove in DEFAULT_CATEGORIES)) {
-          delete mine[body.remove];
+        } else if (typeof body.remove === 'string' && body.remove in cats && body.remove !== 'other') {
+          if (body.remove in DEFAULT_CATEGORIES) mine[body.remove] = null; // built-in: remembered as deleted
+          else delete mine[body.remove];
           await uncategorize(env.DB, body.remove);
         } else {
           throw new BadInput('Nothing to change.');

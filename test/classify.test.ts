@@ -133,3 +133,10 @@ test('a category label\'s emoji, however many code points it has', () => {
   assert.equal(categoryEmoji('🅿️ Parking'), '🅿️');
   assert.equal(categoryEmoji('Vape'), null);
 });
+
+test('a built-in category you deleted is gone; Other stays whatever happens', () => {
+  const cats = categoriesFrom('{"health":null,"home":null,"other":null,"coffee-food":"☕ Cafe"}');
+  assert.ok(!('health' in cats) && !('home' in cats));
+  assert.equal(cats['coffee-food'], '☕ Cafe');
+  assert.equal(Object.keys(cats).at(-1), 'other');
+});

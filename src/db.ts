@@ -191,8 +191,8 @@ export async function getSettings(db: D1Database): Promise<Record<string, string
 export const getCategories = async (db: D1Database): Promise<Categories> => categoriesFrom(await getSetting(db, 'categories'));
 
 /** Your categories and your names for built-in ones (the built-in list itself lives in the code). */
-export const myCategories = async (db: D1Database): Promise<Categories> => JSON.parse((await getSetting(db, 'categories')) ?? '{}') as Categories;
-export const saveMyCategories = (db: D1Database, mine: Categories) => setSetting(db, 'categories', JSON.stringify(mine));
+export const myCategories = async (db: D1Database): Promise<Record<string, string | null>> => JSON.parse((await getSetting(db, 'categories')) ?? '{}') as Record<string, string | null>;
+export const saveMyCategories = (db: D1Database, mine: Record<string, string | null>) => setSetting(db, 'categories', JSON.stringify(mine));
 
 /** Saves a category you typed, or a new name for an existing one. */
 export async function addCategory(db: D1Database, id: string, label: string): Promise<void> {

@@ -40,16 +40,24 @@ export const DEFAULT_CATEGORIES: Categories = {
   other: '📦 Other',
 };
 
-/** Built-in categories plus the ones you added (the `categories` setting, {id: label}). */
+/**
+ * Built-in categories plus the ones you added (the `categories` setting, {id: label}). A built-in
+ * one set to null there is one you deleted; 📦 Other can't be deleted.
+ */
 export function categoriesFrom(json: string | null): Categories {
   let custom: Categories = {};
+  const deleted = new Set<string>();
   try {
     const c: unknown = JSON.parse(json ?? '{}');
-    if (c && typeof c === 'object' && !Array.isArray(c)) custom = Object.fromEntries(Object.entries(c).filter(([, v]) => typeof v === 'string'));
+    if (c && typeof c === 'object' && !Array.isArray(c)) {
+      custom = Object.fromEntries(Object.entries(c).filter(([, v]) => typeof v === 'string'));
+      for (const [k, v] of Object.entries(c)) if (v === null && k !== 'other') deleted.add(k);
+    }
   } catch {
     // keep the built-in ones
   }
-  const { other, ...built } = DEFAULT_CATEGORIES;
+  const { other, ...all } = DEFAULT_CATEGORIES;
+  const built = Object.fromEntries(Object.entries(all).filter(([k]) => !deleted.has(k)));
   const { other: myOther, ...mine } = custom; // you can rename Other, but it stays last
   return { ...built, ...mine, other: myOther ?? other };
 }

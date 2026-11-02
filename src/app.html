@@ -1605,10 +1605,10 @@ function settingsHTML() {
       <button class="primary" type="submit">Save</button>
     </form>
     <h3 class="sh-sub">Categories</h3>
-    <p class="hint">Type over a name to rename it; start with an emoji to change its icon. Yours can be deleted, and their payments go back to “to sort”.</p>
+    <p class="hint">Type over a name to rename it; start with an emoji to change its icon. Delete any but Other: its payments go back to “to sort”.</p>
     <div class="cat-list">${Object.keys(CATS).map((id) => {
       const m = catMeta(id);
-      return `<div class="cat-row" style="--c:${m.c}"><span class="em" aria-hidden="true">${m.emoji}</span><input class="input" data-cat-id="${id}" value="${esc(m.name)}" maxlength="30" enterkeyhint="done" aria-label="Rename ${esc(m.name)}">${BUILT_IN.has(id) ? '<span></span>' : `<button type="button" class="icon-btn" data-act="cat-del" data-cat="${id}" aria-label="Delete ${esc(m.name)}">${ICON.trash}</button>`}</div>`;
+      return `<div class="cat-row" style="--c:${m.c}"><span class="em" aria-hidden="true">${m.emoji}</span><input class="input" data-cat-id="${id}" value="${esc(m.name)}" maxlength="30" enterkeyhint="done" aria-label="Rename ${esc(m.name)}">${id === 'other' ? '<span></span>' : `<button type="button" class="icon-btn" data-act="cat-del" data-cat="${id}" aria-label="Delete ${esc(m.name)}">${ICON.trash}</button>`}</div>`;
     }).join('')}</div>
     <div class="new-cat" data-for="settings"><input maxlength="30" placeholder="🎮 New category" autocomplete="off" enterkeyhint="done" aria-label="New category"><button type="button" data-act="add-cat">Add</button></div>`;
 }

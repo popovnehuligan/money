@@ -170,8 +170,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const cats = categoriesFrom(settings.categories);
       if (typeof body.add === 'string') typedCategory(body.add);
       else if (body.rename in cats) settings.categories = JSON.stringify({ ...mine, [body.rename]: categoryLabel(body.label, cats[body.rename].split(' ')[0]) ?? cats[body.rename] });
-      else if (body.remove in mine && !(body.remove in DEFAULT_CATEGORIES)) {
-        delete mine[body.remove];
+      else if (body.remove in cats && body.remove !== 'other') {
+        if (body.remove in DEFAULT_CATEGORIES) mine[body.remove] = null;
+        else delete mine[body.remove];
         settings.categories = JSON.stringify(mine);
         for (const t of txs) if (t.category === body.remove) Object.assign(t, { category: null, confirmed: 0 });
       }

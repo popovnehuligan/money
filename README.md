@@ -44,7 +44,7 @@ Preview it with example data: `npm run preview`, then open `preview/out/index.ht
 
 Savings don't ask you anything: round-ups and other bank movements that are 🏦 Savings are stored as approved, without a chat message, and show up in the savings jar.
 
-**Categories:** 🚕 Taxi · 🛴 Scooter · 🛒 Food · 🚬 Cigarettes · 🅿️ Parking · 🍺 Bar · 🚌 Bus · 🛍 Shopping · 💊 Health · 🏠 Home & bills · 📦 Other. If nothing fits, tap ➕ (Telegram) or ＋ New (dashboard) and type what it is, e.g. "🎮 Games". It becomes a category of its own, stored in the database (`categories` setting). In the chat every category is just its emoji, in one grid; only one whose emoji another category shares also shows its name.
+**Categories:** 🚕 Taxi · 🛴 Scooter · 🛒 Food · 🚬 Cigarettes · 🅿️ Parking · 🍺 Bar · 🚌 Bus · 🛍 Shopping · 💊 Health · 🏠 Home & bills · 📦 Other. If nothing fits, tap ➕ (Telegram) or ＋ New (dashboard) and type what it is, e.g. "🎮 Games". It becomes a category of its own, stored in the database (`categories` setting). In ⚙ you can rename any category or delete any but 📦 Other (built-in ones too). In the chat every category is just its emoji, in one grid; only one whose emoji another category shares also shows its name.
 
 You choose a kind or category once, in the chat or the dashboard. After that, payments to the same shop, IBAN or person are sorted the same way automatically. Bolt is told apart by its code: "BOLT.EU/O/…" and "BOLT.EU/P/…" are learned separately, so cabs and scooters don't get mixed up as long as Bolt bills them under different codes. Once a payment is sorted, its chat message collapses to a single "change" button. ATM withdrawals come with 💵 Cash suggested.
 
