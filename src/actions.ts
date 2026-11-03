@@ -1,6 +1,7 @@
-import { isKind, learnLender, newCategory, parseDebts } from './classify.ts';
+import { isKind, learnLender, newCategory, parseDebts, parseRules } from './classify.ts';
 import { addCategory, getCategories, getSetting, setSetting, updateTx, type Env, type Tx } from './db.ts';
 import { addMonths, monthOf } from './time.ts';
+import { passOnSort } from './ingest.ts';
 import { footerFor } from './reports.ts';
 import { edit, txKeyboard, txText } from './telegram.ts';
 
@@ -39,7 +40,13 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
   }
   if (c.category !== undefined) {
     if (!(c.category in cats)) throw new BadInput(`Unknown category "${c.category}"`);
-    Object.assign(patch, { kind: 'spend', category: c.category, confirmed: 1 });
+    // A pass-on pair's category (e.g. ⛑️ Psychologist, which mom pays for) is never spending: it's
+    // 🔁 Passed on, or 🤝 paying her back while you owe her and her money doesn't cover it.
+    const pass = parseRules(await getSetting(env.DB, 'rules')).find((r) => r.passOnFrom && r.category === c.category);
+    if (pass) {
+      const s = await passOnSort(env, pass, patch.amount ?? t.amount);
+      Object.assign(patch, { kind: s.kind, category: c.category, debt: s.debt, loan_part: null, confirmed: 1 });
+    } else Object.assign(patch, { kind: 'spend', category: c.category, confirmed: 1 });
   }
   if (c.kind !== undefined) {
     if (!isKind(c.kind)) throw new BadInput(`Unknown kind "${c.kind}"`);

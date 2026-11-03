@@ -1,4 +1,4 @@
-import { applyRules, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind } from './classify.ts';
+import { applyRules, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
 import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
@@ -18,6 +18,22 @@ export interface IngestMessage {
  * Bank movements into or out of savings, and payments a `quiet` rule sorts, are stored as
  * approved: you asked not to be asked about them. Null if already stored.
  */
+/**
+ * How money for a pass-on pair (e.g. the psychologist mom pays for) sorts: 🔁 Passed on, or, for a
+ * bill her money doesn't cover while you still owe her, 🤝 paying her back. Never spending.
+ */
+export async function passOnSort(env: Env, rule: Rule, amount: number): Promise<{ kind: Kind; debt: string | null }> {
+  if (amount < 0) {
+    const debts = parseDebts(await getSetting(env.DB, 'debts'));
+    const lender = lenderOf(debts, rule);
+    if (lender && (await passedOnTotal(env.DB, rule.category)).kept < -amount) {
+      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === lender);
+      if (owed([lender], loans)[0].owed > 0) return { kind: 'loan', debt: lender.name };
+    }
+  }
+  return { kind: 'podmoga', debt: null };
+}
+
 export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category'>, key = keyFor(t.merchant ?? undefined, t.iban ?? undefined), kind?: Kind): Promise<Tx | null> {
   const store = (kind: Kind, category: string | null, debt?: string, quiet = false) =>
     insertTx(env.DB, { ...t, key: key ?? null, kind, category, debt, approved: quiet || (kind === 'savings' && t.source === 'bmail') });
@@ -25,16 +41,11 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   const rules = parseRules(await getSetting(env.DB, 'rules'));
 
   const pass = passOnRule(rules, t.amount, t.merchant, t.note);
-  const debts = parseDebts(await getSetting(env.DB, 'debts'));
-  if (pass && t.amount < 0) {
-    // Their bill, paid with your own money while you owe them: that's you paying them back.
-    const lender = lenderOf(debts, pass);
-    if (lender && (await passedOnTotal(env.DB, pass.category)).kept < -t.amount) {
-      const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === lender);
-      if (owed([lender], loans)[0].owed > 0) return store('loan', null, lender.name);
-    }
+  if (pass) {
+    const s = await passOnSort(env, pass, t.amount);
+    return s.kind === 'loan' ? store('loan', null, s.debt ?? undefined) : store('podmoga', pass.category ?? null);
   }
-  if (pass) return store('podmoga', pass.category ?? null);
+  const debts = parseDebts(await getSetting(env.DB, 'debts'));
 
   const repaid = debts.length ? repaymentOf(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note) : undefined;
   if (repaid) return store('loan', null, repaid.name);

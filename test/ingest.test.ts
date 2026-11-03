@@ -8,7 +8,7 @@ import type { Env } from '../src/db.ts';
 import { applyChoice } from '../src/actions.ts';
 import { owed, parseDebts } from '../src/classify.ts';
 import { getTx, loanPayments, txInMonth } from '../src/db.ts';
-import { ingest } from '../src/ingest.ts';
+import { ingest, record } from '../src/ingest.ts';
 import { summarize } from '../src/stats.ts';
 
 /** The handful of D1 calls the Worker makes, on top of node:sqlite. */
@@ -198,4 +198,20 @@ test('any part of money going out can pay a loan back, a cash withdrawal include
   assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, -480);
   await applyChoice(env, (await getTx(env.DB, 1))!, { kind: 'ignore' }); // not money out to anyone: the repayment goes
   assert.equal((await getTx(env.DB, 1))!.loan_part, null);
+});
+
+test('picking the category of a pass-on pair never makes it spending', async () => {
+  const { env } = setup();
+  const set = (k: string, v: string) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').bind(k, v).run();
+  await set('rules', '[{"match":["dr novak"],"passOnFrom":["kovac maria"],"multipleOf":3500,"max":14000,"category":"health"}]');
+  await set('debts', '[{"name":"Mom","match":["KOVAC Maria"],"amount":3000}]');
+  const cash = (euros: number, name: string) => record(env, { ext_id: `c${++n}`, ts: '2026-11-03T21:55', amount: Math.round(euros * 100), currency: 'EUR', balance: null, merchant: name, iban: null, note: null, method: 'cash', source: 'manual', raw: null });
+  const session = (await cash(-35, 'Therapist in cash'))!; // typed in, so no name rule matched: plain spending
+  assert.equal(session.kind, 'spend');
+  await applyChoice(env, session, { category: 'health' }); // you pick the therapy category
+  const t = (await getTx(env.DB, session.n))!;
+  assert.deepEqual([t.kind, t.debt, t.category], ['loan', 'Mom', 'health']); // you owed mom 30 €: this pays her back
+  const next = (await cash(-35, 'Therapist in cash'))!;
+  await applyChoice(env, next, { category: 'health' });
+  assert.equal((await getTx(env.DB, next.n))!.kind, 'podmoga'); // nothing owed any more: passed on, not spending
 });
