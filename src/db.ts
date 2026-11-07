@@ -138,7 +138,7 @@ export async function loanHistory(db: D1Database): Promise<(Pick<Tx, 'n' | 'ts' 
 /** Who pays you most often lately (your name for them, else the bank's), for quick picks when you add cash. */
 export async function incomeSources(db: D1Database, since: string): Promise<string[]> {
   const { results } = await db
-    .prepare("SELECT COALESCE(label, merchant, note) AS s, COUNT(*) AS c FROM tx WHERE kind = 'income' AND amount > 0 AND ts >= ? AND COALESCE(label, merchant, note) IS NOT NULL GROUP BY s ORDER BY c DESC, MAX(ts) DESC LIMIT 8")
+    .prepare("SELECT COALESCE(label, merchant, note) AS s, COUNT(*) AS c FROM tx WHERE kind = 'income' AND amount > 0 AND source != 'gap' AND ts >= ? AND COALESCE(label, merchant, note) IS NOT NULL GROUP BY s ORDER BY c DESC, MAX(ts) DESC LIMIT 8")
     .bind(since)
     .all<{ s: string }>();
   return results.map((r) => r.s);
