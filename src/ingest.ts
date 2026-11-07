@@ -1,4 +1,4 @@
-import { applyRules, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
+import { applyRules, collectionOf, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
 import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
@@ -47,7 +47,8 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   }
   const debts = parseDebts(await getSetting(env.DB, 'debts'));
 
-  const repaid = debts.length ? repaymentOf(debts, await loanPayments(env.DB), t.amount, t.merchant, t.note) : undefined;
+  const loans = debts.length ? await loanPayments(env.DB) : [];
+  const repaid = debts.length ? repaymentOf(debts, loans, t.amount, t.merchant, t.note) ?? collectionOf(debts, loans, t.amount, t.merchant, t.note) : undefined;
   if (repaid) return store('loan', null, repaid.name);
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);

@@ -130,9 +130,18 @@ export async function passedOnBefore(db: D1Database, day: string): Promise<numbe
 /** Every payment that moved a loan: 🤝 Loan payments and the parts of others that paid one back, newest first. */
 export async function loanHistory(db: D1Database): Promise<(Pick<Tx, 'n' | 'ts' | 'amount' | 'merchant' | 'note' | 'label' | 'debt' | 'kind' | 'method'> & { part: number })[]> {
   const { results } = await db
-    .prepare("SELECT n, ts, amount, merchant, note, label, debt, kind, method, CASE WHEN kind = 'loan' THEN amount ELSE loan_part END AS part FROM tx WHERE kind = 'loan' OR (kind IN ('spend', 'cash') AND loan_part IS NOT NULL) ORDER BY ts DESC, n DESC")
+    .prepare("SELECT n, ts, amount, merchant, note, label, debt, kind, method, CASE WHEN kind = 'loan' THEN amount ELSE loan_part END AS part FROM tx WHERE kind = 'loan' OR (kind IN ('spend', 'cash', 'income') AND loan_part IS NOT NULL) ORDER BY ts DESC, n DESC")
     .all<Pick<Tx, 'n' | 'ts' | 'amount' | 'merchant' | 'note' | 'label' | 'debt' | 'kind' | 'method'> & { part: number }>();
   return results;
+}
+
+/** Who pays you most often lately (your name for them, else the bank's), for quick picks when you add cash. */
+export async function incomeSources(db: D1Database, since: string): Promise<string[]> {
+  const { results } = await db
+    .prepare("SELECT COALESCE(label, merchant, note) AS s, COUNT(*) AS c FROM tx WHERE kind = 'income' AND amount > 0 AND ts >= ? AND COALESCE(label, merchant, note) IS NOT NULL GROUP BY s ORDER BY c DESC, MAX(ts) DESC LIMIT 8")
+    .bind(since)
+    .all<{ s: string }>();
+  return results.map((r) => r.s);
 }
 
 /** Spending you haven't rated yet (👍 worth it, 🧱 necessary, 👎 regret), newest first. */
@@ -150,7 +159,7 @@ export const debtNames = async (db: D1Database) => parseDebts(await getSetting(d
 /** Every 🤝 Loan payment, and the parts of spending that paid a loan back, to work out what's still owed. */
 export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>[]> {
   const { results } = await db
-    .prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan' UNION ALL SELECT loan_part, merchant, note, debt FROM tx WHERE kind IN ('spend', 'cash') AND loan_part IS NOT NULL")
+    .prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan' UNION ALL SELECT loan_part, merchant, note, debt FROM tx WHERE kind IN ('spend', 'cash', 'income') AND loan_part IS NOT NULL")
     .all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>>();
   return results;
 }

@@ -2,7 +2,7 @@ import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
 import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, debtFor, newCategory, owed, parseDebts } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSetting, getSettings, getTx, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
+import { deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore, history] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore, history, sources] = await Promise.all([
     txInMonth(env.DB, month),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -26,6 +26,7 @@ async function summary(env: Env, asked?: string | null) {
     passedOnBefore(env.DB, `${month}-01`),
     passedOnBefore(env.DB, `${addMonths(month, -1)}-01`),
     loanHistory(env.DB),
+    incomeSources(env.DB, addDays(today, -120)),
   ]);
   const debts = parseDebts(settings.debts ?? null);
   return dashboard({
@@ -37,7 +38,8 @@ async function summary(env: Env, asked?: string | null) {
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
     debts: owed(parseDebts(settings.debts ?? null), loans),
-    loans: debts.map((d) => ({ name: d.name, amount: d.amount })),
+    loans: debts.map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe' })),
+    incomeSources: sources,
     loanHistory: history.map((t) => ({ n: t.n, ts: t.ts, part: t.part, debt: debtFor(debts, { ...t, amount: t.part })?.name ?? t.debt, label: t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Payment') })),
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,
@@ -148,10 +150,11 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           // known by (match) stay; a loan you leave out is gone (its payments stay 🤝 Loan).
           if (!Array.isArray(body.loans)) throw new BadInput('Loans must be a list.');
           const before = parseDebts(await getSetting(env.DB, 'debts'));
-          const next = (body.loans as { name?: unknown; amount?: unknown }[]).map((l) => {
+          const next = (body.loans as { name?: unknown; amount?: unknown; dir?: unknown }[]).map((l) => {
             const name = String(l?.name ?? '').trim().slice(0, 40);
             if (!name) throw new BadInput('Each loan needs a name.');
-            return { name, match: before.find((d) => d.name === name)?.match ?? [], amount: cents(l.amount) ?? 0 };
+            const was = before.find((d) => d.name === name);
+            return { name, match: was?.match ?? [], amount: cents(l.amount) ?? 0, dir: l.dir === 'owed' || l.dir === 'owe' ? l.dir : (was?.dir ?? 'owe') };
           });
           if (new Set(next.map((d) => d.name)).size !== next.length) throw new BadInput('Two loans have the same name.');
           values.debts = JSON.stringify(next);

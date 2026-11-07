@@ -55,7 +55,8 @@ export interface DashboardInput {
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
-  loans?: { name: string; amount: number }[]; // each loan's starting amount (what you owed when tracking started)
+  loans?: { name: string; amount: number; dir: 'owe' | 'owed' }[]; // each loan's starting amount, and who owes whom
+  incomeSources?: string[]; // who pays you most often lately, for quick picks
   loanHistory?: { n: number; ts: string; part: number; debt: string | null; label: string }[]; // every payment that moved a loan
   passedOnBefore?: number; // passed-on running total before this month
   prevPassedOnBefore?: number; // …and before the previous month
@@ -94,10 +95,11 @@ export function dashboard(o: DashboardInput) {
   // gave one), biggest first. What you kept from passed-on money is earned too, as one part.
   const sources = new Map<string, { amount: number; count: number }>();
   for (const t of o.txs) {
-    if (t.kind !== 'income' || t.amount <= 0) continue;
+    const own = t.amount - (t.loan_part ?? 0); // what someone paid you back isn't earnings
+    if (t.kind !== 'income' || own <= 0) continue;
     const name = t.label ?? t.merchant ?? t.note ?? 'Cash';
     const x = sources.get(name) ?? { amount: 0, count: 0 };
-    sources.set(name, { amount: x.amount + t.amount, count: x.count + 1 });
+    sources.set(name, { amount: x.amount + own, count: x.count + 1 });
   }
   return {
     month: o.month,
@@ -138,6 +140,7 @@ export function dashboard(o: DashboardInput) {
     },
     debts: o.debts,
     loans: o.loans ?? [],
+    incomeSources: o.incomeSources ?? [],
     loanHistory: o.loanHistory ?? [],
     saveTarget: s.saveTarget,
     categories: o.categories,

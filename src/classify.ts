@@ -81,7 +81,7 @@ export function newCategory(text: string, existing: Categories): [id: string, la
 // One emoji can be several code points: 💆🏻‍♀️ is a person + skin tone + joiner + ♀ + variation selector.
 const EMOJI_FIRST = /^((?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|\u200D|\uFE0F)+)?\s*(.*)$/u;
 
-/** The emoji a category label starts with ("💆🏻‍♀️ Kate" → "💆🏻‍♀️"), or null. */
+/** The emoji a category label starts with ("💆🏻‍♀️ Spa" → "💆🏻‍♀️"), or null. */
 export const categoryEmoji = (label: string): string | null => label.trim().match(EMOJI_FIRST)?.[1] ?? null;
 
 /** "🎮 games" → "🎮 Games", "vape" → "🏷 Vape"; `fallback` is the emoji to use when none is typed. Null without a name. */
@@ -184,13 +184,19 @@ export function passOnRule(rules: Rule[], amount: number, ...names: Name[]): Rul
 export interface Debt {
   name: string;
   match: string[];
-  amount: number; // cents
+  amount: number; // cents: what was owed when tracking started
+  dir?: 'owe' | 'owed'; // 'owe' (the default): you owe them; 'owed': they owe you
 }
+
+/** They owe you (you lent them money, or paid for them), rather than you owing them. */
+export const owesYou = (d: Pick<Debt, 'dir'>) => d.dir === 'owed';
 
 export function parseDebts(json: string | null): Debt[] {
   try {
     const debts: unknown = JSON.parse(json ?? '[]');
-    return Array.isArray(debts) ? debts.filter((d): d is Debt => typeof d?.name === 'string' && Array.isArray(d.match) && Number.isFinite(d.amount)) : [];
+    return Array.isArray(debts)
+      ? debts.filter((d): d is Debt => typeof d?.name === 'string' && Array.isArray(d.match) && Number.isFinite(d.amount)).map((d) => (d.dir === 'owed' ? d : { ...d, dir: 'owe' as const }))
+      : [];
   } catch {
     return [];
   }
@@ -209,27 +215,33 @@ export function debtFor(debts: Debt[], t: LoanTx): Debt | undefined {
 
 export interface Owed {
   name: string;
-  borrowed: number; // the starting amount plus anything lent since
-  paid: number;
-  owed: number;
+  dir: 'owe' | 'owed'; // you owe them, or they owe you
+  borrowed: number; // the starting amount plus anything borrowed (or lent, when they owe you) since
+  paid: number; // paid back so far
+  owed: number; // still to pay back
 }
 
-/** Where each debt stands, given every 🤝 Loan payment so far. */
+/**
+ * Where each debt stands, given every payment that moved it. Money going out pays back what you
+ * owe, or is money you lent (they owe you more); money coming in is the reverse.
+ */
 export function owed(debts: Debt[], loans: LoanTx[]): Owed[] {
-  const sums = new Map(debts.map((d) => [d, { name: d.name, borrowed: d.amount, paid: 0, owed: 0 }]));
+  const sums = new Map(debts.map((d) => [d, { name: d.name, dir: owesYou(d) ? ('owed' as const) : ('owe' as const), borrowed: d.amount, paid: 0, owed: 0 }]));
   for (const t of loans) {
     const d = debtFor(debts, t);
     const s = d && sums.get(d);
     if (!s) continue;
-    if (t.amount > 0) s.borrowed += t.amount;
-    else s.paid -= t.amount;
+    const more = owesYou(d) ? t.amount < 0 : t.amount > 0; // the debt grows
+    if (more) s.borrowed += Math.abs(t.amount);
+    else s.paid += Math.abs(t.amount);
   }
   return [...sums.values()].map((s) => ({ ...s, owed: s.borrowed - s.paid }));
 }
 
-/** "Mom: 60 € to go · 40 € of 100 € paid back", or a cheer when it's done. */
+/** "Mom: 60 € to go · 40 € of 100 € paid back" or "Alex owes you 12 € · …", or a cheer when it's done. */
 export function owedText(o: Owed, eur: (cents: number) => string): string {
   const name = o.name.replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' })[c]!); // Telegram HTML
+  if (o.dir === 'owed') return o.owed <= 0 ? `🎉 ${name} paid you back in full.` : `${name} owes you <b>${eur(o.owed)}</b> · ${eur(o.paid)} of ${eur(o.borrowed)} paid back`;
   if (o.owed <= 0) return `🎉 ${name} is paid back in full.`;
   return `${name}: <b>${eur(o.owed)}</b> to go · ${eur(o.paid)} of ${eur(o.borrowed)} paid back`;
 }
@@ -237,13 +249,20 @@ export function owedText(o: Owed, eur: (cents: number) => string): string {
 /** A payment to someone you still owe is a repayment of that loan. */
 export function repaymentOf(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): Debt | undefined {
   if (amount >= 0) return undefined;
-  const d = debts.find((x) => x.match.length && mentions(x.match, names));
+  const d = debts.find((x) => !owesYou(x) && x.match.length && mentions(x.match, names));
+  return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
+}
+
+/** Money from someone who still owes you is them paying you back. */
+export function collectionOf(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): Debt | undefined {
+  if (amount <= 0) return undefined;
+  const d = debts.find((x) => owesYou(x) && x.match.length && mentions(x.match, names));
   return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
 }
 
 /** The loan you owe to whoever normally pays this bill (a pass-on rule's `passOnFrom`), if any. */
 export function lenderOf(debts: Debt[], rule: Rule): Debt | undefined {
-  return debts.find((d) => d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
+  return debts.find((d) => !owesYou(d) && d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
 }
 
 /** Picking a loan for a bank payment teaches its counterparty's name to that loan (and only that one). */

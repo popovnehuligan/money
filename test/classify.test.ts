@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_CATEGORIES, categoryEmoji, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, collectionOf, categoryEmoji, joinGap, applyRules, categoriesFrom, categoryLabel, debtFor, keyFor, newCategory, learnLender, owed, owedText, parseDebts, parseRules, passOnRule, repaymentOf } from '../src/classify.ts';
 
 const rules = parseRules('[{"match":["novak","cafe hub"],"multipleOf":150,"max":900,"category":"eat"}]');
 const category = (r: ReturnType<typeof applyRules>) => (r && r !== 'ask' ? r.category : r);
@@ -51,7 +51,7 @@ const eur = (c: number) => `${c / 100} €`;
 
 test('a loan counts down with repayments and up with more borrowing', () => {
   const repaid = { amount: -4000, merchant: 'KOVAC Maria', note: null };
-  assert.deepEqual(owed(debts, [repaid]), [{ name: 'Mom', borrowed: 10000, paid: 4000, owed: 6000 }]);
+  assert.deepEqual(owed(debts, [repaid]), [{ name: 'Mom', dir: 'owe', borrowed: 10000, paid: 4000, owed: 6000 }]);
   assert.equal(owed(debts, [repaid, { amount: 2000, merchant: 'KOVAC Maria', note: null }])[0].owed, 8000);
   assert.equal(owedText(owed(debts, [repaid])[0], eur), 'Mom: <b>60 €</b> to go · 40 € of 100 € paid back');
   assert.equal(owedText(owed(debts, [{ ...repaid, amount: -10000 }])[0], eur), '🎉 Mom is paid back in full.');
@@ -94,8 +94,8 @@ test('typing a category: emoji kept, a tag when there is none, same name reuses 
   assert.deepEqual(newCategory('  vape shop ', DEFAULT_CATEGORIES), ['vape-shop', '🏷 Vape shop']);
   assert.deepEqual(newCategory('parking', DEFAULT_CATEGORIES), ['parking', '🅿️ Parking']); // already there
   assert.deepEqual(newCategory('Žltý taxík', DEFAULT_CATEGORIES), ['zlty-taxik', '🏷 Žltý taxík']);
-  assert.deepEqual(newCategory('💆🏻‍♀️ Kate', DEFAULT_CATEGORIES), ['kate', '💆🏻‍♀️ Kate']); // skin tone and ♀ stay in the emoji
-  assert.deepEqual(newCategory('💝 kate', categoriesFrom('{"kate":"💆🏻‍♀️ Kate"}')), ['kate', '💆🏻‍♀️ Kate']); // same name, whatever the emoji
+  assert.deepEqual(newCategory('💆🏻‍♀️ Spa', DEFAULT_CATEGORIES), ['spa', '💆🏻‍♀️ Spa']); // skin tone and ♀ stay in the emoji
+  assert.deepEqual(newCategory('💝 spa', categoriesFrom('{"spa":"💆🏻‍♀️ Spa"}')), ['spa', '💆🏻‍♀️ Spa']); // same name, whatever the emoji
   assert.deepEqual(newCategory('🇸🇰 Slovak stuff', DEFAULT_CATEGORIES), ['slovak-stuff', '🇸🇰 Slovak stuff']);
   assert.equal(newCategory('🎮', DEFAULT_CATEGORIES), null);
   assert.equal(newCategory('123', DEFAULT_CATEGORIES), null);
@@ -129,7 +129,7 @@ test('a balance difference joins the open one from the last 6 hours', () => {
 });
 
 test('a category label\'s emoji, however many code points it has', () => {
-  assert.equal(categoryEmoji('💆🏻‍♀️ Kate'), '💆🏻‍♀️');
+  assert.equal(categoryEmoji('💆🏻‍♀️ Spa'), '💆🏻‍♀️');
   assert.equal(categoryEmoji('🅿️ Parking'), '🅿️');
   assert.equal(categoryEmoji('Vape'), null);
 });
@@ -148,4 +148,17 @@ test('rules for money coming in: who pays you gets your name for them', () => {
   assert.equal((applyRules(r, 35000, 'NOVAK Maria') as { label: string }).label, 'Day job');
   assert.equal(applyRules(r, 1500, 'NOVAK Maria'), 'ask'); // other money from her: yours to sort
   assert.equal(applyRules(r, -2000, 'KOVAC Peter'), null); // money you send them isn't covered
+});
+
+test('someone who owes you: what you paid for them counts it up, what they send you counts it down', () => {
+  const alex = parseDebts('[{"name":"Alex","match":["novakova eva"],"amount":0,"dir":"owed"}]');
+  const half = { amount: -1250, merchant: 'LIDL', note: null, debt: 'Alex' }; // half of a 25 € grocery bill was theirs
+  assert.deepEqual(owed(alex, [half]), [{ name: 'Alex', dir: 'owed', borrowed: 1250, paid: 0, owed: 1250 }]);
+  const back = { amount: 1250, merchant: 'NOVAKOVA Eva', note: null, debt: 'Alex' };
+  assert.equal(owed(alex, [half, back])[0].owed, 0);
+  assert.equal(owedText(owed(alex, [half])[0], eur), 'Alex owes you <b>12.5 €</b> · 0 € of 12.5 € paid back');
+  assert.equal(owedText(owed(alex, [half, back])[0], eur), '🎉 Alex paid you back in full.');
+  assert.equal(collectionOf(alex, [half], 1250, 'NOVAKOVA Eva')?.name, 'Alex'); // their money in: paying you back
+  assert.equal(collectionOf(alex, [half, back], 500, 'NOVAKOVA Eva'), undefined); // nothing owed any more
+  assert.equal(repaymentOf(alex, [half], -1000, 'NOVAKOVA Eva'), undefined); // money to them isn’t you paying them back
 });

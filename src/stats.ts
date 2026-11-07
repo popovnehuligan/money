@@ -7,10 +7,10 @@ export interface StatTx {
   kind: Kind;
   category: string | null;
   worth: number | null;
-  loan_part?: number | null; // part of a spending payment that paid back a loan
+  loan_part?: number | null; // part of a payment that moved a loan (paid one back, lent, or got paid back)
 }
 
-/** What a payment cost you as spending: all of it, minus any part that paid back a loan. */
+/** A payment's own part: all of it, minus any part that moved a loan (spending you're owed back, money paid back to you). */
 export const ownPart = (t: Pick<StatTx, 'amount' | 'loan_part'>) => t.amount - (t.loan_part ?? 0);
 
 export interface Summary {
@@ -36,7 +36,10 @@ export function summarize(txs: StatTx[], passedOnBefore = 0): Summary {
   let income = 0, spent = 0, saved = 0, podmogaIn = 0, podmogaOut = 0, loans = 0, regret = 0;
   const cats = new Map<string, number>();
   for (const t of txs) {
-    if (t.kind === 'income') income += t.amount;
+    if (t.kind === 'income') {
+      income += ownPart(t); // part of it may be someone paying you back (loan_part): not earnings
+      loans += t.loan_part ?? 0;
+    }
     else if (t.kind === 'savings') saved -= t.amount;
     else if (t.kind === 'loan') loans += t.amount;
     else if (t.kind === 'podmoga') {

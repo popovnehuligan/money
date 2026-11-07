@@ -215,3 +215,26 @@ test('picking the category of a pass-on pair never makes it spending', async () 
   await applyChoice(env, next, { category: 'health' });
   assert.equal((await getTx(env.DB, next.n))!.kind, 'podmoga'); // nothing owed any more: passed on, not spending
 });
+
+test('split a bill with someone, then their transfer pays it back without counting as earnings', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('debts', ?)").bind('[{"name":"Alex","match":[],"amount":0,"dir":"owed"}]').run();
+  await bmail(env, '2026-11-06 18:00', -25, 75, 'Platba kartou 4405**0000, SOME GROCER');
+  const bill = (await getTx(env.DB, 1))!;
+  await applyChoice(env, bill, { category: 'food' });
+  await applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Alex', amount: 1250 } }); // half was theirs
+  const alex = async () => owed(parseDebts((await env.DB.prepare("SELECT value FROM settings WHERE key = 'debts'").first<{ value: string }>())!.value), await loanPayments(env.DB))[0];
+  assert.equal((await alex()).owed, 1250);
+  assert.equal(summarize([(await getTx(env.DB, 1))!]).spent, 1250); // only your half is spending
+  // Their transfer: 20 €, of which 12,50 € pays you back.
+  await ingest(env, { id: `k${++n}`, date: '2026-11-07T10:00', subject: 'Credit on your account (ID=1)', body: 'at 07/11/2026, 10:00 the balance on your account SK0000000000000000000000 was increased by 20.00 EUR.\r\nActual balance: 95.00 EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: NOVAKOVA Eva\r\n' });
+  const transfer = (await getTx(env.DB, 2))!;
+  await applyChoice(env, transfer, { repay: { debt: 'Alex', amount: 1250 } });
+  assert.equal((await alex()).owed, 0);
+  const s = summarize([(await getTx(env.DB, 2))!]);
+  assert.deepEqual([s.income, s.earned], [750, 750]); // the 12,50 € back isn't earnings
+  // Known by their bank name now: next time their money pays the debt by itself.
+  await applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Alex', amount: 2500 } }); // say they owe the whole bill
+  await ingest(env, { id: `k${++n}`, date: '2026-11-08T10:00', subject: 'Credit on your account (ID=1)', body: 'at 08/11/2026, 10:00 the balance on your account SK0000000000000000000000 was increased by 12.50 EUR.\r\nActual balance: 107.50 EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: NOVAKOVA Eva\r\n' });
+  assert.deepEqual([(await getTx(env.DB, 3))!.kind, (await getTx(env.DB, 3))!.debt], ['loan', 'Alex']);
+});

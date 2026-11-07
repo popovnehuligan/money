@@ -18,6 +18,14 @@ function capsLine(caps: Record<string, number>, s: Summary, cats: Categories, on
     .join(only ? '' : ' · ');
 }
 
+/** For a payment part of which moved a loan: where that loan stands now (on a new line). */
+async function loanLine(env: Env, t: Tx): Promise<string> {
+  if (!t.loan_part || !t.debt) return '';
+  const debts = parseDebts(await getSetting(env.DB, 'debts'));
+  const d = debts.find((x) => x.name === t.debt);
+  return d ? `\n${owedText(owed([d], (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === d))[0], eur)}` : '';
+}
+
 /** The line under each transaction message that says where you stand now. */
 export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
   const month = monthOf(t.ts);
@@ -31,12 +39,7 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
       // This month's challenge: how this category stands against its cap.
       const caps = month === monthOf(today) && t.category ? parseCaps(await getSetting(env.DB, 'caps')) : {};
       let cap = t.category && caps[t.category] ? `\n${capsLine(caps, s, await getCategories(env.DB), t.category)} this month` : '';
-      if (t.loan_part && t.debt) {
-        // Half of it paid a loan back: where that loan stands now.
-        const debts = parseDebts(await getSetting(env.DB, 'debts'));
-        const d = debts.find((x) => x.name === t.debt);
-        if (d) cap += `\n${owedText(owed([d], (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === d))[0], eur)}`;
-      }
+      cap += await loanLine(env, t);
       if (budget === null || dayOf(t.ts) !== today) return `Spent in ${name}: ${eur(s.spent)}${cap}`;
       const safe = safeToSpend(budget, txs, today);
       return (safe.left >= 0
@@ -59,7 +62,9 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
     case 'savings':
       return `Saved in ${name}: <b>${eur(s.saved)}</b> 🌱`;
     case 'income':
-      return `Earned in ${name}: ${eur(s.earned)}`;
+      return `Earned in ${name}: ${eur(s.earned)}${await loanLine(env, t)}`;
+    case 'cash':
+      return (await loanLine(env, t)).trim() || undefined;
     default:
       return undefined;
   }

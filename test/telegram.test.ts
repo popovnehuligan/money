@@ -44,8 +44,8 @@ test('a loan payment asks which loan when there are two', () => {
 });
 
 test('categories you added are icons in the same grid, rows kept even', () => {
-  const cats = categoriesFrom('{"games":"🎮 Games","kate":"💆🏻‍♀️ Kate","gifts":"🎁 Gifts","coffee":"☕ Coffee & food","gym":"🏋️ Gym"}');
-  const kb = texts(txKeyboard(tx({ category: 'kate', confirmed: 1 }), true, [], cats));
+  const cats = categoriesFrom('{"games":"🎮 Games","spa":"💆🏻‍♀️ Spa","gifts":"🎁 Gifts","coffee":"☕ Coffee & food","gym":"🏋️ Gym"}');
+  const kb = texts(txKeyboard(tx({ category: 'spa', confirmed: 1 }), true, [], cats));
   assert.deepEqual(kb.slice(0, 3), [
     ['🚕', '🛴', '🛒', '🚬', '🅿️', '🍺'],
     ['🚌', '🛍', '💊', '🏠', '🎮', '✓ 💆🏻‍♀️'],
@@ -66,6 +66,6 @@ test('a suggestion waits for approval: ✅ on top until you confirm it', () => {
 });
 
 test('your name for a payment is what the chat shows', () => {
-  assert.match(txText(tx({ merchant: 'Platba 7500/000000-123', label: 'Gift for Kate' })), /Gift for Kate/);
+  assert.match(txText(tx({ merchant: 'Platba 7500/000000-123', label: 'Gift for Alex' })), /Gift for Alex/);
   assert.match(txText(tx({ merchant: 'BOLT' })), /BOLT/);
 });

@@ -17,7 +17,7 @@ export interface Choice {
   amount?: number; // cents; only for entries you added yourself
   ts?: string; // "YYYY-MM-DDTHH:MM"; only for entries you added yourself
   half?: string | null; // half of this payment paid back that loan (a name from debts); null undoes it
-  repay?: { debt: string; amount: number } | null; // part (or all) of a payment out that paid back a loan, in cents; null undoes it
+  repay?: { debt: string; amount: number } | null; // part (or all) of a payment that moved a loan, in cents (out: paid back or lent; in: paid back to you); null undoes it
   countsFor?: string | null; // 'YYYY-MM': the month it counts for (a wage paid early); its own month or null resets
 }
 
@@ -51,7 +51,7 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
   if (c.kind !== undefined) {
     if (!isKind(c.kind)) throw new BadInput(`Unknown kind "${c.kind}"`);
     Object.assign(patch, { kind: c.kind, confirmed: 1 });
-    if (c.kind !== 'spend' && c.kind !== 'cash' && t.loan_part) patch.loan_part = null; // only money going out can pay a loan back
+    if (c.kind !== 'spend' && c.kind !== 'cash' && c.kind !== 'income' && t.loan_part) patch.loan_part = null; // a part only makes sense on spending, cash or income
   }
   if (c.worth !== undefined) {
     if (c.worth !== null && c.worth !== 0 && c.worth !== 1 && c.worth !== 2) throw new BadInput('worth must be 1 (worth it), 2 (necessary), 0 (regret) or null');
@@ -84,12 +84,16 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
   if (repay !== undefined) {
     if (repay === null) Object.assign(patch, { loan_part: null, debt: null });
     else {
-      if (!debts.some((d) => d.name === repay.debt)) throw new BadInput(`Unknown loan "${repay.debt}"`);
-      const kind = patch.kind ?? t.kind;
-      if ((kind !== 'spend' && kind !== 'cash') || t.amount >= 0) throw new BadInput('Only money going out can pay a loan back. For money you borrowed, pick 🤝 Loan.');
+      const d = debts.find((x) => x.name === repay.debt);
+      if (!d) throw new BadInput(`Unknown loan "${repay.debt}"`);
+      const kind = patch.kind ?? t.kind, out = (patch.amount ?? t.amount) < 0;
+      if (out ? kind !== 'spend' && kind !== 'cash' : kind !== 'income' && kind !== 'cash') throw new BadInput('Pick a kind first: spending or cash for money out, income or cash for money in.');
+      if (!out && d.dir !== 'owed') throw new BadInput(`${d.name} doesn't owe you. Money they lent you is a 🤝 Loan payment.`);
       const part = Math.round(Number(repay.amount));
-      if (!Number.isFinite(part) || part <= 0 || part > full) throw new BadInput(`Pay back between 0,01 and ${(full / 100).toFixed(2).replace('.', ',')} € of it.`);
-      Object.assign(patch, { loan_part: -part, debt: repay.debt });
+      if (!Number.isFinite(part) || part <= 0 || part > full) throw new BadInput(`Between 0,01 and ${(full / 100).toFixed(2).replace('.', ',')} € of it.`);
+      Object.assign(patch, { loan_part: out ? -part : part, debt: repay.debt });
+      // Money from them into your account: next time it's them paying you back, by itself.
+      if (!out && t.source === 'bmail') await setSetting(env.DB, 'debts', JSON.stringify((debts = learnLender(debts, d.name, t.merchant))));
     }
   } else if (patch.amount !== undefined && t.loan_part) patch.loan_part = -Math.min(Math.abs(t.loan_part), Math.abs(patch.amount));
   if (c.debt !== undefined) {

@@ -110,8 +110,9 @@ function summary(month = TODAY.slice(0, 7)) {
     settings: readSettings(settings),
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
-    loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount })),
-    debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => (t.kind === 'spend' || t.kind === 'cash') && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
+    loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe' })),
+    incomeSources: [...new Set(txs.filter((t) => t.kind === 'income' && t.amount > 0).map((t) => t.label ?? t.merchant ?? 'Cash'))],
+    debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => (t.kind === 'spend' || t.kind === 'cash' || t.kind === 'income') && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
     loanHistory: txs.filter((t) => t.kind === 'loan' || t.loan_part).sort((a, b) => b.ts.localeCompare(a.ts)).map((t) => ({ n: t.n, ts: t.ts, part: t.kind === 'loan' ? t.amount : t.loan_part!, debt: t.debt ?? (parseDebts(settings.debts).find((d) => d.match.some((m) => (t.merchant ?? '').toLowerCase().includes(m)))?.name ?? null), label: t.label ?? t.merchant ?? 'Cash' })),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
@@ -150,7 +151,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
       if (body.countsFor !== undefined) t.month = body.countsFor === t.ts.slice(0, 7) ? null : body.countsFor;
       if (body.half !== undefined) Object.assign(t, body.half ? { loan_part: Math.round(t.amount / 2), debt: body.half } : { loan_part: null, debt: null });
-      if (body.repay !== undefined) Object.assign(t, body.repay ? { loan_part: -body.repay.amount, debt: body.repay.debt } : { loan_part: null, debt: null });
+      if (body.repay !== undefined) Object.assign(t, body.repay ? { loan_part: t.amount < 0 ? -body.repay.amount : body.repay.amount, debt: body.repay.debt } : { loan_part: null, debt: null });
       if (body.label !== undefined) t.label = String(body.label ?? '').trim() || null;
       if (body.amount !== undefined && t.source !== 'bmail') t.amount = body.amount;
       if (body.ts !== undefined && t.source !== 'bmail') t.ts = body.ts;
@@ -194,7 +195,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if ('saveTarget' in body) settings.save_target = String(body.saveTarget);
       if ('loans' in body) {
         const before = parseDebts(settings.debts);
-        settings.debts = JSON.stringify(body.loans.map((l: { name: string; amount: number }) => ({ name: l.name, match: before.find((d) => d.name === l.name)?.match ?? [], amount: l.amount })));
+        settings.debts = JSON.stringify(body.loans.map((l: { name: string; amount: number; dir?: string }) => ({ name: l.name, match: before.find((d) => d.name === l.name)?.match ?? [], amount: l.amount, dir: l.dir ?? before.find((d) => d.name === l.name)?.dir ?? 'owe' })));
       }
       return json(summary(month));
   }

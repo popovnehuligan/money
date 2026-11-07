@@ -182,7 +182,7 @@ export function review(o: ReviewInput): Review {
   // 3. What else stood out.
   const notes: Note[] = [];
   const income = new Map<string, number>();
-  for (const t of o.txs) if (t.kind === 'income' && t.amount > 0) income.set(who(t), (income.get(who(t)) ?? 0) + t.amount);
+  for (const t of o.txs) if (t.kind === 'income' && ownPart(t) > 0) income.set(who(t), (income.get(who(t)) ?? 0) + ownPart(t));
   const [topSource, topAmount] = [...income].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
   if (s.income > 0 && pct(topAmount, s.income) >= 35) notes.push({ icon: '💰', text: `*${e0(topAmount)}* (${pct(topAmount, s.income)} %) of your income came from ${topSource}.` });
 
