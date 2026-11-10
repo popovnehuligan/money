@@ -26,6 +26,8 @@ The dashboard treats money as water. Scrolling down is diving deeper:
 - **Savings jar:** gold liquid with the goal date at your current pace, plus "leaks": what you marked 👎.
 - **Every drop:** the full list, with filters.
 
+**On a laptop** (Telegram for Mac or Desktop, Telegram 8.0+): the **Full screen** button at the top opens the wide layout. A window at least 880 px wide shows it too. Instead of diving down you see the whole cross-section at once, the water darkening left to right: the pool stays on the left, the month, where it went and the jar scroll in the middle, and from 1240 px every payment has its own column on the right. Sheets slide in from the right. Hover a day's glass for what it went on. Keys: ← → months, R rate, S sort, C cash, E earnings, F full screen, Esc close. In the swiper, ← ↑ → rate and Backspace brings the last card back.
+
 One typeface (Geist) is used throughout.
 
 Preview it with example data: `npm run preview`, then open `preview/out/index.html`.
