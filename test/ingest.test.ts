@@ -2,6 +2,7 @@
 // Telegram stubbed out, to check the balance-gap logic end to end.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import type { Env } from '../src/db.ts';
@@ -9,6 +10,7 @@ import { applyChoice } from '../src/actions.ts';
 import { owed, parseDebts } from '../src/classify.ts';
 import { getTx, loanPayments, txInMonth } from '../src/db.ts';
 import { ingest, record } from '../src/ingest.ts';
+import { api } from '../src/miniapp.ts';
 import { summarize } from '../src/stats.ts';
 
 /** The handful of D1 calls the Worker makes, on top of node:sqlite. */
@@ -237,4 +239,31 @@ test('split a bill with someone, then their transfer pays it back without counti
   await applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Alex', amount: 2500 } }); // say they owe the whole bill
   await ingest(env, { id: `k${++n}`, date: '2026-11-08T10:00', subject: 'Credit on your account (ID=1)', body: 'at 08/11/2026, 10:00 the balance on your account SK0000000000000000000000 was increased by 12.50 EUR.\r\nActual balance: 107.50 EUR\r\n\r\nTransaction description: Platba 1100/000000-1234567890\r\nCounterparty account: NOVAKOVA Eva\r\n' });
   assert.deepEqual([(await getTx(env.DB, 3))!.kind, (await getTx(env.DB, 3))!.debt], ['loan', 'Alex']);
+});
+
+test('a cash entry saved twice (a second tap, a retry) is stored once', async () => {
+  const { env, sent } = setup();
+  // The dashboard's requests carry Telegram's initData, signed with the bot token, from the owner.
+  const fields = { auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify({ id: 1, first_name: 'M' }) };
+  const check = Object.entries(fields).map(([k, v]) => `${k}=${v}`).sort().join('\n');
+  const hash = createHmac('sha256', createHmac('sha256', 'WebAppData').update('t').digest()).update(check).digest('hex');
+  const initData = new URLSearchParams({ ...fields, hash }).toString();
+  const cash = async (body: Record<string, unknown>) => {
+    const res = await api(env, new Request('https://x/api/cash', { method: 'POST', headers: { 'x-init-data': initData }, body: JSON.stringify(body) }), new URL('https://x/api/cash'));
+    assert.equal(res.status, 200);
+  };
+  const rows = async () => (await env.DB.prepare("SELECT amount, merchant FROM tx WHERE source = 'manual' ORDER BY n").all<{ amount: number; merchant: string }>()).results.map((r) => `${r.merchant} ${r.amount}`);
+
+  // the same form sent three times: one entry, one chat message
+  for (let i = 0; i < 3; i++) await cash({ id: 'form-aaaa-1111', amount: -320, note: 'Coffee', category: 'food' });
+  assert.deepEqual(await rows(), ['Coffee -320']);
+  assert.equal(sent.filter((m) => m === 'sendMessage').length, 1);
+  // the next form is a new entry, even with the same amount
+  await cash({ id: 'form-bbbb-2222', amount: -320, note: 'Coffee', category: 'food' });
+  assert.equal((await rows()).length, 2);
+  // an older copy of the app sends no id: the same details in the same minute are one entry
+  await cash({ amount: -1500, note: 'Market', ts: '2026-11-12T18:05' });
+  await cash({ amount: -1500, note: 'Market', ts: '2026-11-12T18:05' });
+  await cash({ amount: -1500, note: 'Market', ts: '2026-11-12T18:09' });
+  assert.deepEqual((await rows()).slice(2), ['Market -1500', 'Market -1500']);
 });

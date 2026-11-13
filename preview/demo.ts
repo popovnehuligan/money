@@ -93,6 +93,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
   };
 };
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
+const cashIds = new Set<string>(); // cash entries already stored, by their form's id
 const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', categories: '{"fun":"🎉 Fun"}', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
@@ -165,6 +166,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       txs = txs.filter((x) => x.n !== body.n || x.source === 'bmail');
       return json(summary(month));
     case '/api/cash': {
+      // Like the Worker: an entry form's id is stored once, however often it's sent.
+      if (body.id && cashIds.has(body.id)) return json(summary());
+      if (body.id) cashIds.add(body.id);
       const now = new Date();
       const category = body.newCategory !== undefined ? typedCategory(body.newCategory) : body.category;
       const t = toTx('2026-10')([TODAY.slice(8), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, body.amount / 100, body.note || 'Cash', body.debt ? 'loan' : undefined, body.debt ? undefined : category, undefined, 'cash']);

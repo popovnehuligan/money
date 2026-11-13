@@ -2102,13 +2102,28 @@ document.addEventListener('visibilitychange', refresh);
 TG?.onEvent?.('activated', refresh);
 setInterval(refresh, 30_000);
 
-async function mutate(path, body, done) {
+/** One id per entry form: sent with every try, so the server stores the entry once however often it arrives. */
+const newId = () => crypto.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+const inFlight = new Set();
+/** Send a change. The same change isn't sent again while it's on its way, and a form that's
+ *  saving shows it on its button and ignores further taps (a slow save used to invite a second one). */
+async function mutate(path, body, done, form) {
+  const key = path + JSON.stringify(body);
+  if (inFlight.has(key) || form?.dataset.busy) return;
+  inFlight.add(key);
+  const btn = form?.querySelector('[type="submit"]'), label = btn?.textContent;
+  if (form) form.dataset.busy = '1';
+  if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.textContent = 'Saving…'; }
   try {
     accept(await api(path, body));
     done?.();
   } catch (e) {
     haptic.err();
     toast(e.message);
+  } finally {
+    inFlight.delete(key);
+    if (form) delete form.dataset.busy;
+    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = label; }
   }
 }
 function openEditor(n) {
@@ -2181,7 +2196,7 @@ const actions = {
     });
   },
   debts: () => openDebts(),
-  'debt-pay': (el) => { haptic.pick(); const name = el.dataset.debt, dir = Number(el.dataset.dir); openSheet('debt-pay', debtPayHTML(name, dir), { key: `debt-pay:${name}:${dir}`, label: dir < 0 ? `Pay back ${name}` : `Borrowed from ${name}`, render: () => debtPayHTML(name, dir) }); },
+  'debt-pay': (el) => { haptic.pick(); const name = el.dataset.debt, dir = Number(el.dataset.dir); state.payId = newId(); openSheet('debt-pay', debtPayHTML(name, dir), { key: `debt-pay:${name}:${dir}`, label: dir < 0 ? `Pay back ${name}` : `Borrowed from ${name}`, render: () => debtPayHTML(name, dir) }); },
   'debt-edit': (el) => { haptic.pick(); const name = el.dataset.debt; openSheet('debt-edit', debtEditHTML(name), { key: `debt-edit:${name}`, label: name, render: () => ((state.loans || []).some((l) => l.name === name) ? debtEditHTML(name) : null) }); },
   'debt-del': async (el) => {
     const name = el.dataset.debt;
@@ -2294,7 +2309,7 @@ const actions = {
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
     haptic.tap();
-    Object.assign(state, { cashDir: -1, cashAmount: '', cashNote: '', cashCat: null, cashNewCat: null, cashDebt: null });
+    Object.assign(state, { cashId: newId(), cashDir: -1, cashAmount: '', cashNote: '', cashCat: null, cashNewCat: null, cashDebt: null });
     openSheet('cash', cashHTML());
   },
   'cash-dir': (el) => {
@@ -2458,14 +2473,15 @@ function addCategory(box) {
 }
 document.addEventListener('submit', (e) => {
   e.preventDefault();
+  if (e.target.dataset.busy) return; // still saving: a second tap must not make a second entry
   if (e.target.id === 'cash-form') {
     const cents = parseEuro($('#cash-amount').value);
     if (!cents) { haptic.err(); $('#cash-error').textContent = 'Enter how much, e.g. 4,50.'; return; }
-    const body = { amount: state.cashDir * cents, note: $('#cash-note').value };
+    const body = { id: state.cashId, amount: state.cashDir * cents, note: $('#cash-note').value };
     if (state.cashDir > 0 && state.cashDebt) Object.assign(body, { debt: state.cashDebt, note: body.note || `${state.cashDebt} paid me back` }); // cash back from someone who owed you
     if (state.cashDir < 0 && state.cashNewCat) body.newCategory = state.cashNewCat;
     else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
-    mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); });
+    mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); }, e.target);
   }
   if (e.target.id === 'debt-new') {
     const name = $('#debt-new-name').value.trim(), amount = parseEuro($('#debt-new-amount').value);
@@ -2479,7 +2495,7 @@ document.addEventListener('submit', (e) => {
     if (!cents) { haptic.err(); $('#dp-error').textContent = 'Enter how much, e.g. 50 or 175,20.'; return; }
     const theirs = (state.debts || []).find((o) => o.name === name)?.dir === 'owed';
     const note = theirs ? (dir > 0 ? `${name} paid me back` : `Lent to ${name}`) : dir < 0 ? `Paid back ${name}` : `Borrowed from ${name}`;
-    mutate('/api/cash', { amount: dir * cents, note, debt: name, ts, month: state.cur.month }, () => { haptic.ok(); toast(`${note}: ${eurExact(cents)}`); sheetBack(); });
+    mutate('/api/cash', { id: state.payId, amount: dir * cents, note, debt: name, ts, month: state.cur.month }, () => { haptic.ok(); toast(`${note}: ${eurExact(cents)}`); sheetBack(); }, e.target);
   }
   if (e.target.id === 'debt-edit') {
     const name = e.target.dataset.debt, raw = $('#de-amount').value.trim(), amount = raw ? parseEuro(raw) : 0;
@@ -2502,7 +2518,7 @@ document.addEventListener('submit', (e) => {
     }
     const numbers = [body.budget, body.goalAmount, body.savingsStart, ...Object.values(body.caps || {})];
     if (numbers.some(Number.isNaN) || !Number.isInteger(target) || target < 0 || target > 90) { haptic.err(); $('#settings-error').textContent = 'Use numbers only, e.g. 600 or 1250,50 (and 0–90 % to keep).'; return; }
-    mutate('/api/settings', body, () => { haptic.ok(); sheetBack(); toast('Saved'); splash(0.5, 30); });
+    mutate('/api/settings', body, () => { haptic.ok(); sheetBack(); toast('Saved'); splash(0.5, 30); }, e.target);
   }
 });
 

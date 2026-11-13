@@ -57,6 +57,19 @@ const cents = (v: unknown): number | null => {
   return n;
 };
 
+/**
+ * The id a cash entry is stored under. Saving it again (a second tap while the first was on its
+ * way, a retry after a dropped connection) gives the same id, and the database keeps only the first.
+ * The app sends one id per cash form. A copy of the app from before that sends none: the entry's
+ * own details, to the minute, stand in for it.
+ */
+export async function cashEntryId(body: Record<string, unknown>, ts: string, amount: number): Promise<string> {
+  if (typeof body.id === 'string' && /^[\w-]{8,64}$/.test(body.id)) return `app-${body.id}`;
+  const same = JSON.stringify([ts, amount, String(body.note ?? '').trim(), body.debt ?? null, body.category ?? null, body.newCategory ?? null]);
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(same)));
+  return `app-same-${[...hash.slice(0, 12)].map((b) => b.toString(16).padStart(2, '0')).join('')}`;
+}
+
 /** The dashboard's data API. Answers only when opened from the owner's Telegram. */
 export async function api(env: Env, req: Request, url: URL): Promise<Response> {
   const user = await telegramUserId(req.headers.get('x-init-data') ?? '', env.TELEGRAM_TOKEN);
@@ -93,7 +106,7 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         const ts = typeof body.ts === 'string' && body.ts ? body.ts : localStamp();
         if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(ts)) throw new BadInput('Pick a date and time.');
         const tx = await record(env, {
-          ext_id: `app-${crypto.randomUUID()}`,
+          ext_id: await cashEntryId(body, ts, amount),
           ts,
           amount,
           currency: 'EUR',
