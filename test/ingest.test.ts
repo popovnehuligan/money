@@ -197,7 +197,8 @@ test('any part of money going out can pay a loan back, a cash withdrawal include
   assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, 20); // 0,20 € to go
   await assert.rejects(applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Friend', amount: 18001 } })); // more than the payment
   await applyChoice(env, (await getTx(env.DB, 1))!, { repay: { debt: 'Friend', amount: 18000 } }); // all of it
-  assert.equal(owed(debts, await loanPayments(env.DB))[0].owed, -480);
+  // 4,80 € more than you owed: now they owe you that
+  assert.deepEqual((({ dir, owed: o, net }) => [dir, o, net])(owed(debts, await loanPayments(env.DB))[0]), ['owed', 480, 480]);
   await applyChoice(env, (await getTx(env.DB, 1))!, { kind: 'ignore' }); // not money out to anyone: the repayment goes
   assert.equal((await getTx(env.DB, 1))!.loan_part, null);
 });
@@ -266,4 +267,17 @@ test('a cash entry saved twice (a second tap, a retry) is stored once', async ()
   await cash({ amount: -1500, note: 'Market', ts: '2026-11-12T18:05' });
   await cash({ amount: -1500, note: 'Market', ts: '2026-11-12T18:09' });
   assert.deepEqual((await rows()).slice(2), ['Market -1500', 'Market -1500']);
+});
+
+test('money in from someone you owe can be marked: it counts as borrowing more; after lending, as being paid back', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('debts', ?)").bind('[{"name":"Sam","match":["NOVAK Sam"],"amount":0,"dir":"owe"}]').run();
+  const add = (euros: number, ts: string, kind: 'spend' | 'income') => record(env, { ext_id: `s${++n}`, ts, amount: Math.round(euros * 100), currency: 'EUR', balance: null, merchant: 'NOVAK Sam', iban: null, note: null, method: 'transfer', source: 'manual', raw: null }, undefined, kind);
+  const lent = (await add(-6, '2026-11-17T13:08', 'spend'))!;
+  await applyChoice(env, lent, { repay: { debt: 'Sam', amount: 600 } }); // you lent them 6 €
+  const back = (await add(5, '2026-11-18T10:04', 'income'))!;
+  await applyChoice(env, back, { repay: { debt: 'Sam', amount: 500 } }); // their 5 € back: allowed, even though the debt started your way
+  const sam = owed(parseDebts((await env.DB.prepare("SELECT value FROM settings WHERE key = 'debts'").first<{ value: string }>())!.value), await loanPayments(env.DB))[0];
+  assert.deepEqual([sam.dir, sam.owed], ['owed', 100]); // they still owe you 1 €
+  assert.equal(summarize(await txInMonth(env.DB, '2026-11')).earned, 0); // being paid back isn't earnings
 });

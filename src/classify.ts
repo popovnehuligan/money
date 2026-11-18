@@ -202,7 +202,7 @@ export function parseDebts(json: string | null): Debt[] {
   }
 }
 
-type LoanTx = { amount: number; merchant: string | null; note: string | null; debt?: string | null };
+type LoanTx = { amount: number; merchant: string | null; note: string | null; debt?: string | null; ts?: string };
 
 /**
  * The loan a 🤝 Loan payment belongs to: the one you picked, else the one whose bank name
@@ -215,27 +215,41 @@ export function debtFor(debts: Debt[], t: LoanTx): Debt | undefined {
 
 export interface Owed {
   name: string;
-  dir: 'owe' | 'owed'; // you owe them, or they owe you
-  borrowed: number; // the starting amount plus anything borrowed (or lent, when they owe you) since
-  paid: number; // paid back so far
-  owed: number; // still to pay back
+  dir: 'owe' | 'owed'; // where it stands now: you owe them, or they owe you (when even: the way it last stood)
+  net: number; // the balance: what they owe you, below zero when you owe them
+  borrowed: number; // since it last crossed zero: what was lent, the overshoot that crossed it included
+  paid: number; // …and what's been paid back of that
+  owed: number; // still to pay back, in that direction (never below zero)
 }
 
 /**
- * Where each debt stands, given every payment that moved it. Money going out pays back what you
- * owe, or is money you lent (they owe you more); money coming in is the reverse.
+ * Where you stand with each person: one running balance. Money from you to them (lending them
+ * money, paying for them, paying back what you owed) raises what they owe you; money from them
+ * lowers it. Who owes whom follows the balance, not the way the debt started: pay someone back
+ * more than you borrowed and they owe you the difference; lend to someone you used to owe and
+ * that's simply a debt the other way now.
  */
 export function owed(debts: Debt[], loans: LoanTx[]): Owed[] {
-  const sums = new Map(debts.map((d) => [d, { name: d.name, dir: owesYou(d) ? ('owed' as const) : ('owe' as const), borrowed: d.amount, paid: 0, owed: 0 }]));
-  for (const t of loans) {
+  const sums = new Map(debts.map((d) => {
+    const bal = owesYou(d) ? d.amount : -d.amount;
+    return [d, { name: d.name, dir: owesYou(d) ? ('owed' as const) : ('owe' as const), bal, borrowed: Math.abs(bal), paid: 0 }];
+  }));
+  // Oldest first, so "paid back" counts from the last time the balance crossed zero.
+  const ordered = loans.every((t) => t.ts) ? [...loans].sort((a, b) => (a.ts! < b.ts! ? -1 : a.ts! > b.ts! ? 1 : 0)) : loans;
+  for (const t of ordered) {
     const d = debtFor(debts, t);
     const s = d && sums.get(d);
     if (!s) continue;
-    const more = owesYou(d) ? t.amount < 0 : t.amount > 0; // the debt grows
-    if (more) s.borrowed += Math.abs(t.amount);
-    else s.paid += Math.abs(t.amount);
+    const prev = s.bal;
+    s.bal -= t.amount; // money out (amount < 0) raises what they owe you
+    if (prev === 0 || Math.sign(prev) !== Math.sign(s.bal)) {
+      if (s.bal === 0) s.paid += Math.abs(prev); // exactly even
+      else Object.assign(s, { borrowed: Math.abs(s.bal), paid: 0 }); // a debt (the other way) starts here
+    } else if (Math.abs(s.bal) > Math.abs(prev)) s.borrowed += Math.abs(s.bal) - Math.abs(prev);
+    else s.paid += Math.abs(prev) - Math.abs(s.bal);
+    if (s.bal) s.dir = s.bal > 0 ? 'owed' : 'owe';
   }
-  return [...sums.values()].map((s) => ({ ...s, owed: s.borrowed - s.paid }));
+  return [...sums.values()].map(({ bal, ...s }) => ({ ...s, net: bal, owed: Math.abs(bal) }));
 }
 
 /** "Mom: 60 € to go · 40 € of 100 € paid back" or "Alex owes you 12 € · …", or a cheer when it's done. */
@@ -246,23 +260,34 @@ export function owedText(o: Owed, eur: (cents: number) => string): string {
   return `${name}: <b>${eur(o.owed)}</b> to go · ${eur(o.paid)} of ${eur(o.borrowed)} paid back`;
 }
 
-/** A payment to someone you still owe is a repayment of that loan. */
+/** Where you stand with one person. */
+const standing = (debts: Debt[], loans: LoanTx[], d: Debt) => owed([d], loans.filter((t) => debtFor(debts, t) === d))[0];
+
+/**
+ * A payment that settles a debt by itself: money to someone you owe, or from someone who owes you,
+ * and no more than what's owed. Anything else (lending, borrowing, paying more than you owe) is
+ * yours to mark: a guess there would turn the debt round without you noticing.
+ */
+function settles(debts: Debt[], loans: LoanTx[], amount: number, names: Name[]): Debt | undefined {
+  const d = debts.find((x) => x.match.length && mentions(x.match, names));
+  if (!d || !amount) return undefined;
+  const { net } = standing(debts, loans, d);
+  return (amount < 0 ? net < 0 : net > 0) && Math.abs(amount) <= Math.abs(net) ? d : undefined;
+}
+
+/** A payment to someone you still owe (no more than that) is a repayment of that loan. */
 export function repaymentOf(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): Debt | undefined {
-  if (amount >= 0) return undefined;
-  const d = debts.find((x) => !owesYou(x) && x.match.length && mentions(x.match, names));
-  return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
+  return amount < 0 ? settles(debts, loans, amount, names) : undefined;
 }
 
-/** Money from someone who still owes you is them paying you back. */
+/** Money from someone who still owes you (no more than that) is them paying you back. */
 export function collectionOf(debts: Debt[], loans: LoanTx[], amount: number, ...names: Name[]): Debt | undefined {
-  if (amount <= 0) return undefined;
-  const d = debts.find((x) => owesYou(x) && x.match.length && mentions(x.match, names));
-  return d && owed([d], loans.filter((t) => debtFor(debts, t) === d))[0].owed > 0 ? d : undefined;
+  return amount > 0 ? settles(debts, loans, amount, names) : undefined;
 }
 
-/** The loan you owe to whoever normally pays this bill (a pass-on rule's `passOnFrom`), if any. */
+/** Whoever normally pays this bill (a pass-on rule's `passOnFrom`), if you keep a debt with them. */
 export function lenderOf(debts: Debt[], rule: Rule): Debt | undefined {
-  return debts.find((d) => !owesYou(d) && d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
+  return debts.find((d) => d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
 }
 
 /** Picking a loan for a bank payment teaches its counterparty's name to that loan (and only that one). */

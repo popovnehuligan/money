@@ -51,7 +51,7 @@ const eur = (c: number) => `${c / 100} €`;
 
 test('a loan counts down with repayments and up with more borrowing', () => {
   const repaid = { amount: -4000, merchant: 'KOVAC Maria', note: null };
-  assert.deepEqual(owed(debts, [repaid]), [{ name: 'Mom', dir: 'owe', borrowed: 10000, paid: 4000, owed: 6000 }]);
+  assert.deepEqual(owed(debts, [repaid]), [{ name: 'Mom', dir: 'owe', net: -6000, borrowed: 10000, paid: 4000, owed: 6000 }]);
   assert.equal(owed(debts, [repaid, { amount: 2000, merchant: 'KOVAC Maria', note: null }])[0].owed, 8000);
   assert.equal(owedText(owed(debts, [repaid])[0], eur), 'Mom: <b>60 €</b> to go · 40 € of 100 € paid back');
   assert.equal(owedText(owed(debts, [{ ...repaid, amount: -10000 }])[0], eur), '🎉 Mom is paid back in full.');
@@ -153,7 +153,7 @@ test('rules for money coming in: who pays you gets your name for them', () => {
 test('someone who owes you: what you paid for them counts it up, what they send you counts it down', () => {
   const alex = parseDebts('[{"name":"Alex","match":["novakova eva"],"amount":0,"dir":"owed"}]');
   const half = { amount: -1250, merchant: 'LIDL', note: null, debt: 'Alex' }; // half of a 25 € grocery bill was theirs
-  assert.deepEqual(owed(alex, [half]), [{ name: 'Alex', dir: 'owed', borrowed: 1250, paid: 0, owed: 1250 }]);
+  assert.deepEqual(owed(alex, [half]), [{ name: 'Alex', dir: 'owed', net: 1250, borrowed: 1250, paid: 0, owed: 1250 }]);
   const back = { amount: 1250, merchant: 'NOVAKOVA Eva', note: null, debt: 'Alex' };
   assert.equal(owed(alex, [half, back])[0].owed, 0);
   assert.equal(owedText(owed(alex, [half])[0], eur), 'Alex owes you <b>12.5 €</b> · 0 € of 12.5 € paid back');
@@ -161,4 +161,34 @@ test('someone who owes you: what you paid for them counts it up, what they send 
   assert.equal(collectionOf(alex, [half], 1250, 'NOVAKOVA Eva')?.name, 'Alex'); // their money in: paying you back
   assert.equal(collectionOf(alex, [half, back], 500, 'NOVAKOVA Eva'), undefined); // nothing owed any more
   assert.equal(repaymentOf(alex, [half], -1000, 'NOVAKOVA Eva'), undefined); // money to them isn’t you paying them back
+});
+
+test('one balance per person: overpay someone you owe and they owe you the difference', () => {
+  // Borrowed 100 € from a friend, paid back 102,32 € in halves of bills: they owe you 2,32 €.
+  const friend = parseDebts('[{"name":"Sam","match":["NOVAK Sam"],"amount":0,"dir":"owe"}]');
+  const lent = { ts: '2026-10-12T12:00', amount: 10000, merchant: 'NOVAK Sam', note: null };
+  const back = [5390, 722, 810, 840, 600, 700, 600, 570].map((c, i) => ({ ts: `2026-10-${15 + i}T12:00`, amount: -c, merchant: 'Bar', note: null, debt: 'Sam' }));
+  const now = owed(friend, [lent, ...back])[0];
+  assert.deepEqual([now.dir, now.net, now.owed, now.borrowed, now.paid], ['owed', 232, 232, 232, 0]); // the overshoot is a new debt their way
+  assert.equal(owedText(now, (c) => `${c / 100} €`), 'Sam owes you <b>2.32 €</b> · 0 € of 2.32 € paid back');
+  // You lend them 6 € more, they send 5 € back: they still owe you 3,32 €.
+  const more = [{ ts: '2026-11-17T13:08', amount: -600, merchant: 'NOVAK Sam', note: null, debt: 'Sam' }, { ts: '2026-11-18T10:04', amount: 500, merchant: 'NOVAK Sam', note: null, debt: 'Sam' }];
+  const after = owed(friend, [lent, ...back, ...more])[0];
+  assert.deepEqual([after.dir, after.owed, after.borrowed, after.paid], ['owed', 332, 832, 500]);
+  // Without the loan, their 5 € means you borrowed: you owe them 2,68 €.
+  assert.deepEqual((({ dir, owed: o }) => [dir, o])(owed(friend, [lent, ...back, more[1]])[0]), ['owe', 268]);
+  // Order doesn't matter to the balance, only to "paid back" (the balance is what counts).
+  assert.equal(owed(friend, [...more, ...back, lent].map(({ ts, ...t }) => t))[0].net, 332);
+});
+
+test('payments only settle a debt by themselves when they fit in it', () => {
+  const mom = parseDebts('[{"name":"Mom","match":["KOVAC Maria"],"amount":0,"dir":"owe"}]');
+  const over = [{ amount: 10000, merchant: 'KOVAC Maria', note: null }, { amount: -10500, merchant: 'Shop', note: null, debt: 'Mom' }]; // overpaid her by 5 €
+  assert.equal(owed(mom, over)[0].net, 500); // on paper she owes you 5 €
+  assert.equal(collectionOf(mom, over, 500, 'KOVAC Maria')?.name, 'Mom'); // her 5 € back: settles it
+  assert.equal(collectionOf(mom, over, 4500, 'KOVAC Maria'), undefined); // her 45 € is something else: yours to sort
+  const owing = [{ amount: 10000, merchant: 'KOVAC Maria', note: null }];
+  assert.equal(repaymentOf(mom, owing, -4000, 'KOVAC Maria')?.name, 'Mom'); // paying back part of it
+  assert.equal(repaymentOf(mom, owing, -12000, 'KOVAC Maria'), undefined); // more than you owe: not guessed
+  assert.equal(collectionOf(mom, owing, 2000, 'KOVAC Maria'), undefined); // more money from her while you owe her: not guessed either
 });

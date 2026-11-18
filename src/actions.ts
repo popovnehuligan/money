@@ -88,7 +88,7 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
       if (!d) throw new BadInput(`Unknown loan "${repay.debt}"`);
       const kind = patch.kind ?? t.kind, out = (patch.amount ?? t.amount) < 0;
       if (out ? kind !== 'spend' && kind !== 'cash' : kind !== 'income' && kind !== 'cash') throw new BadInput('Pick a kind first: spending or cash for money out, income or cash for money in.');
-      if (!out && d.dir !== 'owed') throw new BadInput(`${d.name} doesn't owe you. Money they lent you is a 🤝 Loan payment.`);
+      // Money in from them is them paying you back, or lending you money: the balance says which.
       const part = Math.round(Number(repay.amount));
       if (!Number.isFinite(part) || part <= 0 || part > full) throw new BadInput(`Between 0,01 and ${(full / 100).toFixed(2).replace('.', ',')} € of it.`);
       Object.assign(patch, { loan_part: out ? -part : part, debt: repay.debt });

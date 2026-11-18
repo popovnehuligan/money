@@ -157,10 +157,10 @@ export async function unratedCount(db: D1Database): Promise<number> {
 export const debtNames = async (db: D1Database) => parseDebts(await getSetting(db, 'debts')).map((d) => d.name);
 
 /** Every 🤝 Loan payment, and the parts of spending that paid a loan back, to work out what's still owed. */
-export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>[]> {
+export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt' | 'ts'>[]> {
   const { results } = await db
-    .prepare("SELECT amount, merchant, note, debt FROM tx WHERE kind = 'loan' UNION ALL SELECT loan_part, merchant, note, debt FROM tx WHERE kind IN ('spend', 'cash', 'income') AND loan_part IS NOT NULL")
-    .all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt'>>();
+    .prepare("SELECT ts, amount, merchant, note, debt FROM tx WHERE kind = 'loan' UNION ALL SELECT ts, loan_part, merchant, note, debt FROM tx WHERE kind IN ('spend', 'cash', 'income') AND loan_part IS NOT NULL ORDER BY ts")
+    .all<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt' | 'ts'>>();
   return results;
 }
 

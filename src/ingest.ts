@@ -28,7 +28,7 @@ export async function passOnSort(env: Env, rule: Rule, amount: number): Promise<
     const lender = lenderOf(debts, rule);
     if (lender && (await passedOnTotal(env.DB, rule.category)).kept < -amount) {
       const loans = (await loanPayments(env.DB)).filter((x) => debtFor(debts, x) === lender);
-      if (owed([lender], loans)[0].owed > 0) return { kind: 'loan', debt: lender.name };
+      if (owed([lender], loans)[0].net < 0) return { kind: 'loan', debt: lender.name }; // you still owe them
     }
   }
   return { kind: 'podmoga', debt: null };

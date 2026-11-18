@@ -1,5 +1,5 @@
 import { BadInput, applyChoice } from './actions.ts';
-import { KINDS, owed, owedText, parseDebts, type Categories } from './classify.ts';
+import { KINDS, debtFor, owed, owedText, parseDebts, type Categories } from './classify.ts';
 import { debtNames, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, unratedCount, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
@@ -130,7 +130,10 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
         const now = Math.round(Number(m[2].replace(',', '.')) * 100);
         let d = debts.find((x) => fold(x.name) === fold(m[1]));
         if (!d) debts.push((d = { name: m[1], match: [], amount: 0 }));
-        d.amount += now - owed(debts, loans)[debts.indexOf(d)].owed;
+        // The starting amount that makes the balance "you owe them `now`", whichever way it stood.
+        const moved = owed([{ ...d, amount: 0 }], loans.filter((t) => debtFor(debts, t) === d))[0].net;
+        const start = moved + now;
+        Object.assign(d, start >= 0 ? { amount: start, dir: 'owe' as const } : { amount: -start, dir: 'owed' as const });
         await setSetting(env.DB, 'debts', JSON.stringify(debts));
         await send(env, `${owedText(owed(debts, loans)[debts.indexOf(d)], eur)}\nTap 🤝 Loan on a payment to them and it counts down.`);
         return;
