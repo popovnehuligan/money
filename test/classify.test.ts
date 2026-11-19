@@ -192,3 +192,13 @@ test('payments only settle a debt by themselves when they fit in it', () => {
   assert.equal(repaymentOf(mom, owing, -12000, 'KOVAC Maria'), undefined); // more than you owe: not guessed
   assert.equal(collectionOf(mom, owing, 2000, 'KOVAC Maria'), undefined); // more money from her while you owe her: not guessed either
 });
+
+test('a closed debt keeps its history but is never matched automatically', () => {
+  const mom = parseDebts('[{"name":"Mom","match":["KOVAC Maria"],"amount":0,"dir":"owe","closed":true}]');
+  const borrowed = [{ amount: 10000, merchant: 'KOVAC Maria', note: null }];
+  assert.equal(repaymentOf(mom, borrowed, -4000, 'KOVAC Maria'), undefined);
+  assert.equal(collectionOf(mom, [{ amount: -10000, merchant: 'KOVAC Maria', note: null }], 4000, 'KOVAC Maria'), undefined);
+  // what was forgiven counts like a payment: closing at "you owe 100 €" leaves it even
+  const forgiven = parseDebts('[{"name":"Mom","match":["KOVAC Maria"],"amount":0,"dir":"owe","closed":true,"adjust":10000,"adjustedAt":"2026-11-19T10:00"}]');
+  assert.deepEqual((({ net, closed }) => [net, closed])(owed(forgiven, [{ ...borrowed[0], ts: '2026-10-01T10:00' }])[0]), [0, true]);
+});

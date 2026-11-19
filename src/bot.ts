@@ -134,11 +134,12 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
         const moved = owed([{ ...d, amount: 0 }], loans.filter((t) => debtFor(debts, t) === d))[0].net;
         const start = moved + now;
         Object.assign(d, start >= 0 ? { amount: start, dir: 'owe' as const } : { amount: -start, dir: 'owed' as const });
+        delete d.closed; // a closed one comes back
         await setSetting(env.DB, 'debts', JSON.stringify(debts));
         await send(env, `${owedText(owed(debts, loans)[debts.indexOf(d)], eur)}\nTap 🤝 Loan on a payment to them and it counts down.`);
         return;
       }
-      const list = owed(debts, loans);
+      const list = owed(debts, loans).filter((o) => !o.closed);
       await send(env, list.length ? list.map((o) => owedText(o, eur)).join('\n') : 'You don’t owe anyone. Add a loan: /owe Mom 100');
       return;
     }
@@ -148,12 +149,15 @@ export async function handleUpdate(env: Env, u: Update): Promise<void> {
       return;
   }
 
-  // The answer to "➕ What was it?": a reply to that question, or (for 15 minutes) any text without a number.
-  const pending = JSON.parse((await getSetting(env.DB, 'pending_category')) ?? 'null') as { msg: number; n: number; at: number } | null;
+  // The answer to "➕ What was it?" (a new category) or "📦 What was it?" (what an Other payment was):
+  // a reply to that question, or (for 15 minutes) any text without a number.
+  const pending = JSON.parse((await getSetting(env.DB, 'pending_category')) ?? 'null') as { msg: number; n: number; at: number; other?: true } | null;
   if (pending && (m.reply_to_message?.message_id === pending.msg || (!/\d/.test(text) && Date.now() - pending.at < 15 * 60_000))) {
     const t = await getTx(env.DB, pending.n);
     try {
-      if (t) await applyChoice(env, t, { newCategory: text });
+      // Other: a category you already have, by its name, moves it there; anything else names the payment.
+      const known = pending.other ? Object.entries(await getCategories(env.DB)).find(([id, label]) => id !== 'other' && fold(label.slice(label.indexOf(' ') + 1)) === fold(text)) : undefined;
+      if (t) await applyChoice(env, t, !pending.other ? { newCategory: text } : known ? { category: known[0] } : { label: text });
     } catch (e) {
       if (!(e instanceof BadInput)) throw e;
       await send(env, e.message);
@@ -208,6 +212,17 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await answer();
     } else if (action === 'c') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { category: value });
+      if (value === 'other' && !t.label && !(t.source === 'manual' && t.merchant)) {
+        // Other says nothing: ask what it was. The reply names the payment (or, if it's one of your categories, moves it there).
+        const ask = await tg<{ message_id: number }>(env, 'sendMessage', {
+          chat_id: env.CHAT_ID,
+          text: '📦 What was it? Reply with a few words, e.g. haircut or gift for Kate.',
+          reply_markup: { force_reply: true, input_field_placeholder: 'haircut' },
+        });
+        if (ask) await setSetting(env.DB, 'pending_category', JSON.stringify({ msg: ask.message_id, n: t.n, at: Date.now(), other: true }));
+        await answer('📦 Other. What was it? Reply below.');
+        return;
+      }
       await answer(`${(await getCategories(env.DB))[value]}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });

@@ -2,7 +2,7 @@
 // the Worker's /api routes, so the dashboard can be looked at without deploying.
 // It reuses the real dashboard/statistics code, so the numbers behave like production.
 // Not part of the Worker bundle.
-import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, defaultKind, isKind, newCategory, owed, parseDebts, type Kind } from '../src/classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, defaultKind, isKind, newCategory, owed, parseDebts, reopenDebt, type Kind } from '../src/classify.ts';
 import { dashboard, readSettings, txView } from '../src/dashboard.ts';
 import type { Tx } from '../src/db.ts';
 import { noSpendStreak } from '../src/stats.ts';
@@ -111,9 +111,9 @@ function summary(month = TODAY.slice(0, 7)) {
     settings: readSettings(settings),
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
-    loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe' })),
+    loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe', ...(d.closed ? { closed: true as const } : {}) })),
     incomeSources: [...new Set(txs.filter((t) => t.kind === 'income' && t.amount > 0).map((t) => t.label ?? t.merchant ?? 'Cash'))],
-    debts: owed(parseDebts(settings.debts), [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => (t.kind === 'spend' || t.kind === 'cash' || t.kind === 'income') && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))]),
+    debts: owed(parseDebts(settings.debts), loanMoves()).filter((o) => !o.closed),
     loanHistory: txs.filter((t) => t.kind === 'loan' || t.loan_part).sort((a, b) => b.ts.localeCompare(a.ts)).map((t) => ({ n: t.n, ts: t.ts, part: t.kind === 'loan' ? t.amount : t.loan_part!, debt: t.debt ?? (parseDebts(settings.debts).find((d) => d.match.some((m) => (t.merchant ?? '').toLowerCase().includes(m)))?.name ?? null), label: t.label ?? t.merchant ?? 'Cash' })),
     categories: categoriesFrom(settings.categories),
     balance: { amount: 41235, ts: `${TODAY}T09:12` },
@@ -121,6 +121,9 @@ function summary(month = TODAY.slice(0, 7)) {
     passedOn: txs.filter((t) => t.kind === 'podmoga').reduce((p, t) => (t.amount > 0 ? { ...p, in: p.in + t.amount, kept: p.kept + t.amount } : { ...p, out: p.out - t.amount, kept: p.kept + t.amount }), { in: 0, out: 0, kept: 0 }),
   });
 }
+
+/** Every payment that moved a debt (the Worker's loanPayments). */
+const loanMoves = () => [...txs.filter((t) => t.kind === 'loan'), ...txs.filter((t) => (t.kind === 'spend' || t.kind === 'cash' || t.kind === 'income') && t.loan_part).map((t) => ({ ...t, amount: t.loan_part! }))];
 
 // Same as the Worker: a typed name becomes a category (or the existing one with that name).
 function typedCategory(text: string): string | undefined {
@@ -176,6 +179,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       txs.push(t);
       return json(summary());
     }
+    case '/api/debt': {
+      const debts = parseDebts(settings.debts), d = debts.find((x) => x.name === body.name)!;
+      const { net } = owed([d], loanMoves().filter((t) => debtFor(debts, t) === d))[0], now = `${TODAY}T12:00`;
+      settings.debts = JSON.stringify(debts.map((x) => (x !== d ? x : body.close ? closeDebt(d, net, now) : reopenDebt(d, net, now, body.now ?? undefined))));
+      return json(summary());
+    }
     case '/api/category': {
       const mine = JSON.parse(settings.categories ?? '{}');
       const cats = categoriesFrom(settings.categories);
@@ -199,7 +208,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if ('saveTarget' in body) settings.save_target = String(body.saveTarget);
       if ('loans' in body) {
         const before = parseDebts(settings.debts);
-        settings.debts = JSON.stringify(body.loans.map((l: { name: string; amount: number; dir?: string }) => ({ name: l.name, match: before.find((d) => d.name === l.name)?.match ?? [], amount: l.amount, dir: l.dir ?? before.find((d) => d.name === l.name)?.dir ?? 'owe' })));
+        settings.debts = JSON.stringify(body.loans.map((l: { name: string; amount: number; dir?: string }) => ({ ...before.find((d) => d.name === l.name), name: l.name, match: before.find((d) => d.name === l.name)?.match ?? [], amount: l.amount, dir: l.dir ?? before.find((d) => d.name === l.name)?.dir ?? 'owe' })));
       }
       return json(summary(month));
   }

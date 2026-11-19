@@ -1,4 +1,4 @@
-import { categoriesFrom, parseDebts, type Categories, type Kind } from './classify.ts';
+import { categoriesFrom, openDebts, parseDebts, type Categories, type Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
@@ -154,7 +154,8 @@ export async function unratedCount(db: D1Database): Promise<number> {
 }
 
 /** Names of your loans, for the "which loan?" buttons. */
-export const debtNames = async (db: D1Database) => parseDebts(await getSetting(db, 'debts')).map((d) => d.name);
+/** The people you keep a debt with (closed ones aren't offered any more). */
+export const debtNames = async (db: D1Database) => openDebts(parseDebts(await getSetting(db, 'debts'))).map((d) => d.name);
 
 /** Every 🤝 Loan payment, and the parts of spending that paid a loan back, to work out what's still owed. */
 export async function loanPayments(db: D1Database): Promise<Pick<Tx, 'amount' | 'merchant' | 'note' | 'debt' | 'ts'>[]> {

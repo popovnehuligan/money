@@ -1,6 +1,6 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, debtFor, newCategory, owed, parseDebts } from './classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, newCategory, owed, parseDebts, reopenDebt } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
 import { deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
@@ -37,8 +37,8 @@ async function summary(env: Env, asked?: string | null) {
     settings: readSettings(settings),
     savedByMonth: saved,
     streak: first ? noSpendStreak(spendDays, first > since ? first : since, today) : 0,
-    debts: owed(parseDebts(settings.debts ?? null), loans),
-    loans: debts.map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe' })),
+    debts: owed(debts, loans).filter((o) => !o.closed), // closed ones are only listed under Closed, to reopen
+    loans: debts.map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe', ...(d.closed ? { closed: true as const } : {}) })),
     incomeSources: sources,
     loanHistory: history.map((t) => ({ n: t.n, ts: t.ts, part: t.part, debt: debtFor(debts, { ...t, amount: t.part })?.name ?? t.debt, label: t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Payment') })),
     categories: categoriesFrom(settings.categories ?? null),
@@ -124,6 +124,21 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
         }
         return Response.json(await summary(env));
       }
+      case '/api/debt': {
+        // Close a debt (what's left of it is forgiven; it leaves every list) or reopen it, even or at what you say.
+        let debts = parseDebts(await getSetting(env.DB, 'debts'));
+        const d = debts.find((x) => x.name === body.name);
+        if (!d) throw new BadInput(`Unknown debt "${String(body.name ?? '')}"`);
+        const { net } = owed([d], (await loanPayments(env.DB)).filter((t) => debtFor(debts, t) === d))[0];
+        const now = localStamp();
+        const target = body.now === undefined || body.now === null ? undefined : Math.round(Number(body.now));
+        if (target !== undefined && (!Number.isFinite(target) || Math.abs(target) > 1e10)) throw new BadInput('Enter how much, e.g. 100 or 175,20.');
+        if (body.close) debts = debts.map((x) => (x === d ? closeDebt(d, net, now) : x));
+        else if (body.reopen) debts = debts.map((x) => (x === d ? reopenDebt(d, net, now, target) : x));
+        else throw new BadInput('Close it or reopen it.');
+        await setSetting(env.DB, 'debts', JSON.stringify(debts));
+        return Response.json(await summary(env, String(body.month ?? '')));
+      }
       case '/api/category': {
         // ⚙ Categories: add one, rename one, or delete one (built-in ones too, except 📦 Other).
         const mine = await myCategories(env.DB);
@@ -167,7 +182,7 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
             const name = String(l?.name ?? '').trim().slice(0, 40);
             if (!name) throw new BadInput('Each loan needs a name.');
             const was = before.find((d) => d.name === name);
-            return { name, match: was?.match ?? [], amount: cents(l.amount) ?? 0, dir: l.dir === 'owed' || l.dir === 'owe' ? l.dir : (was?.dir ?? 'owe') };
+            return { ...was, name, match: was?.match ?? [], amount: cents(l.amount) ?? 0, dir: l.dir === 'owed' || l.dir === 'owe' ? l.dir : (was?.dir ?? 'owe') }; // closed, and what was forgiven, stay
           });
           if (new Set(next.map((d) => d.name)).size !== next.length) throw new BadInput('Two loans have the same name.');
           values.debts = JSON.stringify(next);

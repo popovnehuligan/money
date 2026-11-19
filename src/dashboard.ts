@@ -55,7 +55,7 @@ export interface DashboardInput {
   balance?: { amount: number; ts: string } | null; // what the latest b-mail said your account holds
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
-  loans?: { name: string; amount: number; dir: 'owe' | 'owed' }[]; // each loan's starting amount, and who owes whom
+  loans?: { name: string; amount: number; dir: 'owe' | 'owed'; closed?: true }[]; // each loan's starting amount, who owed whom, and whether it's closed
   incomeSources?: string[]; // who pays you most often lately, for quick picks
   loanHistory?: { n: number; ts: string; part: number; debt: string | null; label: string }[]; // every payment that moved a loan
   passedOnBefore?: number; // passed-on running total before this month
@@ -74,6 +74,7 @@ export function txView(t: Tx) {
     confirmed: t.confirmed === 1,
     label: t.label ?? t.merchant ?? t.note ?? METHOD[t.method] ?? t.method,
     bankName: t.merchant ?? t.note, // shown under your own name, so you can still tell what the bank said
+    named: !!t.label || (t.source === 'manual' && !!t.merchant), // you said what it was (a name you gave it, or what you typed for cash)
     method: METHOD[t.method] ?? t.method,
     deletable: t.source !== 'bmail',
     debt: t.debt,

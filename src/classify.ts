@@ -186,10 +186,23 @@ export interface Debt {
   match: string[];
   amount: number; // cents: what was owed when tracking started
   dir?: 'owe' | 'owed'; // 'owe' (the default): you owe them; 'owed': they owe you
+  adjust?: number; // cents added by hand to what they owe you: what was left when you closed it (forgiven), or where you said it stands
+  adjustedAt?: string; // …and when
+  closed?: boolean; // closed: out of every list and never matched automatically, until you reopen it
 }
 
 /** They owe you (you lent them money, or paid for them), rather than you owing them. */
 export const owesYou = (d: Pick<Debt, 'dir'>) => d.dir === 'owed';
+/** The debts you keep: closed ones keep their history but leave the lists. */
+export const openDebts = (debts: Debt[]) => debts.filter((d) => !d.closed);
+
+/** Close a debt: what's left of it (`net`, what they owe you) is forgiven, as of `now`. */
+export const closeDebt = (d: Debt, net: number, now: string): Debt => ({ ...d, adjust: (d.adjust ?? 0) - net, adjustedAt: now, closed: true });
+/** Reopen it: even, or (`target`, what they owe you) where you say it stands now. */
+export function reopenDebt(d: Debt, net: number, now: string, target?: number): Debt {
+  const { closed: _, ...open } = d;
+  return target === undefined || target === net ? open : { ...open, adjust: (d.adjust ?? 0) + target - net, adjustedAt: now };
+}
 
 export function parseDebts(json: string | null): Debt[] {
   try {
@@ -210,7 +223,8 @@ type LoanTx = { amount: number; merchant: string | null; note: string | null; de
  */
 export function debtFor(debts: Debt[], t: LoanTx): Debt | undefined {
   if (t.debt) return debts.find((d) => d.name === t.debt);
-  return debts.find((d) => d.match.length && mentions(d.match, [t.merchant, t.note])) ?? (debts.length === 1 ? debts[0] : undefined);
+  const open = openDebts(debts);
+  return debts.find((d) => d.match.length && mentions(d.match, [t.merchant, t.note])) ?? (open.length === 1 ? open[0] : undefined);
 }
 
 export interface Owed {
@@ -220,6 +234,7 @@ export interface Owed {
   borrowed: number; // since it last crossed zero: what was lent, the overshoot that crossed it included
   paid: number; // …and what's been paid back of that
   owed: number; // still to pay back, in that direction (never below zero)
+  closed?: true; // closed (forgiven what was left)
 }
 
 /**
@@ -232,10 +247,12 @@ export interface Owed {
 export function owed(debts: Debt[], loans: LoanTx[]): Owed[] {
   const sums = new Map(debts.map((d) => {
     const bal = owesYou(d) ? d.amount : -d.amount;
-    return [d, { name: d.name, dir: owesYou(d) ? ('owed' as const) : ('owe' as const), bal, borrowed: Math.abs(bal), paid: 0 }];
+    return [d, { name: d.name, dir: owesYou(d) ? ('owed' as const) : ('owe' as const), bal, borrowed: Math.abs(bal), paid: 0, ...(d.closed ? { closed: true as const } : {}) }];
   }));
+  // Changes made by hand (forgiving what was left) count like a payment, at the time they were made.
+  const all = [...loans, ...debts.filter((d) => d.adjust).map((d) => ({ ts: d.adjustedAt, amount: -d.adjust!, merchant: null, note: null, debt: d.name }))];
   // Oldest first, so "paid back" counts from the last time the balance crossed zero.
-  const ordered = loans.every((t) => t.ts) ? [...loans].sort((a, b) => (a.ts! < b.ts! ? -1 : a.ts! > b.ts! ? 1 : 0)) : loans;
+  const ordered = all.every((t) => t.ts) ? [...all].sort((a, b) => (a.ts! < b.ts! ? -1 : a.ts! > b.ts! ? 1 : 0)) : all;
   for (const t of ordered) {
     const d = debtFor(debts, t);
     const s = d && sums.get(d);
@@ -269,7 +286,7 @@ const standing = (debts: Debt[], loans: LoanTx[], d: Debt) => owed([d], loans.fi
  * yours to mark: a guess there would turn the debt round without you noticing.
  */
 function settles(debts: Debt[], loans: LoanTx[], amount: number, names: Name[]): Debt | undefined {
-  const d = debts.find((x) => x.match.length && mentions(x.match, names));
+  const d = debts.find((x) => !x.closed && x.match.length && mentions(x.match, names));
   if (!d || !amount) return undefined;
   const { net } = standing(debts, loans, d);
   return (amount < 0 ? net < 0 : net > 0) && Math.abs(amount) <= Math.abs(net) ? d : undefined;
@@ -287,7 +304,7 @@ export function collectionOf(debts: Debt[], loans: LoanTx[], amount: number, ...
 
 /** Whoever normally pays this bill (a pass-on rule's `passOnFrom`), if you keep a debt with them. */
 export function lenderOf(debts: Debt[], rule: Rule): Debt | undefined {
-  return debts.find((d) => d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
+  return debts.find((d) => !d.closed && d.match.length && (rule.passOnFrom ?? []).some((p) => mentions(d.match, [p]) || mentions([p], d.match)));
 }
 
 /** Picking a loan for a bank payment teaches its counterparty's name to that loan (and only that one). */

@@ -11,6 +11,7 @@ import { owed, parseDebts } from '../src/classify.ts';
 import { getTx, loanPayments, txInMonth } from '../src/db.ts';
 import { ingest, record } from '../src/ingest.ts';
 import { api } from '../src/miniapp.ts';
+import { handleUpdate, type Update } from '../src/bot.ts';
 import { summarize } from '../src/stats.ts';
 
 /** The handful of D1 calls the Worker makes, on top of node:sqlite. */
@@ -280,4 +281,57 @@ test('money in from someone you owe can be marked: it counts as borrowing more; 
   const sam = owed(parseDebts((await env.DB.prepare("SELECT value FROM settings WHERE key = 'debts'").first<{ value: string }>())!.value), await loanPayments(env.DB))[0];
   assert.deepEqual([sam.dir, sam.owed], ['owed', 100]); // they still owe you 1 €
   assert.equal(summarize(await txInMonth(env.DB, '2026-11')).earned, 0); // being paid back isn't earnings
+});
+
+/** Telegram's initData for the owner (chat 1), as the dashboard sends it. */
+function ownerInitData(): string {
+  const fields = { auth_date: String(Math.floor(Date.now() / 1000)), user: JSON.stringify({ id: 1, first_name: 'M' }) };
+  const check = Object.entries(fields).map(([k, v]) => `${k}=${v}`).sort().join('\n');
+  const hash = createHmac('sha256', createHmac('sha256', 'WebAppData').update('t').digest()).update(check).digest('hex');
+  return new URLSearchParams({ ...fields, hash }).toString();
+}
+
+test('closing a debt forgives what was left and takes it out of the lists; reopening brings it back', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('debts', ?)").bind('[{"name":"Sam","match":["NOVAK Sam"],"amount":1000,"dir":"owe"},{"name":"Alex","match":[],"amount":0,"dir":"owe"}]').run();
+  const call = async (body: Record<string, unknown>) => {
+    const res = await api(env, new Request('https://x/api/debt', { method: 'POST', headers: { 'x-init-data': ownerInitData() }, body: JSON.stringify(body) }), new URL('https://x/api/debt'));
+    assert.equal(res.status, 200);
+    return res.json() as Promise<{ debts: { name: string; dir: string; owed: number }[]; loans: { name: string; closed?: boolean }[] }>;
+  };
+  // You owed Sam 10 €: closing forgives it, and Sam leaves the lists (kept under Closed).
+  let d = await call({ name: 'Sam', close: true });
+  assert.deepEqual(d.debts.map((o) => o.name), ['Alex']);
+  assert.equal(d.loans.find((l) => l.name === 'Sam')?.closed, true);
+  // Back, even.
+  d = await call({ name: 'Sam', reopen: true });
+  assert.deepEqual(d.debts.map((o) => [o.name, o.owed]), [['Sam', 0], ['Alex', 0]]);
+  // Closed again, and back as "they owe me 5 €".
+  await call({ name: 'Sam', close: true });
+  d = await call({ name: 'Sam', reopen: true, now: 500 });
+  assert.deepEqual((({ dir, owed: o }) => [dir, o])(d.debts.find((o) => o.name === 'Sam')!), ['owed', 500]);
+  // Saving the debts from the app (Alex's start edited) keeps what was forgiven.
+  const res = await api(env, new Request('https://x/api/settings', { method: 'POST', headers: { 'x-init-data': ownerInitData() }, body: JSON.stringify({ loans: [{ name: 'Sam', amount: 1000, dir: 'owe' }, { name: 'Alex', amount: 300, dir: 'owe' }] }) }), new URL('https://x/api/settings'));
+  const after = (await res.json()) as { debts: { name: string; dir: string; owed: number }[] };
+  assert.deepEqual(after.debts.map((o) => [o.name, o.dir, o.owed]), [['Sam', 'owed', 500], ['Alex', 'owe', 300]]);
+});
+
+test('📦 Other asks what it was: the reply names the payment, or moves it to a category you name', async () => {
+  const { env, sent } = setup();
+  const pay = (id: string, cents: number) => record(env, { ext_id: id, ts: '2026-11-19T12:00', amount: cents, currency: 'EUR', balance: null, merchant: 'SOME SHOP', iban: null, note: null, method: 'card', source: 'bmail', raw: null });
+  const tap = (n: number) => handleUpdate(env, { callback_query: { id: 'q', data: `c:other:${n}`, message: { message_id: 50, chat: { id: 1 } } } } as Update);
+  const asked = async () => JSON.parse((await env.DB.prepare("SELECT value FROM settings WHERE key = 'pending_category'").first<{ value: string }>())!.value) as { msg: number; other?: boolean };
+  const reply = async (text: string) => handleUpdate(env, { message: { message_id: 60, chat: { id: 1 }, text, reply_to_message: { message_id: (await asked()).msg } } } as Update);
+
+  const a = (await pay('o1', -1200))!;
+  await tap(a.n);
+  assert.equal((await asked()).other, true); // "📦 What was it?" went out
+  assert.ok(sent.includes('sendMessage'));
+  await reply('haircut');
+  assert.deepEqual((({ category, label }) => [category, label])((await getTx(env.DB, a.n))!), ['other', 'haircut']);
+
+  const b = (await pay('o2', -800))!;
+  await tap(b.n);
+  await reply('food'); // the name of a category you have: it goes there
+  assert.equal((await getTx(env.DB, b.n))!.category, 'food');
 });

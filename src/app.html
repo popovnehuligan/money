@@ -1719,6 +1719,16 @@ const findTx = (n) => {
 };
 const today = () => state.cur.today;
 
+/** 📦 Other says nothing about what it was: asked right where you picked it. `then` is where to go after (the sort flow). */
+function otherAskHTML(t, then = '') {
+  const d = `data-n="${t.n}" data-then="${then}"`;
+  return `<div class="details other-ask" id="other-ask">
+      <label class="field"><span class="field-name">📦 What was it?</span><input class="input" id="other-what" maxlength="60" placeholder="e.g. haircut, gift for Kate" autocomplete="off" enterkeyhint="done"></label>
+      <div class="chips"><button type="button" class="chip go" data-act="other-name" ${d}>Save</button><button type="button" class="chip" data-act="other-cat" ${d}>Make it a category</button>${then ? `<button type="button" class="chip" data-act="other-skip" ${d}>Skip</button>` : ''}</div>
+      <p class="hint">Save names this payment. A category takes it out of Other, with the next ones from the same place.</p>
+    </div>`;
+}
+const focusOtherAsk = () => setTimeout(() => { const i = $('#other-what'); if (!i) return; i.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' }); i.focus({ preventScroll: true }); }, 150);
 function tilesHTML(selected, act, n) {
   return Object.keys(CATS).map((id) => {
     const m = catMeta(id);
@@ -1746,8 +1756,9 @@ function editorHTML(t) {
     ${t.kind === 'income' ? countsForHTML(t) : ''}
     ${t.kind === 'loan' && state.debts?.length > 1 ? `<p class="label" id="debt-label">${t.amount < 0 ? 'To whom?' : 'From whom?'}</p>
       <div class="seg halves" role="radiogroup" aria-labelledby="debt-label">${state.debts.map((o) => `<button type="button" role="radio" aria-checked="${t.debt === o.name}" data-act="debt" data-debt="${esc(o.name)}" data-n="${t.n}">${esc(o.name)} · ${standingTag(o)}</button>`).join('')}</div>` : ''}
-    ${t.kind === 'loan' && t.debt && state.debts?.some((o) => o.name === t.debt) ? `<p class="hint">All of it was ${t.amount < 0 ? 'for' : 'from'} ${esc(t.debt)}. <span class="nowrap">${standingText(state.debts.find((o) => o.name === t.debt))}.</span></p>` : ''}
+    ${t.kind === 'loan' && t.debt ? `<p class="hint">All of it was ${t.amount < 0 ? 'for' : 'from'} ${esc(t.debt)}. <span class="nowrap">${standingText(state.debts?.find((o) => o.name === t.debt) ?? { name: t.debt, closed: true })}.</span></p>` : ''}
     ${t.kind === 'spend' ? `<p class="label">Category</p><div class="tiles">${tilesHTML(t.category, 'set-cat', t.n)}</div>
+      ${t.category === 'other' && !t.named ? otherAskHTML(t) : ''}
       <p class="label">Worth it?</p>
       <div class="worth">
         <button type="button" class="yes" data-act="worth" data-worth="1" data-n="${t.n}" aria-pressed="${t.worth === 1}"><span class="em">👍</span>Worth it</button>
@@ -1770,8 +1781,8 @@ function countsForHTML(t) {
 const owesMe = (o) => !!o && o.owed > 0 && o.dir === 'owed';
 const iOwe = (o) => !!o && o.owed > 0 && o.dir === 'owe';
 /** "Sam owes you 3,32 €", "You owe Ben 175 €", "You and Kate are even". */
-const standingText = (o) => (owesMe(o) ? `${esc(o.name)} owes you ${eurExact(o.owed)}` : iOwe(o) ? `You owe ${esc(o.name)} ${eurExact(o.owed)}` : `You and ${esc(o.name)} are even`);
-const standingTag = (o) => (owesMe(o) ? 'owes you' : iOwe(o) ? 'you owe' : 'even');
+const standingText = (o) => (o.closed ? `${esc(o.name)}’s debt is closed` : owesMe(o) ? `${esc(o.name)} owes you ${eurExact(o.owed)}` : iOwe(o) ? `You owe ${esc(o.name)} ${eurExact(o.owed)}` : `You and ${esc(o.name)} are even`);
+const standingTag = (o) => (o.closed ? 'closed' : owesMe(o) ? 'owes you' : iOwe(o) ? 'you owe' : 'even');
 
 /**
  * Part of a payment that moved a debt. Money out: a bill split with someone, money lent, or paying
@@ -1782,7 +1793,8 @@ function repayHTML(t) {
   const out = t.amount < 0;
   if (out ? t.kind !== 'spend' && t.kind !== 'cash' : t.kind !== 'income' && t.kind !== 'cash') return '';
   const on = t.loanPart ? t.debt : null, part = Math.abs(t.loanPart || 0), full = Math.abs(t.amount);
-  const debts = state.debts || [];
+  // Closed debts aren't offered, except the one this payment already counts toward.
+  const debts = [...(state.debts || []), ...(on && !(state.debts || []).some((o) => o.name === on) ? [{ name: on, owed: 0, dir: 'owe', closed: true }] : [])];
   if (!out && !debts.length) return '';
   const now = debts.find((o) => o.name === on);
   const rest = full - part, counts = t.kind === 'spend' ? (rest ? `; only your ${eurExact(rest)} counts as spending` : '; none of it counts as spending') : t.kind === 'income' ? (rest ? '; only the rest counts as earned' : '; none of it counts as earned') : '';
@@ -1824,15 +1836,19 @@ function debtsHTML() {
       <div class="debt-actions">
         ${(owesMe(o) ? [1, -1] : [-1, 1]).map((dir) => `<button type="button" class="chip${(dir > 0 ? owesMe(o) : iOwe(o)) ? ' go' : ''}" data-act="debt-pay" data-debt="${esc(o.name)}" data-dir="${dir}">${debtMove(o, dir)}</button>`).join('')}
         <button type="button" class="chip" data-act="debt-edit" data-debt="${esc(o.name)}">Edit</button>
+        <button type="button" class="chip" data-act="debt-close" data-debt="${esc(o.name)}">Close</button>
       </div>
       ${rows.length ? `<div class="debt-hist">${rows.slice(0, 10).map(row).join('')}</div>${rows.length > 10 ? `<p class="hint">and ${rows.length - 10} earlier</p>` : ''}` : ''}
     </div>`;
   };
-  const theirs = list.filter((o) => o.dir === 'owed'), mine = list.filter((o) => o.dir !== 'owed');
+  const theirs = list.filter((o) => o.dir === 'owed'), mine = list.filter((o) => o.dir !== 'owed'), closed = starts.filter((l) => l.closed);
   return `<p class="rv-kicker">Debts</p>
     <h2 class="rv-head" id="sheet-title">${owe ? `You owe ${eurExact(owe)}` : 'You owe nobody 🎉'}${owedToYou ? `<br><span style="color:var(--good)">You’re owed ${eurExact(owedToYou)}</span>` : ''}</h2>
     ${theirs.length ? `<h3 class="sh-sub">Owed to you</h3>${theirs.map(card).join('')}` : ''}
     ${mine.length ? `<h3 class="sh-sub">You owe</h3>${mine.map(card).join('')}` : ''}
+    ${closed.length ? `<h3 class="sh-sub">Closed</h3>
+      <div class="chips">${closed.map((l) => `<button type="button" class="chip" data-act="debt-reopen" data-debt="${esc(l.name)}">↩ ${esc(l.name)}</button>`).join('')}</div>
+      <p class="hint">What was left of these is forgiven, and they’re out of your lists; their payments stay. Tap one to bring them back, even. Typing their name as a new debt brings them back too.</p>` : ''}
     <h3 class="sh-sub">New debt</h3>
     <form id="debt-new" class="debt-new" novalidate>
       <div class="seg" role="radiogroup" aria-label="Who owes whom"><button type="button" role="radio" aria-checked="${state.newDebtDir !== 'owe'}" data-act="debt-new-dir" data-dir="owed">They owe me</button><button type="button" role="radio" aria-checked="${state.newDebtDir === 'owe'}" data-act="debt-new-dir" data-dir="owe">I owe them</button></div>
@@ -2009,8 +2025,8 @@ function sortHTML() {
   const t = q[i];
   return `<div class="sort-top"><h2 class="sh-h" id="sheet-title">Sort payments</h2><div class="dots" aria-label="${i + 1} of ${q.length}">${q.map((_, k) => `<i class="${k === i ? 'on' : k < i ? 'done' : ''}"></i>`).join('')}</div></div>
     <div class="sort-card"><span class="drop" style="--c:var(--c-other)"><span>?</span></span><span class="row-main"><span class="row-name">${esc(t.label)}</span><span class="row-sub">${esc(dayLabel(t.ts.slice(0, 10), today()))} · ${t.ts.slice(11, 16)}</span></span><span class="row-amt">${short(t.amount)}</span></div>
-    <p class="label">Pick a category</p>
-    <div class="tiles">${tilesHTML(null, 'sort-pick', t.n)}</div>
+    ${state.sortAsk === t.n ? otherAskHTML(t, 'sort') : `<p class="label">Pick a category</p>
+    <div class="tiles">${tilesHTML(null, 'sort-pick', t.n)}</div>`}
     <div class="sh-foot"><button type="button" class="textbtn" data-act="sort-skip">Skip this one</button></div>`;
 }
 
@@ -2209,6 +2225,20 @@ const actions = {
   debts: () => openDebts(),
   'debt-pay': (el) => { haptic.pick(); const name = el.dataset.debt, dir = Number(el.dataset.dir); state.payId = newId(); openSheet('debt-pay', debtPayHTML(name, dir), { key: `debt-pay:${name}:${dir}`, label: debtMoveTitle(name, dir), render: () => debtPayHTML(name, dir) }); },
   'debt-edit': (el) => { haptic.pick(); const name = el.dataset.debt; openSheet('debt-edit', debtEditHTML(name), { key: `debt-edit:${name}`, label: name, render: () => ((state.loans || []).some((l) => l.name === name) ? debtEditHTML(name) : null) }); },
+  'other-name': (el) => otherAnswer(el, 'label'),
+  'other-cat': (el) => otherAnswer(el, 'newCategory'),
+  'other-skip': () => { state.sortAsk = null; state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
+  'debt-close': async (el) => {
+    const name = el.dataset.debt, o = (state.debts || []).find((x) => x.name === name);
+    const left = owesMe(o) ? `${name} owes you ${eurExact(o.owed)}: that’s forgiven. ` : iOwe(o) ? `You owe ${name} ${eurExact(o.owed)}: that’s forgiven. ` : '';
+    if (!(await ask(`Close ${name}? ${left}They leave your lists; their payments stay. You can bring them back from Closed.`))) return;
+    mutate('/api/debt', { name, close: true, month: state.cur.month }, () => { haptic.ok(); toast(`${name} closed`); sheetRedraw(); });
+  },
+  'debt-reopen': (el) => {
+    const name = el.dataset.debt;
+    haptic.pick();
+    mutate('/api/debt', { name, reopen: true, month: state.cur.month }, () => { toast(`${name} is back, even`); sheetRedraw(); });
+  },
   'debt-del': async (el) => {
     const name = el.dataset.debt;
     if (!(await ask(`Delete ${name}? Payments marked as paying them back stay as they are.`))) return;
@@ -2239,6 +2269,7 @@ const actions = {
     if (!name) { haptic.err(); toast('Who? Type a name.'); return; }
     const known = (state.loans || []).find((l) => l.name.toLowerCase() === name.toLowerCase());
     const add = () => mutate('/api/tx', { n, repay: { debt: known?.name ?? name, amount: Math.round(Math.abs(t.amount) / 2) }, month: state.view.month }, () => { haptic.ok(); toast(`Half of it for ${known?.name ?? name}`); if (state.sheet === 'edit') openEditor(n); });
+    if (known?.closed) return mutate('/api/debt', { name: known.name, reopen: true, month: state.cur.month }, add); // a closed one comes back, even
     if (known) return add();
     saveLoans([...(state.loans || []), { name, amount: 0, dir: 'owed' }], add);
   },
@@ -2257,6 +2288,7 @@ const actions = {
       haptic.ok();
       toast(`${catMeta(cat).name}. ${t.label} goes there from now on.`);
       if (state.sheet === 'edit') openEditor(n);
+      if (cat === 'other' && !findTx(n)?.named) focusOtherAsk();
     });
   },
   worth: (el) => {
@@ -2274,6 +2306,7 @@ const actions = {
   sort: () => {
     state.sortQueue = state.view.tx.filter(isUnsorted).reverse();
     state.sortIndex = 0;
+    state.sortAsk = null;
     openSheet('sort', sortHTML());
   },
   'sort-pick': (el) => {
@@ -2281,6 +2314,7 @@ const actions = {
     const n = Number(el.dataset.n), cat = el.dataset.cat;
     el.setAttribute('aria-pressed', 'true');
     api('/api/tx', { n, category: cat, month: state.view.month }).then(accept).catch((e) => toast(e.message));
+    if (cat === 'other' && !findTx(n)?.named) { state.sortAsk = n; sheetBody.innerHTML = sortHTML(); focusOtherAsk(); return; } // what was it? then on to the next
     state.sortIndex++;
     setTimeout(() => {
       sheetBody.innerHTML = sortHTML();
@@ -2419,7 +2453,11 @@ function endDrag() {
   el.style.transition = 'opacity .3s';
   el.style.opacity = '0';
   splash(0.5, 32);
-  mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => { haptic.ok(); toast(`${catMeta(cat).emoji} ${catMeta(cat).name}. ${t?.label ?? 'It'} goes there from now on.`); });
+  mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => {
+    haptic.ok();
+    toast(`${catMeta(cat).emoji} ${catMeta(cat).name}. ${t?.label ?? 'It'} goes there from now on.`);
+    if (cat === 'other' && !findTx(n)?.named) { openEditor(n); focusOtherAsk(); } // what was it?
+  });
 }
 document.addEventListener('pointerup', endDrag);
 document.addEventListener('pointercancel', endDrag);
@@ -2461,9 +2499,21 @@ document.addEventListener('change', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') sheetBack();
   if (e.key === 'Enter' && e.target.dataset?.catId) e.target.blur(); // saves the rename (change event)
+  if (e.key === 'Enter' && e.target.id === 'other-what') { e.preventDefault(); $('[data-act="other-name"]')?.click(); }
   if (e.key === 'Enter' && e.target.closest?.('.new-cat')) { e.preventDefault(); addCategory(e.target.closest('.new-cat')); } // not the cash form's submit
 });
 
+/** 📦 What was it?: a name for the payment, or a category of its own. Then back to the payment, or on to the next one to sort. */
+function otherAnswer(el, as) {
+  const n = Number(el.dataset.n), what = $('#other-what')?.value.trim();
+  if (!what) { haptic.err(); toast('Type what it was, e.g. haircut.'); $('#other-what')?.focus(); return; }
+  mutate('/api/tx', { n, [as]: what, month: state.view.month }, () => {
+    haptic.ok();
+    toast(as === 'label' ? `Noted: ${what}` : `${what}: a category now`);
+    if (el.dataset.then === 'sort') { state.sortAsk = null; state.sortIndex++; sheetBody.innerHTML = sortHTML(); if (state.sortIndex >= state.sortQueue.length) confetti(); }
+    else if (state.sheet === 'edit') openEditor(n);
+  });
+}
 /** ＋ New: what you typed becomes a category ("🎮 Games") and is picked right away. */
 function addCategory(box) {
   const name = box.querySelector('input').value.trim(), n = Number(box.dataset.n), to = box.dataset.for;
@@ -2490,6 +2540,7 @@ document.addEventListener('submit', (e) => {
   if (e.target.id === 'cash-form') {
     const cents = parseEuro($('#cash-amount').value);
     if (!cents) { haptic.err(); $('#cash-error').textContent = 'Enter how much, e.g. 4,50.'; return; }
+    if (state.cashDir < 0 && state.cashCat === 'other' && !$('#cash-note').value.trim()) { haptic.err(); $('#cash-error').textContent = '📦 Other: what was it? Type it under “What for”.'; $('#cash-note').focus(); return; }
     const body = { id: state.cashId, amount: state.cashDir * cents, note: $('#cash-note').value };
     if (state.cashDir > 0 && state.cashDebt) Object.assign(body, { debt: state.cashDebt, note: body.note || `${state.cashDebt} paid me back` }); // cash back from someone who owed you
     if (state.cashDir < 0 && state.cashNewCat) body.newCategory = state.cashNewCat;
@@ -2499,8 +2550,14 @@ document.addEventListener('submit', (e) => {
   if (e.target.id === 'debt-new') {
     const name = $('#debt-new-name').value.trim(), amount = parseEuro($('#debt-new-amount').value);
     if (!name) { haptic.err(); $('#debt-new-error').textContent = 'Who do you owe?'; return; }
-    if ((state.loans || []).some((l) => l.name.toLowerCase() === name.toLowerCase())) { haptic.err(); $('#debt-new-error').textContent = `${name} is already there: use their buttons above.`; return; }
     if ($('#debt-new-amount').value.trim() && !amount) { haptic.err(); $('#debt-new-error').textContent = 'Enter how much, e.g. 100 or 175,20.'; return; }
+    const known = (state.loans || []).find((l) => l.name.toLowerCase() === name.toLowerCase());
+    if (known?.closed) {
+      const now = (amount || 0) * (state.newDebtDir === 'owe' ? -1 : 1);
+      mutate('/api/debt', { name: known.name, reopen: true, now, month: state.cur.month }, () => { haptic.ok(); toast(`${known.name} is back`); sheetRedraw(); }, e.target);
+      return;
+    }
+    if (known) { haptic.err(); $('#debt-new-error').textContent = `${name} is already there: use their buttons above.`; return; }
     saveLoans([...(state.loans || []), { name, amount: amount || 0, dir: state.newDebtDir === 'owe' ? 'owe' : 'owed' }], () => { haptic.ok(); toast(`${name} added`); sheetRedraw(); });
   }
   if (e.target.id === 'debt-pay') {
