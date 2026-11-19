@@ -1,5 +1,5 @@
-import { applyRules, collectionOf, debtFor, defaultKind, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
-import { debtNames, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { applyRules, collectionOf, debtFor, defaultKind, fundFor, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseFunds, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
+import { debtNames, fundIds, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { edit, esc, send, tg, txKeyboard, txText } from './telegram.ts';
@@ -62,8 +62,15 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
     }
     return tx;
   }
+  // Club money: a payment that says what it's for (e.g. "volejbal") is suggested as that pot's,
+  // ahead of what was learned for the sender; money in that looks like dues, from someone not known yet, last.
+  const funds = parseFunds(await getSetting(env.DB, 'funds'));
+  const said = fundFor(funds, t.amount, 'words', t.merchant, t.note);
+  if (said) return store('fund', said.id);
   const prior = key ? await learned(env.DB, key, t.amount) : null;
   if (prior) return store(prior.kind, prior.category);
+  const dues = t.source === 'bmail' && t.method !== 'atm' ? fundFor(funds, t.amount, 'dues') : undefined; // bank transfers only: what you type yourself, you named
+  if (dues) return store('fund', dues.id); // a suggestion: one tap if it's right
   return store(t.method === 'atm' ? 'cash' : defaultKind(t.amount), null); // an ATM: a suggestion to approve
 }
 
@@ -72,7 +79,7 @@ const GAP_HEADER = '⚖️ Your balance moved by more than the b-mails explain. 
 async function message(env: Env, t: Tx): Promise<[string, ReturnType<typeof txKeyboard>]> {
   const cats = await getCategories(env.DB);
   const text = txText(t, await footerFor(env, t), cats);
-  return [t.source === 'gap' ? `${GAP_HEADER}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB), cats)];
+  return [t.source === 'gap' ? `${GAP_HEADER}\n\n${text}` : text, txKeyboard(t, false, await debtNames(env.DB), cats, await fundIds(env.DB))];
 }
 
 export async function notify(env: Env, t: Tx): Promise<void> {

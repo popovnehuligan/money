@@ -47,16 +47,19 @@ export function eur(cents: number, signed = false): string {
   return `${sign}${NUM.format(Math.abs(cents) / 100)} €`;
 }
 
-const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', cash: '💵', ignore: '🚫' };
+const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', cash: '💵', ignore: '🚫', fund: '👥' };
+/** What a payment is, in words: its category for spending and club money (🏐 Volleyball), else its kind. */
+const kindLabel = (t: Tx, cats: Categories) => (t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : t.kind === 'fund' ? cats[t.category ?? ''] ?? KINDS.fund : KINDS[t.kind]);
 
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
 export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGORIES): string {
   const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
   const half = t.loan_part && t.debt && t.kind !== 'loan' ? ` · ${eur(Math.abs(t.loan_part))} of it ${t.loan_part < 0 ? 'for' : 'from'} ${esc(t.debt)}` : '';
-  const label = (t.kind === 'spend' ? cats[t.category ?? ''] ?? 'No category yet' : KINDS[t.kind]) + half;
+  const label = (t.kind === 'spend' && !t.category ? 'No category yet' : kindLabel(t, cats)) + half;
   const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.month ? ` · for ${monthName(t.month)}` : '');
-  const lines = [`${ICON[t.kind]} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
+  const icon = t.kind === 'fund' ? categoryEmoji(cats[t.category ?? ''] ?? '') ?? ICON.fund : ICON[t.kind];
+  const lines = [`${icon} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
   if (footer) lines.push('', footer);
   return lines.join('\n');
 }
@@ -78,7 +81,7 @@ function evenRows<T>(items: T[], max: number): T[][] {
  * Telegram makes buttons only as wide as the message, so rows hold at most two labels,
  * categories are emoji only, and a ticked label drops its emoji to make room for ✓.
  */
-export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: Categories = DEFAULT_CATEGORIES): Keyboard {
+export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: Categories = DEFAULT_CATEGORIES, funds: string[] = []): Keyboard {
   const tick = (on: boolean, text: string) => (on ? `✓ ${text.replace(/^\S+\s/, '')}` : text);
   const rows: Keyboard = [];
   // With more than one loan, a 🤝 Loan payment asks which one (ticked once you've picked).
@@ -96,22 +99,21 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
   ];
 
   if (t.confirmed && !expanded) {
-    const label = t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind];
-    rows.push([{ text: `${label} · change`, callback_data: `e:1:${t.n}` }]);
+    rows.push([{ text: `${kindLabel(t, cats)} · change`, callback_data: `e:1:${t.n}` }]);
     if (t.kind === 'spend') rows.push(worthRow());
     return [...rows, ...debtRows()];
   }
 
   // A suggestion you haven't approved yet (a learned shop, a rule, an import): one tap to say it's right.
   if (!t.confirmed && !(t.kind === 'spend' && !t.category)) {
-    rows.push([{ text: `✅ ${t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : KINDS[t.kind]}`, callback_data: `a:0:${t.n}` }]);
+    rows.push([{ text: `✅ ${kindLabel(t, cats)}`, callback_data: `a:0:${t.n}` }]);
   }
 
   if (t.kind === 'spend') {
     // Every category as its emoji, in rows of up to six, then ➕ to type a new one. Only a
     // category whose emoji another one shares shows its name (two per row, below the grid).
     const pick = (id: string, text: string) => ({ text, callback_data: `c:${id}:${t.n}` });
-    const ids = Object.keys(cats);
+    const ids = Object.keys(cats).filter((id) => !funds.includes(id)); // club pots have a row of their own
     const emoji = (id: string) => categoryEmoji(cats[id]);
     const unique = (id: string) => emoji(id) !== null && ids.filter((other) => emoji(other) === emoji(id)).length === 1;
     const grid = ids
@@ -124,7 +126,11 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
     rows.push(worthRow());
   }
   const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'cash', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
-  rows.push(kinds.slice(0, 2), kinds.slice(2, 4), kinds.slice(4), ...debtRows());
+  rows.push(kinds.slice(0, 2), kinds.slice(2, 4), kinds.slice(4));
+  // Club money, in or out: a button per pot (🏐 Volleyball), on every payment.
+  const pots = funds.filter((id) => id in cats).map((id) => ({ text: tick(t.kind === 'fund' && t.category === id, cats[id]), callback_data: `c:${id}:${t.n}` }));
+  if (pots.length) rows.push(pots);
+  rows.push(...debtRows());
   if (t.source !== 'bmail') rows.push([{ text: '🗑 Delete', callback_data: `d:0:${t.n}` }]);
   return rows;
 }

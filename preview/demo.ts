@@ -92,9 +92,13 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
     month: null,
   };
 };
-let txs: Tx[] = [...september().map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10'))];
+// Club money (🏐 Volleyball): members' 10 € dues in, the hall and a ball out. Names are made up.
+const CLUB_SEPT: Row[] = [['08', '18:00', 10, 'NOVAK Peter', 'fund', 'volleyball', undefined, 'transfer'], ['09', '12:10', 10, 'HORVATH Jana', 'fund', 'volleyball', undefined, 'transfer'], ['15', '20:00', -35, 'Sport hall rent', 'fund', 'volleyball', undefined, 'transfer']];
+const CLUB_OCT: Row[] = [['02', '18:30', 10, 'NOVAK Peter', 'fund', 'volleyball', undefined, 'transfer'], ['03', '09:40', 20, 'KOVAC Tomas', 'fund', 'volleyball', undefined, 'transfer'], ['05', '21:05', 10, 'HORVATH Jana', 'fund', 'volleyball', undefined, 'transfer'], ['06', '17:20', -24.9, 'DECATHLON BRATISLAVA', 'fund', 'volleyball'], ['12', '11:00', 10, 'BALAZ Eva', 'fund', 'volleyball', undefined, 'transfer']];
+let txs: Tx[] = [...september().map(toTx('2026-09')), ...CLUB_SEPT.map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10')), ...CLUB_OCT.map(toTx('2026-10'))];
+const isFund = (id: unknown) => typeof id === 'string' && JSON.parse(settings.funds ?? '[]').some((f: { id: string }) => f.id === id);
 const cashIds = new Set<string>(); // cash entries already stored, by their form's id
-const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', categories: '{"fun":"🎉 Fun"}', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
+const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', categories: '{"fun":"🎉 Fun","volleyball":"🏐 Volleyball"}', funds: '[{"id":"volleyball","dues":1000}]', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
 
 function summary(month = TODAY.slice(0, 7)) {
@@ -112,6 +116,17 @@ function summary(month = TODAY.slice(0, 7)) {
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
     loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe', ...(d.closed ? { closed: true as const } : {}) })),
+    funds: JSON.parse(settings.funds ?? '[]').map((f: { id: string }) => {
+      const by = new Map<string, { month: string; in: number; out: number; count: number }>();
+      for (const t of txs.filter((x) => x.kind === 'fund' && x.category === f.id).sort((a, b) => a.ts.localeCompare(b.ts))) {
+        const m = t.month ?? t.ts.slice(0, 7), r = by.get(m) ?? { month: m, in: 0, out: 0, count: 0 };
+        if (t.amount > 0) r.in += t.amount; else r.out -= t.amount;
+        r.count++;
+        by.set(m, r);
+      }
+      const months = [...by.values()].sort((a, b) => a.month.localeCompare(b.month));
+      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0) };
+    }),
     incomeSources: [...new Set(txs.filter((t) => t.kind === 'income' && t.amount > 0).map((t) => t.label ?? t.merchant ?? 'Cash'))],
     debts: owed(parseDebts(settings.debts), loanMoves()).filter((o) => !o.closed),
     loanHistory: txs.filter((t) => t.kind === 'loan' || t.loan_part).sort((a, b) => b.ts.localeCompare(a.ts)).map((t) => ({ n: t.n, ts: t.ts, part: t.kind === 'loan' ? t.amount : t.loan_part!, debt: t.debt ?? (parseDebts(settings.debts).find((d) => d.match.some((m) => (t.merchant ?? '').toLowerCase().includes(m)))?.name ?? null), label: t.label ?? t.merchant ?? 'Cash' })),
@@ -149,8 +164,8 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const t = txs.find((x) => x.n === body.n);
       if (!t) return json({ error: 'That payment no longer exists.' }, 404);
       if (body.newCategory !== undefined) body.category = typedCategory(body.newCategory);
-      if (body.category !== undefined && body.category in categoriesFrom(settings.categories)) Object.assign(t, { kind: 'spend', category: body.category, confirmed: 1 });
-      if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1 });
+      if (body.category !== undefined && body.category in categoriesFrom(settings.categories)) Object.assign(t, { kind: isFund(body.category) ? 'fund' : 'spend', category: body.category, confirmed: 1 });
+      if (body.kind !== undefined && isKind(body.kind)) Object.assign(t, { kind: body.kind, confirmed: 1, ...(body.kind !== 'fund' && isFund(t.category) ? { category: null } : {}) });
       if (body.worth !== undefined) t.worth = body.worth;
       if (body.debt !== undefined) Object.assign(t, { kind: 'loan', debt: body.debt, confirmed: 1 });
       if (body.countsFor !== undefined) t.month = body.countsFor === t.ts.slice(0, 7) ? null : body.countsFor;
@@ -176,6 +191,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const category = body.newCategory !== undefined ? typedCategory(body.newCategory) : body.category;
       const t = toTx('2026-10')([TODAY.slice(8), `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`, body.amount / 100, body.note || 'Cash', body.debt ? 'loan' : undefined, body.debt ? undefined : category, undefined, 'cash']);
       if (body.debt) Object.assign(t, { debt: body.debt, confirmed: 1, ...(body.ts ? { ts: body.ts } : {}) });
+      if (isFund(body.category)) Object.assign(t, { kind: 'fund', category: body.category, confirmed: 1 });
       txs.push(t);
       return json(summary());
     }

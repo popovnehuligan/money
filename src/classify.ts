@@ -7,7 +7,7 @@ import { fold } from './parse.ts';
 // owe (see Debt), never income or spending. ignore = moves between your own
 // accounts that shouldn't count at all. cash = cash out of an ATM or paid in: money changing
 // form, not spending (what you spend from it counts when you type it in).
-export type Kind = 'spend' | 'income' | 'savings' | 'podmoga' | 'loan' | 'cash' | 'ignore';
+export type Kind = 'spend' | 'income' | 'savings' | 'podmoga' | 'loan' | 'cash' | 'ignore' | 'fund';
 
 export const KINDS: Record<Kind, string> = {
   spend: '💸 Spend',
@@ -17,7 +17,37 @@ export const KINDS: Record<Kind, string> = {
   loan: '🤝 Loan',
   cash: '💵 Cash',
   ignore: '🚫 Ignore',
+  fund: '👥 Club money', // shown by its pot's own name, e.g. 🏐 Volleyball
 };
+
+/**
+ * Club money: a pot you hold for others, e.g. members' dues for a volleyball club. Kept in the
+ * `funds` setting (database only), e.g. [{"id":"volleyball","dues":1000,"match":["volejbal"]}];
+ * its id is also a category, which gives it its emoji and name. A payment in it is never your
+ * income or spending: the pot has its own month-by-month tracker of what came in and went out.
+ * `dues`: money in of that much (or two or three times it) from someone not known yet is suggested
+ * as dues. `match`: words in a payment's text that mark it as this pot's.
+ */
+export interface Fund {
+  id: string;
+  dues?: number;
+  match?: string[];
+}
+
+export function parseFunds(json: string | null): Fund[] {
+  try {
+    const funds: unknown = JSON.parse(json ?? '[]');
+    return Array.isArray(funds) ? funds.filter((f): f is Fund => typeof f?.id === 'string' && f.id !== '') : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The pot a new payment looks like it's for: by the words in it, or (`dues`) money in that looks like dues. */
+export function fundFor(funds: Fund[], amount: number, how: 'words' | 'dues', ...names: Name[]): Fund | undefined {
+  if (how === 'words') return funds.find((f) => f.match?.length && mentions(f.match, names));
+  return amount > 0 ? funds.find((f) => f.dues && f.dues > 0 && amount % f.dues === 0 && amount <= 3 * f.dues) : undefined;
+}
 
 export type Categories = Record<string, string>; // id → "emoji Name"
 

@@ -219,6 +219,9 @@ svg { display: block; }
 .pod h3 { margin: 0 0 4px; font: 600 14px var(--f-ui); color: var(--podmoga); }
 .pod p { margin: 0; color: var(--ink-2); }
 .pod p b { color: var(--good); }
+.pot { display: block; width: 100%; text-align: left; margin-top: 14px; }
+.pot h3 { color: var(--ink-2); }
+.pot p b { color: var(--ink); }
 .pod .big-kept { margin: 2px 0 6px; font: 700 30px/1 var(--f-ui); letter-spacing: -.04em; color: var(--good); }
 .pod .big-kept.neg { color: var(--coral); }
 
@@ -561,6 +564,8 @@ kbd {
   .cta-glass.ghost:hover { background: rgba(170, 210, 255, .14); box-shadow: inset 0 0 0 1px rgba(170, 210, 255, .3); }
   .primary:hover { transform: translateY(-1px); box-shadow: 0 16px 34px -10px rgba(56, 232, 214, .75); }
   .review-btn:hover, .chip:not(.go):hover { background: rgba(170, 210, 255, .15); }
+  .pot { transition: background .15s; }
+  .pot:hover { background: rgba(170, 210, 255, .12); }
   .drop-btn:hover { transform: rotate(-45deg) scale(1.07); }
   .dive:hover { background: rgba(255, 255, 255, .2); }
   .buoy:hover { box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55), 0 12px 26px -12px rgba(0, 0, 0, .7); }
@@ -801,8 +806,9 @@ const KIND = {
   savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
   cash: { icon: '💵', name: 'Cash', c: 'var(--ink-2)', hint: 'Cash out of an ATM, or cash paid in. Not spending: what you spend from it counts when you add it as cash.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
+  fund: { icon: '👥', name: 'Club money', c: 'var(--c-other)', hint: 'Money you hold for a club: never your income or spending. Its own tracker shows each month’s plus or minus.' },
 };
-const UNCOUNTED = new Set(['ignore', 'cash', 'podmoga']); // shown, but their own amounts aren't part of any total (passed-on money counts only as its net)
+const UNCOUNTED = new Set(['ignore', 'cash', 'podmoga', 'fund']); // shown, but their own amounts aren't part of any total (passed-on money counts only as its net)
 let CATS = {};
 // Built-in categories have a colour token; ones you typed take the next colour from this palette.
 const BUILT_IN = new Set(['taxi', 'scooter', 'food', 'smokes', 'parking', 'eat', 'bus', 'shop', 'health', 'home', 'other']);
@@ -815,8 +821,11 @@ const catMeta = (id) => {
   const c = !known ? 'var(--c-other)' : BUILT_IN.has(id) ? `var(--c-${id})` : OWN_COLORS[mine.indexOf(id) % OWN_COLORS.length];
   return { id, emoji: label.slice(0, i), name: label.slice(i + 1), c };
 };
-const visual = (t) => (t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
+const visual = (t) => (t.kind === 'fund' && t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
 const isUnsorted = (t) => t.kind === 'spend' && !t.category && t.amount < 0;
+/** Club pots (🏐 Volleyball): money you hold for others. Each is a category, for its emoji and name. */
+const pots = () => (state.cur?.funds || []).filter((f) => f.id in CATS);
+const isPot = (id) => pots().some((f) => f.id === id);
 /** What a payment cost as spending: half a bar bill that paid a loan back costs half. */
 const own = (t) => t.amount - (t.loanPart || 0);
 
@@ -1265,6 +1274,14 @@ function renderFlow() {
       finding += Math.abs(ch) < 3 ? ` About the same as ${prevName}.` : ` ${Math.abs(ch)} % ${ch < 0 ? 'less' : 'more'} than in ${prevName}.`;
     }
   }
+  const potCards = pots().map((f) => {
+    const m = catMeta(f.id), here = f.months.find((r) => r.month === d.month) || { in: 0, out: 0, count: 0 }, net = here.in - here.out;
+    return `<button type="button" class="pod pot" data-act="pot" data-pot="${f.id}" style="--c:${m.c}">
+      <h3>${m.emoji} ${esc(m.name)} · ${esc(d.name)}</h3>
+      <p class="big-kept${net < 0 ? ' neg' : ''}">${net ? eur0(net, true) : '±0 €'}</p>
+      <p>${here.count ? `${eur0(here.in)} in, ${eur0(here.out)} out.` : 'Nothing in or out yet.'} ${f.held >= 0 ? `You’re holding <b>${eur0(f.held)}</b> of club money.` : `You’ve put in <b>${eur0(-f.held)}</b> more than came in.`}</p>
+    </button>`;
+  }).join('');
   $('#flow').innerHTML = `
     <h2 class="title" id="flow-title">Where it went</h2>
     ${finding ? `<p class="lede">${finding}</p>` : ''}
@@ -1274,7 +1291,26 @@ function renderFlow() {
       <div><span>Saved</span><b class="gold">${eur0(s.saved)}</b></div>
     </div>
     ${bars ? `<div class="bars">${bars}${s.overdraft ? `<div class="bar-row" style="--c:var(--podmoga)"><span class="bar-top"><span>🔁 Passed on beyond what came in</span><b>${eur0(s.overdraft)}</b></span><span class="meter"><i style="--w:${((100 * s.overdraft) / max).toFixed(1)}%"></i></span></div>` : ''}</div>` : '<div class="empty"><b>Nothing spent yet</b>Categories show up here as you sort payments.</div>'}
-    ${pod}`;
+    ${pod}
+    ${potCards}`;
+}
+
+/** A club pot's tracker: each month's plus or minus, newest first, and what you're holding. */
+function potHTML(id) {
+  const f = pots().find((x) => x.id === id);
+  if (!f) return null;
+  const m = catMeta(id), year = state.cur.today.slice(0, 4);
+  const rows = [...f.months].reverse().map((r) => {
+    const net = r.in - r.out, label = MONTH[+r.month.slice(5) - 1] + (r.month.slice(0, 4) !== year ? ` ${r.month.slice(0, 4)}` : '');
+    return `<button type="button" class="earn-row" data-act="pot-month" data-pot="${id}" data-m="${r.month}" style="--c:${net < 0 ? 'var(--bad)' : 'var(--good)'}"><i></i>
+      <span class="nm"><b>${esc(label)}</b><span>${eur0(r.in)} in · ${eur0(r.out)} out · ${r.count} payment${r.count === 1 ? '' : 's'}</span></span>
+      <span class="am"><b${net < 0 ? ' style="color:var(--bad)"' : net > 0 ? ' style="color:var(--good)"' : ''}>${net ? eur0(net, true) : '±0 €'}</b></span><span class="go" aria-hidden="true">›</span></button>`;
+  }).join('');
+  return `<p class="rv-kicker">Club money</p>
+    <h2 class="rv-head" id="sheet-title">${m.emoji} ${esc(m.name)}</h2>
+    <p class="rv-p">${f.held >= 0 ? `You’re holding <b>${eur(f.held)}</b> of club money.` : `You’ve put in <b>${eur(-f.held)}</b> more than came in.`}</p>
+    ${rows ? `<div class="earn-list">${rows}</div>` : '<div class="empty"><b>Nothing yet</b>Mark dues and club spending as this, in a payment or in the chat.</div>'}
+    <p class="hint" style="margin-top:14px">Not your money: never in your earnings or spending. A month’s plus or minus is what came in for it minus what went out. Dues from someone new arrive already suggested; a tap confirms them.</p>`;
 }
 
 function renderJar() {
@@ -1333,7 +1369,7 @@ function renderJar() {
 /** One payment. Lists without day headings (a category's payments) show its date instead of the time. */
 function rowHTML(t, { date = false, category = true } = {}) {
   const v = visual(t), un = isUnsorted(t);
-  const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : KIND[t.kind].name) + (t.loanPart ? ` · ${short(Math.abs(t.loanPart))} ${t.loanPart < 0 ? 'for' : 'from'} ${t.debt}` : '');
+  const what = (t.kind === 'spend' ? (t.category ? catMeta(t.category).name : 'needs a category') : t.kind === 'fund' && t.category ? catMeta(t.category).name : KIND[t.kind].name) + (t.loanPart ? ` · ${short(Math.abs(t.loanPart))} ${t.loanPart < 0 ? 'for' : 'from'} ${t.debt}` : '');
   const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.countsFor ? ` · for ${MONTH[+t.countsFor.slice(5) - 1]}` : '');
   const when = date ? dayLabel(t.ts.slice(0, 10), today()) : t.ts.slice(11, 16);
   return `<button class="row${un ? ' is-unsorted' : ''}" data-act="tx" data-n="${t.n}">
@@ -1751,7 +1787,7 @@ function editorHTML(t) {
       <button type="button" class="primary" data-act="save-details" data-n="${t.n}">Save</button>
     </div>
     <p class="label" id="kind-label">What was it?</p>
-    <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}</div>
+    <div class="seg kinds" role="radiogroup" aria-labelledby="kind-label">${kinds.map((k) => `<button type="button" role="radio" aria-checked="${t.kind === k}" data-act="kind" data-kind="${k}" data-n="${t.n}">${KIND[k].icon} ${KIND[k].name}</button>`).join('')}${pots().map((f) => `<button type="button" role="radio" aria-checked="${t.kind === 'fund' && t.category === f.id}" data-act="set-cat" data-cat="${f.id}" data-n="${t.n}">${catMeta(f.id).emoji} ${esc(catMeta(f.id).name)}</button>`).join('')}</div>
     <p class="hint">${KIND[t.kind].hint}</p>
     ${t.kind === 'income' ? countsForHTML(t) : ''}
     ${t.kind === 'loan' && state.debts?.length > 1 ? `<p class="label" id="debt-label">${t.amount < 0 ? 'To whom?' : 'From whom?'}</p>
@@ -2042,6 +2078,7 @@ function cashHTML() {
       <label class="field"><span class="field-name">${dir < 0 ? 'What for' : 'From'}</span><input class="input" id="cash-note" maxlength="80" placeholder="${dir < 0 ? 'Coffee, market, haircut…' : 'Moving job, translation, gift…'}" value="${esc(state.cashNote || '')}"></label>
       ${dir < 0 ? `<p class="label">Category</p><div class="tiles">${tilesHTML(state.cashCat, 'cash-cat')}</div>` : `
         ${(state.cur.incomeSources || []).length ? `<div class="chips">${state.cur.incomeSources.map((s) => `<button type="button" class="chip${state.cashNote === s && !state.cashDebt ? ' go' : ''}" data-act="cash-source" data-s="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+        ${pots().length ? `<p class="label">Or club money</p><div class="chips">${pots().map((f) => `<button type="button" class="chip${state.cashPot === f.id ? ' go' : ''}" data-act="cash-pot" data-pot="${f.id}">${catMeta(f.id).emoji} ${esc(catMeta(f.id).name)}</button>`).join('')}</div>` : ''}
         ${(state.debts || []).filter((o) => o.dir === 'owed' && o.owed > 0).length ? `<p class="label">Or someone paying you back</p><div class="chips">${state.debts.filter((o) => o.dir === 'owed' && o.owed > 0).map((o) => `<button type="button" class="chip${state.cashDebt === o.name ? ' go' : ''}" data-act="cash-debt" data-debt="${esc(o.name)}">🤝 ${esc(o.name)} · ${eurExact(o.owed)}</button>`).join('')}</div>` : ''}`}
       <p class="form-error" id="cash-error" role="alert"></p>
       <button class="primary" type="submit" id="cash-submit">Drop it in</button>
@@ -2207,6 +2244,14 @@ const actions = {
     openSheet('list', render(), { key: `cat:${month}:${c}`, label: `${m.name} in ${state.view.name}`, render });
   },
   tx: (el) => { haptic.tap(); openEditor(el.dataset.n); },
+  pot: (el) => { haptic.tap(); const id = el.dataset.pot; openSheet('pot', potHTML(id), { key: `pot:${id}`, label: catMeta(id).name, render: () => potHTML(id) }); },
+  'pot-month': async (el) => {
+    haptic.pick();
+    const id = el.dataset.pot, m = el.dataset.m, title = `${catMeta(id).emoji} ${catMeta(id).name} in ${MONTH[+m.slice(5) - 1]}`;
+    try { await loadMonth(m); } catch (e) { toast(e.message); return; }
+    const render = () => listSheetHTML(title, monthData(m).tx.filter((t) => t.kind === 'fund' && t.category === id), { date: true, category: false });
+    openSheet('list', render(), { key: `pot:${id}:${m}`, label: title, render });
+  },
   kind: (el) => {
     haptic.pick();
     const n = el.dataset.n, kind = el.dataset.kind;
@@ -2283,7 +2328,7 @@ const actions = {
   'set-cat': (el) => {
     haptic.pick();
     const n = el.dataset.n, t = findTx(n), cat = el.dataset.cat;
-    applyLocal(n, { kind: 'spend', category: cat, confirmed: true });
+    applyLocal(n, { kind: isPot(cat) ? 'fund' : 'spend', category: cat, confirmed: true });
     mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => {
       haptic.ok();
       toast(`${catMeta(cat).name}. ${t.label} goes there from now on.`);
@@ -2356,7 +2401,7 @@ const actions = {
   'sort-skip': () => { state.sortIndex++; sheetBody.innerHTML = sortHTML(); },
   cash: () => {
     haptic.tap();
-    Object.assign(state, { cashId: newId(), cashDir: -1, cashAmount: '', cashNote: '', cashCat: null, cashNewCat: null, cashDebt: null });
+    Object.assign(state, { cashId: newId(), cashDir: -1, cashAmount: '', cashNote: '', cashCat: null, cashNewCat: null, cashDebt: null, cashPot: null });
     openSheet('cash', cashHTML());
   },
   'cash-dir': (el) => {
@@ -2368,8 +2413,18 @@ const actions = {
     sheetBody.innerHTML = backHTML() + cashHTML();
     updateCashButton();
   },
+  'cash-pot': (el) => {
+    haptic.pick();
+    state.cashAmount = $('#cash-amount').value;
+    Object.assign(state, { cashPot: state.cashPot === el.dataset.pot ? null : el.dataset.pot, cashDebt: null });
+    if (state.cashPot && !$('#cash-note').value.trim()) state.cashNote = `${catMeta(state.cashPot).name} dues`;
+    else state.cashNote = $('#cash-note').value;
+    sheetBody.innerHTML = backHTML() + cashHTML();
+    updateCashButton();
+  },
   'cash-source': (el) => {
     haptic.pick();
+    state.cashPot = null; // one or the other
     state.cashAmount = $('#cash-amount').value;
     state.cashDebt = null;
     state.cashNote = state.cashNote === el.dataset.s ? '' : el.dataset.s; // who paid you: tap again to clear
@@ -2378,6 +2433,7 @@ const actions = {
   },
   'cash-debt': (el) => {
     haptic.pick();
+    state.cashPot = null; // one or the other
     state.cashAmount = $('#cash-amount').value;
     const name = el.dataset.debt;
     state.cashDebt = state.cashDebt === name ? null : name;
@@ -2543,6 +2599,7 @@ document.addEventListener('submit', (e) => {
     if (state.cashDir < 0 && state.cashCat === 'other' && !$('#cash-note').value.trim()) { haptic.err(); $('#cash-error').textContent = '📦 Other: what was it? Type it under “What for”.'; $('#cash-note').focus(); return; }
     const body = { id: state.cashId, amount: state.cashDir * cents, note: $('#cash-note').value };
     if (state.cashDir > 0 && state.cashDebt) Object.assign(body, { debt: state.cashDebt, note: body.note || `${state.cashDebt} paid me back` }); // cash back from someone who owed you
+    if (state.cashDir > 0 && state.cashPot) body.category = state.cashPot; // club money, not yours
     if (state.cashDir < 0 && state.cashNewCat) body.newCategory = state.cashNewCat;
     else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
     mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); }, e.target);

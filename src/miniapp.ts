@@ -1,8 +1,8 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, newCategory, owed, parseDebts, reopenDebt } from './classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, newCategory, owed, parseDebts, parseFunds, reopenDebt } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
-import { deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
+import { fundMonths, deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -12,7 +12,7 @@ async function summary(env: Env, asked?: string | null) {
   const today = dayOf(localStamp());
   const month = asked && /^\d{4}-\d{2}$/.test(asked) && asked <= monthOf(today) ? asked : monthOf(today);
   const since = addDays(today, -90);
-  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore, history, sources] = await Promise.all([
+  const [txs, prevTxs, settings, saved, first, spendDays, loans, bank, passedOn, unrated, before, prevBefore, history, sources, potMonths] = await Promise.all([
     txInMonth(env.DB, month),
     txInMonth(env.DB, addMonths(month, -1)),
     getSettings(env.DB),
@@ -27,6 +27,7 @@ async function summary(env: Env, asked?: string | null) {
     passedOnBefore(env.DB, `${addMonths(month, -1)}-01`),
     loanHistory(env.DB),
     incomeSources(env.DB, addDays(today, -120)),
+    fundMonths(env.DB),
   ]);
   const debts = parseDebts(settings.debts ?? null);
   return dashboard({
@@ -40,6 +41,11 @@ async function summary(env: Env, asked?: string | null) {
     debts: owed(debts, loans).filter((o) => !o.closed), // closed ones are only listed under Closed, to reopen
     loans: debts.map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe', ...(d.closed ? { closed: true as const } : {}) })),
     incomeSources: sources,
+    // Club pots: each month's in and out (its plus or minus), and what you're holding for it.
+    funds: parseFunds(settings.funds ?? null).map((f) => {
+      const months = potMonths.filter((r) => r.fund === f.id).map(({ fund: _, ...r }) => r);
+      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0) };
+    }),
     loanHistory: history.map((t) => ({ n: t.n, ts: t.ts, part: t.part, debt: debtFor(debts, { ...t, amount: t.part })?.name ?? t.debt, label: t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Payment') })),
     categories: categoriesFrom(settings.categories ?? null),
     balance: bank?.balance != null ? { amount: bank.balance, ts: bank.ts } : null,

@@ -1,4 +1,4 @@
-import { categoriesFrom, openDebts, parseDebts, type Categories, type Kind } from './classify.ts';
+import { categoriesFrom, openDebts, parseDebts, parseFunds, type Categories, type Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
@@ -154,6 +154,17 @@ export async function unratedCount(db: D1Database): Promise<number> {
 }
 
 /** Names of your loans, for the "which loan?" buttons. */
+/** Club pots' ids (each is also a category): every payment's message offers them. */
+export const fundIds = async (db: D1Database) => parseFunds(await getSetting(db, 'funds')).map((f) => f.id);
+
+/** Each club pot's money in and out, by the month it counts for, oldest first. */
+export async function fundMonths(db: D1Database): Promise<{ fund: string; month: string; in: number; out: number; count: number }[]> {
+  const { results } = await db
+    .prepare("SELECT category AS fund, COALESCE(month, substr(ts, 1, 7)) AS month, COALESCE(SUM(CASE WHEN amount > 0 THEN amount END), 0) AS \"in\", COALESCE(-SUM(CASE WHEN amount < 0 THEN amount END), 0) AS out, COUNT(*) AS count FROM tx WHERE kind = 'fund' GROUP BY 1, 2 ORDER BY 2")
+    .all<{ fund: string; month: string; in: number; out: number; count: number }>();
+  return results;
+}
+
 /** The people you keep a debt with (closed ones aren't offered any more). */
 export const debtNames = async (db: D1Database) => openDebts(parseDebts(await getSetting(db, 'debts'))).map((d) => d.name);
 

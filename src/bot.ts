@@ -1,6 +1,6 @@
 import { BadInput, applyChoice } from './actions.ts';
 import { KINDS, debtFor, owed, owedText, parseDebts, type Categories } from './classify.ts';
-import { debtNames, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, unratedCount, type Env } from './db.ts';
+import { debtNames, fundIds, deleteSetting, deleteTx, getBudget, getCategories, getSetting, getTx, loanPayments, setSetting, unratedCount, type Env } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { fold } from './parse.ts';
 import { footerFor, morningText, wrapText } from './reports.ts';
@@ -21,6 +21,7 @@ Card and Google Pay payments appear here about a minute after you pay. Tap to so
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist: never income or spending, only what you keep counts, as a running total
 • 🏦 Savings for moves to your savings account
 • 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
+• a club pot, like 🏐, for members' dues and club spending: never yours, with its own month-by-month tracker in the dashboard
 • 💵 Cash for cash out of an ATM or paid in: not spending, what you spend from it counts when you type it in
 I remember your choice for the same shop or account next time.
 
@@ -208,7 +209,7 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
       await answer('Deleted');
     } else if (action === 'e') {
       const cats = await getCategories(env.DB);
-      await edit(env, q.message.message_id, txText(t, await footerFor(env, t), cats), txKeyboard(t, true, await debtNames(env.DB), cats));
+      await edit(env, q.message.message_id, txText(t, await footerFor(env, t), cats), txKeyboard(t, true, await debtNames(env.DB), cats, await fundIds(env.DB)));
       await answer();
     } else if (action === 'c') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { category: value });

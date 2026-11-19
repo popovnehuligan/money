@@ -69,3 +69,16 @@ test('your name for a payment is what the chat shows', () => {
   assert.match(txText(tx({ merchant: 'Platba 7500/000000-123', label: 'Gift for Alex' })), /Gift for Alex/);
   assert.match(txText(tx({ merchant: 'BOLT' })), /BOLT/);
 });
+
+test('club money: a 🏐 button on every payment, out of the spending grid, and the message names the pot', () => {
+  const cats = categoriesFrom('{"volleyball":"🏐 Volleyball"}');
+  const dues = tx({ amount: 1000, kind: 'fund', category: 'volleyball', merchant: 'NOVAK Peter' }); // suggested, not yet confirmed
+  const kb = texts(txKeyboard(dues, false, [], cats, ['volleyball']));
+  assert.deepEqual(kb[0], ['✅ 🏐 Volleyball']); // one tap if it's right
+  assert.deepEqual(kb.at(-1), ['✓ Volleyball']);
+  assert.match(txText(dues, undefined, cats), /^🏐 <b>\+10,00 €<\/b> · NOVAK Peter\n🏐 Volleyball · card/);
+  const spend = texts(txKeyboard(tx(), false, [], cats, ['volleyball']));
+  assert.ok(!spend.flat().includes('🏐')); // not in the emoji grid…
+  assert.deepEqual(spend.at(-1), ['🏐 Volleyball']); // …it has its own row
+  assert.deepEqual(texts(txKeyboard({ ...dues, confirmed: 1 }, false, [], cats, ['volleyball'])), [['🏐 Volleyball · change']]);
+});

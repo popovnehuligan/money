@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Env } from '../src/db.ts';
 import { applyChoice } from '../src/actions.ts';
 import { owed, parseDebts } from '../src/classify.ts';
-import { getTx, loanPayments, txInMonth } from '../src/db.ts';
+import { fundMonths, getTx, loanPayments, txInMonth } from '../src/db.ts';
 import { ingest, record } from '../src/ingest.ts';
 import { api } from '../src/miniapp.ts';
 import { handleUpdate, type Update } from '../src/bot.ts';
@@ -334,4 +334,28 @@ test('📦 Other asks what it was: the reply names the payment, or moves it to a
   await tap(b.n);
   await reply('food'); // the name of a category you have: it goes there
   assert.equal((await getTx(env.DB, b.n))!.category, 'food');
+});
+
+test('🏐 club money: suggested for dues and by its words, never income or spending, tracked by month', async () => {
+  const { env } = setup();
+  const set = (k: string, v: string) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').bind(k, v).run();
+  await set('categories', '{"volleyball":"🏐 Volleyball"}');
+  await set('funds', '[{"id":"volleyball","dues":1000,"match":["volejbal"]}]');
+  const pay = async (id: string, cents: number, merchant: string, note: string | null = null, source = 'bmail') =>
+    (await record(env, { ext_id: id, ts: '2026-11-19T12:00', amount: cents, currency: 'EUR', balance: null, merchant, iban: null, note, method: 'transfer', source, raw: null }))!;
+  const a = await pay('v1', 1000, 'NOVAK Peter');
+  assert.deepEqual([a.kind, a.category, a.confirmed], ['fund', 'volleyball', 0]); // 10 € from someone new: suggested as dues
+  assert.equal((await pay('v2', 4000, 'HORVATH Jana')).kind, 'income'); // 40 €: not dues
+  assert.equal((await pay('v3', 2500, 'BALAZ Eva', 'volejbal november')).kind, 'fund'); // says what it's for
+  assert.equal((await pay('v4', 1000, 'gift', null, 'manual')).kind, 'income'); // typed in yourself: you said what it was
+  // A pot's category makes it club money, out too; another kind takes the pot away.
+  const hall = await pay('v5', -3500, 'SPORT HALL');
+  await applyChoice(env, hall, { category: 'volleyball' });
+  assert.deepEqual((({ kind, category }) => [kind, category])((await getTx(env.DB, hall.n))!), ['fund', 'volleyball']);
+  await applyChoice(env, a, { kind: 'income' });
+  assert.deepEqual((({ kind, category }) => [kind, category])((await getTx(env.DB, a.n))!), ['income', null]);
+  // Never yours: the 25 € in and 35 € out aren't in earnings or spending.
+  const s = summarize(await txInMonth(env.DB, '2026-11'));
+  assert.deepEqual([s.income, s.spent], [6000, 0]); // 40 € + 10 € gift + the 10 € moved back to income
+  assert.deepEqual((await fundMonths(env.DB)).map((r) => ({ ...r })), [{ fund: 'volleyball', month: '2026-11', in: 2500, out: 3500, count: 2 }]); // November: −10 €
 });

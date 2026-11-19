@@ -42,6 +42,13 @@ export function readSettings(s: Record<string, string>): DashboardSettings {
 
 const METHOD: Record<string, string> = { card: 'Card', transfer: 'Transfer', atm: 'ATM', cash: 'Cash', gap: 'Balance change', other: 'Bank' };
 
+/** A club pot (its id is a category: 🏐 Volleyball): money in and out by month, and what you're holding for it. */
+export interface FundView {
+  id: string;
+  months: { month: string; in: number; out: number; count: number }[];
+  held: number;
+}
+
 export interface DashboardInput {
   month: string;
   today: string;
@@ -56,6 +63,7 @@ export interface DashboardInput {
   passedOn?: { in: number; out: number; kept: number }; // 🔁 Passed on, all time: kept is the running total
   unrated?: number; // spending not rated yet, all months
   loans?: { name: string; amount: number; dir: 'owe' | 'owed'; closed?: true }[]; // each loan's starting amount, who owed whom, and whether it's closed
+  funds?: FundView[]; // club pots: what came in and went out, month by month
   incomeSources?: string[]; // who pays you most often lately, for quick picks
   loanHistory?: { n: number; ts: string; part: number; debt: string | null; label: string }[]; // every payment that moved a loan
   passedOnBefore?: number; // passed-on running total before this month
@@ -141,6 +149,7 @@ export function dashboard(o: DashboardInput) {
     },
     debts: o.debts,
     loans: o.loans ?? [],
+    funds: o.funds ?? [],
     incomeSources: o.incomeSources ?? [],
     loanHistory: o.loanHistory ?? [],
     saveTarget: s.saveTarget,

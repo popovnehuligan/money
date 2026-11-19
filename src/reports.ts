@@ -1,6 +1,6 @@
 import { debtFor, owed, owedText, parseDebts, type Categories } from './classify.ts';
 import { parseCaps } from './dashboard.ts';
-import { firstDay, getBudget, getCategories, getSetting, getSettings, loanPayments, passedOnBefore, passedOnTotal, savedByMonth, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
+import { firstDay, fundMonths, getBudget, getCategories, getSetting, getSettings, loanPayments, passedOnBefore, passedOnTotal, savedByMonth, spendDaysSince, txBetween, txInMonth, type Env, type Tx } from './db.ts';
 import { review, reviewText } from './review.ts';
 import { noSpendStreak, safeToSpend, summarize, type Summary } from './stats.ts';
 import { eur } from './telegram.ts';
@@ -58,6 +58,13 @@ export async function footerFor(env: Env, t: Tx): Promise<string | undefined> {
       // Not income, not spending: only what you keep counts, as a running total.
       const total = await passedOnTotal(env.DB);
       return `🔁 Kept from passed-on money so far: <b>${eur(total.kept, true)}</b> (${name}: ${eur(s.podmogaNet, true)})`;
+    }
+    case 'fund': {
+      // Club money: not yours. Its month (plus or minus) and what you're holding for it.
+      const rows = (await fundMonths(env.DB)).filter((r) => r.fund === t.category);
+      const here = rows.find((r) => r.month === (t.month ?? month)), held = rows.reduce((a, r) => a + r.in - r.out, 0);
+      const pot = (await getCategories(env.DB))[t.category ?? ''] ?? 'Club money';
+      return `${pot} in ${monthName(t.month ?? month)}: <b>${eur((here?.in ?? 0) - (here?.out ?? 0), true)}</b> · ${held >= 0 ? `holding ${eur(held)}` : `you’ve put in ${eur(-held)} more than came in`}`;
     }
     case 'savings':
       return `Saved in ${name}: <b>${eur(s.saved)}</b> 🌱`;
