@@ -359,3 +359,29 @@ test('🏐 club money: suggested for dues and by its words, never income or spen
   assert.deepEqual([s.income, s.spent], [6000, 0]); // 40 € + 10 € gift + the 10 € moved back to income
   assert.deepEqual((await fundMonths(env.DB)).map((r) => ({ ...r })), [{ fund: 'volleyball', month: '2026-11', in: 2500, out: 3500, count: 2 }]); // November: −10 €
 });
+
+test('money back: a card refund goes back to what it reverses, chip-ins lower that spending, and none of it is income', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('categories', ?)").bind('{"party":"🎂 Party"}').run();
+  const pay = async (id: string, ts: string, cents: number, merchant: string, note: string | null = null) =>
+    (await record(env, { ext_id: id, ts, amount: cents, currency: 'EUR', balance: null, merchant, iban: null, note, method: cents < 0 ? 'card' : 'transfer', source: 'bmail', raw: null }))!;
+  // A friend's earlier transfer was passed on: that's what's learned for them.
+  await applyChoice(env, await pay('p0', '2026-11-01T10:00', 4500, 'NOVAKOVA Eva'), { kind: 'podmoga' });
+  const booking = await pay('p1', '2026-11-17T15:17', -28405, 'LODGING * ABC');
+  await applyChoice(env, booking, { category: 'party' });
+  // Cancelled: the card refund is sorted like the payment it reverses, as money back (not income).
+  const storno = await pay('p2', '2026-11-18T12:43', 28405, '', 'Storno platby 4405**0000, LODGING.COM.');
+  assert.deepEqual([storno.kind, storno.category, storno.confirmed], ['spend', 'party', 0]);
+  await applyChoice(env, await pay('p3', '2026-11-22T00:21', -27000, 'LODGING * DEF'), { category: 'party' }); // rebooked
+  // Two people chip in for it: money back for the party, not earnings.
+  const eva = await pay('p4', '2026-11-17T13:04', 20000, 'NOVAKOVA Eva');
+  await applyChoice(env, eva, { kind: 'spend' });
+  await applyChoice(env, eva, { category: 'party' });
+  await applyChoice(env, await pay('p5', '2026-11-17T15:18', 5000, 'SMITH Ann'), { kind: 'spend', category: 'party' });
+  const s = summarize(await txInMonth(env.DB, '2026-11'));
+  assert.deepEqual(s.byCategory, [['party', 2000]]); // what it cost you: 270 € − 200 € − 50 €
+  assert.equal(s.spent, 2000);
+  assert.equal(s.income, 0);
+  // One-off: the friend's next transfer is suggested as before (passed on), not as money back for the party.
+  assert.equal((await pay('p6', '2026-11-25T09:00', 4500, 'NOVAKOVA Eva')).kind, 'podmoga');
+});

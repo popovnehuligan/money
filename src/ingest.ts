@@ -1,5 +1,5 @@
 import { applyRules, collectionOf, debtFor, defaultKind, fundFor, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseFunds, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
-import { debtNames, fundIds, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
+import { debtNames, fundIds, reversedPayment, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
 import { edit, esc, send, tg, txKeyboard, txText } from './telegram.ts';
@@ -50,6 +50,13 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   const loans = debts.length ? await loanPayments(env.DB) : [];
   const repaid = debts.length ? repaymentOf(debts, loans, t.amount, t.merchant, t.note) ?? collectionOf(debts, loans, t.amount, t.merchant, t.note) : undefined;
   if (repaid) return store('loan', null, repaid.name);
+
+  // A card payment reversed (Tatra: "Storno platby …", e.g. a cancelled booking): money back for the
+  // payment it undoes, sorted the same way (its category, or passed on, or club money). Not income.
+  if (t.amount > 0 && /\bstorno\b/i.test(`${t.note ?? ''} ${t.merchant ?? ''}`)) {
+    const orig = await reversedPayment(env.DB, t.amount, t.ts);
+    return orig && (orig.kind === 'podmoga' || orig.kind === 'fund') ? store(orig.kind, orig.category) : store('spend', orig?.kind === 'spend' ? orig.category : null);
+  }
 
   const rule = applyRules(rules, t.amount, t.merchant, t.note);
   if (rule === 'ask') return store(defaultKind(t.amount), null);

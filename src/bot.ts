@@ -224,10 +224,11 @@ async function onButton(env: Env, q: NonNullable<Update['callback_query']>): Pro
         await answer('📦 Other. What was it? Reply below.');
         return;
       }
-      await answer(`${(await getCategories(env.DB))[value]}. Next time ${who} goes there automatically.`);
+      const cat = (await getCategories(env.DB))[value];
+      await answer(t.amount > 0 && t.kind !== 'fund' && !(await fundIds(env.DB)).includes(value) ? `↩️ Money back for ${cat}: it lowers that spending.` : `${cat}. Next time ${who} goes there automatically.`);
     } else if (action === 'k') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, { kind: value });
-      await answer(value === 'podmoga' ? 'Passed on: not income or spending. Only what you keep counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
+      await answer(value === 'spend' && t.amount > 0 ? 'Money back: pick the category it lowers.' : value === 'podmoga' ? 'Passed on: not income or spending. Only what you keep counts.' : value === 'loan' ? 'Loan: it changes what you owe, not your spending.' : `${KINDS[value as keyof typeof KINDS]}. I’ll remember this for ${who}.`);
     } else if (action === 'a') {
       await applyChoice(env, { ...t, tg_msg: q.message.message_id }, t.kind === 'spend' ? { category: t.category ?? undefined } : { kind: t.kind });
       await answer('Approved');

@@ -33,7 +33,7 @@ test('"change" expands the full keyboard again; manual entries can be deleted', 
 });
 
 test('money coming in only gets the kinds, two per row', () => {
-  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✅ 💰 Income'], ['✓ Income', '🔁 Passed on'], ['🏦 Savings', '🤝 Loan'], ['💵 Cash', '🚫 Ignore']]);
+  assert.deepEqual(texts(txKeyboard(tx({ amount: 25000, kind: 'income' }))), [['✅ 💰 Income'], ['✓ Income', '↩️ Refund'], ['🔁 Passed on', '🏦 Savings'], ['🤝 Loan', '💵 Cash'], ['🚫 Ignore']]);
 });
 
 test('a loan payment asks which loan when there are two', () => {

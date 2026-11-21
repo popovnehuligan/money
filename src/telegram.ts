@@ -49,14 +49,17 @@ export function eur(cents: number, signed = false): string {
 
 const ICON: Record<Kind, string> = { spend: '💸', income: '💰', savings: '🏦', podmoga: '🔁', loan: '🤝', cash: '💵', ignore: '🚫', fund: '👥' };
 /** What a payment is, in words: its category for spending and club money (🏐 Volleyball), else its kind. */
-const kindLabel = (t: Tx, cats: Categories) => (t.kind === 'spend' ? cats[t.category ?? ''] ?? KINDS.spend : t.kind === 'fund' ? cats[t.category ?? ''] ?? KINDS.fund : KINDS[t.kind]);
+const kindLabel = (t: Tx, cats: Categories) =>
+  t.kind === 'spend' ? (t.amount > 0 ? `${cats[t.category ?? ''] ?? REFUND} (money back)` : cats[t.category ?? ''] ?? KINDS.spend) : t.kind === 'fund' ? cats[t.category ?? ''] ?? KINDS.fund : KINDS[t.kind];
+/** Money in that brings back some of what you spent: a refund, or someone chipping in for a bill. */
+const REFUND = '↩️ Refund';
 
 const when = (ts: string) => `${Number(ts.slice(8, 10))}.${Number(ts.slice(5, 7))}. ${ts.slice(11, 16)}`;
 
 export function txText(t: Tx, footer?: string, cats: Categories = DEFAULT_CATEGORIES): string {
   const who = t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Unknown');
   const half = t.loan_part && t.debt && t.kind !== 'loan' ? ` · ${eur(Math.abs(t.loan_part))} of it ${t.loan_part < 0 ? 'for' : 'from'} ${esc(t.debt)}` : '';
-  const label = (t.kind === 'spend' && !t.category ? 'No category yet' : kindLabel(t, cats)) + half;
+  const label = (t.kind === 'spend' && !t.category ? (t.amount > 0 ? `${REFUND}: for which category?` : 'No category yet') : kindLabel(t, cats)) + half;
   const worth = (t.worth === 1 ? ' · 👍' : t.worth === 2 ? ' · 🧱' : t.worth === 0 ? ' · 👎' : '') + (t.month ? ` · for ${monthName(t.month)}` : '');
   const icon = t.kind === 'fund' ? categoryEmoji(cats[t.category ?? ''] ?? '') ?? ICON.fund : ICON[t.kind];
   const lines = [`${icon} <b>${eur(t.amount, true)}</b> · ${esc(who)}`, `${label} · ${t.method} · ${when(t.ts)}${worth}`];
@@ -100,7 +103,7 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
 
   if (t.confirmed && !expanded) {
     rows.push([{ text: `${kindLabel(t, cats)} · change`, callback_data: `e:1:${t.n}` }]);
-    if (t.kind === 'spend') rows.push(worthRow());
+    if (t.kind === 'spend' && t.amount < 0) rows.push(worthRow());
     return [...rows, ...debtRows()];
   }
 
@@ -123,10 +126,11 @@ export function txKeyboard(t: Tx, expanded = false, debts: string[] = [], cats: 
     const named = ids.filter((id) => !unique(id)).map((id) => pick(id, tick(t.category === id, cats[id])));
     rows.push(...evenRows(grid, 6));
     for (let i = 0; i < named.length; i += 2) rows.push(named.slice(i, i + 2));
-    rows.push(worthRow());
+    if (t.amount < 0) rows.push(worthRow()); // money back isn't rated
   }
-  const kinds = ([defaultKind(t.amount), 'podmoga', 'savings', 'loan', 'cash', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, KINDS[k]), callback_data: `k:${k}:${t.n}` }));
-  rows.push(kinds.slice(0, 2), kinds.slice(2, 4), kinds.slice(4));
+  // Money in can also be money back for something you spent (then it asks which category).
+  const kinds = ([defaultKind(t.amount), ...(t.amount > 0 ? ['spend'] : []), 'podmoga', 'savings', 'loan', 'cash', 'ignore'] as Kind[]).map((k) => ({ text: tick(t.kind === k, k === 'spend' && t.amount > 0 ? REFUND : KINDS[k]), callback_data: `k:${k}:${t.n}` }));
+  for (let i = 0; i < kinds.length; i += 2) rows.push(kinds.slice(i, i + 2)); // in pairs
   // Club money, in or out: a button per pot (🏐 Volleyball), on every payment.
   const pots = funds.filter((id) => id in cats).map((id) => ({ text: tick(t.kind === 'fund' && t.category === id, cats[id]), callback_data: `c:${id}:${t.n}` }));
   if (pots.length) rows.push(pots);

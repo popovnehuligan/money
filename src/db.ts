@@ -82,8 +82,16 @@ export const deleteTx = (db: D1Database, n: number) => db.prepare('DELETE FROM t
 export const learned = (db: D1Database, key: string, amount: number) =>
   db
     // Only choices for money going the same way: +350 € from someone being income says nothing about paying them.
-    .prepare('SELECT kind, category FROM tx WHERE key = ? AND confirmed = 1 AND (amount < 0) = ? ORDER BY ts DESC, n DESC LIMIT 1')
+    // Money back (a refund, someone chipping in for a bill) is a one-off: it teaches nothing about their next payment.
+    .prepare("SELECT kind, category FROM tx WHERE key = ? AND confirmed = 1 AND (amount < 0) = ? AND NOT (kind = 'spend' AND amount > 0) ORDER BY ts DESC, n DESC LIMIT 1")
     .bind(key, amount < 0 ? 1 : 0)
+    .first<Pick<Tx, 'kind' | 'category'>>();
+
+/** The payment a card refund ("Storno platby …") reverses: the same amount going out, in the 90 days before it. */
+export const reversedPayment = (db: D1Database, amount: number, ts: string) =>
+  db
+    .prepare("SELECT kind, category FROM tx WHERE amount = ? AND ts <= ? AND ts >= date(?, '-90 days') ORDER BY ts DESC, n DESC LIMIT 1")
+    .bind(-amount, ts, ts)
     .first<Pick<Tx, 'kind' | 'category'>>();
 
 /** The latest b-mail that told us your main account's balance. */
