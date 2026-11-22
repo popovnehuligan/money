@@ -1,4 +1,4 @@
-import { applyRules, collectionOf, debtFor, defaultKind, fundFor, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseFunds, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
+import { applyRules, collectionOf, debtFor, defaultKind, fundFor, openFunds, joinGap, keyFor, lenderOf, owed, repaymentOf, parseDebts, parseFunds, parseRules, passOnRule, type Kind, type Rule } from './classify.ts';
 import { debtNames, fundIds, reversedPayment, deleteTx, getCategories, getSetting, insertTx, insertUnparsed, latestBmail, latestOpenGap, movedBetween, learned, loanPayments, passedOnTotal, updateTx, type Env, type NewTx, type Tx } from './db.ts';
 import { parseBalanceNotice, parseBmail } from './parse.ts';
 import { footerFor } from './reports.ts';
@@ -75,7 +75,8 @@ export async function record(env: Env, t: Omit<NewTx, 'key' | 'kind' | 'category
   const said = fundFor(funds, t.amount, 'words', t.merchant, t.note);
   if (said) return store('fund', said.id);
   const prior = key ? await learned(env.DB, key, t.amount) : null;
-  if (prior) return store(prior.kind, prior.category);
+  // A pot this sender went to that's closed now (the gift is bought): not a suggestion any more.
+  if (prior && !(prior.kind === 'fund' && !openFunds(funds).some((f) => f.id === prior.category))) return store(prior.kind, prior.category);
   const dues = t.source === 'bmail' && t.method !== 'atm' ? fundFor(funds, t.amount, 'dues') : undefined; // bank transfers only: what you type yourself, you named
   if (dues) return store('fund', dues.id); // a suggestion: one tap if it's right
   return store(t.method === 'atm' ? 'cash' : defaultKind(t.amount), null); // an ATM: a suggestion to approve

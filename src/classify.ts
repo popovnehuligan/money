@@ -17,11 +17,11 @@ export const KINDS: Record<Kind, string> = {
   loan: '🤝 Loan',
   cash: '💵 Cash',
   ignore: '🚫 Ignore',
-  fund: '👥 Club money', // shown by its pot's own name, e.g. 🏐 Volleyball
+  fund: '👥 Pot', // shown by its pot's own name, e.g. 🏐 Volleyball or 🎁 Kate's gift
 };
 
 /**
- * Club money: a pot you hold for others, e.g. members' dues for a volleyball club. Kept in the
+ * A pot: money you collect or hold for others, e.g. a club's dues or friends' chip-ins for a gift. Kept in the
  * `funds` setting (database only), e.g. [{"id":"volleyball","dues":1000,"match":["volejbal"]}];
  * its id is also a category, which gives it its emoji and name. A payment in it is never your
  * income or spending: the pot has its own month-by-month tracker of what came in and went out.
@@ -32,7 +32,11 @@ export interface Fund {
   id: string;
   dues?: number;
   match?: string[];
+  goal?: number; // cents: what you're saving up to (a gift's price), shown as a target
+  closed?: boolean; // done (e.g. the gift is bought): out of the lists, never suggested, its history kept
 }
+/** The pots you keep: closed ones keep their payments but aren't offered or suggested. */
+export const openFunds = (funds: Fund[]) => funds.filter((f) => !f.closed);
 
 export function parseFunds(json: string | null): Fund[] {
   try {
@@ -45,8 +49,9 @@ export function parseFunds(json: string | null): Fund[] {
 
 /** The pot a new payment looks like it's for: by the words in it, or (`dues`) money in that looks like dues. */
 export function fundFor(funds: Fund[], amount: number, how: 'words' | 'dues', ...names: Name[]): Fund | undefined {
-  if (how === 'words') return funds.find((f) => f.match?.length && mentions(f.match, names));
-  return amount > 0 ? funds.find((f) => f.dues && f.dues > 0 && amount % f.dues === 0 && amount <= 3 * f.dues) : undefined;
+  const open = openFunds(funds);
+  if (how === 'words') return open.find((f) => f.match?.length && mentions(f.match, names));
+  return amount > 0 ? open.find((f) => f.dues && f.dues > 0 && amount % f.dues === 0 && amount <= 3 * f.dues) : undefined;
 }
 
 export type Categories = Record<string, string>; // id → "emoji Name"

@@ -21,7 +21,7 @@ Card and Google Pay payments appear here about a minute after you pay. Tap to so
 • 🔁 Passed on for money you only pass on, like podmoga jobs or mom’s money for the psychologist: never income or spending, only what you keep counts, as a running total
 • 🏦 Savings for moves to your savings account
 • 🤝 Loan for borrowing or paying someone back (/owe shows what's left)
-• a club pot, like 🏐, for members' dues and club spending: never yours, with its own month-by-month tracker in the dashboard
+• a pot, like 🏐 (a club's dues) or 🎁 (friends chipping in for a gift): never yours, with its own tracker in the dashboard
 • 💵 Cash for cash out of an ATM or paid in: not spending, what you spend from it counts when you type it in
 I remember your choice for the same shop or account next time.
 

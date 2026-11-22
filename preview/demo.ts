@@ -96,7 +96,7 @@ const toTx = (month: string) => ([day, time, euros, label, kind, category, worth
 const CLUB_SEPT: Row[] = [['08', '18:00', 10, 'NOVAK Peter', 'fund', 'volleyball', undefined, 'transfer'], ['09', '12:10', 10, 'HORVATH Jana', 'fund', 'volleyball', undefined, 'transfer'], ['15', '20:00', -35, 'Sport hall rent', 'fund', 'volleyball', undefined, 'transfer']];
 const CLUB_OCT: Row[] = [['02', '18:30', 10, 'NOVAK Peter', 'fund', 'volleyball', undefined, 'transfer'], ['03', '09:40', 20, 'KOVAC Tomas', 'fund', 'volleyball', undefined, 'transfer'], ['05', '21:05', 10, 'HORVATH Jana', 'fund', 'volleyball', undefined, 'transfer'], ['06', '17:20', -24.9, 'DECATHLON BRATISLAVA', 'fund', 'volleyball'], ['12', '11:00', 10, 'BALAZ Eva', 'fund', 'volleyball', undefined, 'transfer']];
 let txs: Tx[] = [...september().map(toTx('2026-09')), ...CLUB_SEPT.map(toTx('2026-09')), ...OCTOBER.map(toTx('2026-10')), ...CLUB_OCT.map(toTx('2026-10'))];
-const isFund = (id: unknown) => typeof id === 'string' && JSON.parse(settings.funds ?? '[]').some((f: { id: string }) => f.id === id);
+const isFund = (id: unknown) => typeof id === 'string' && JSON.parse(settings.funds ?? '[]').some((f: { id: string; closed?: boolean }) => f.id === id && !f.closed);
 const cashIds = new Set<string>(); // cash entries already stored, by their form's id
 const settings: Record<string, string> = { budget: '60000', goal_name: 'Japan trip', goal_amount: '200000', savings_start: '45000', categories: '{"fun":"🎉 Fun","volleyball":"🏐 Volleyball"}', funds: '[{"id":"volleyball","dues":1000}]', debts: '[{"name":"Mom","match":["mom"],"amount":10000},{"name":"Ben","match":[],"amount":17520}]' };
 const EARLIER_SAVINGS = [{ month: '2026-08', saved: 15000 }, { month: '2026-07', saved: 12000 }];
@@ -116,7 +116,7 @@ function summary(month = TODAY.slice(0, 7)) {
     savedByMonth,
     streak: noSpendStreak(spendDays, '2026-09-01', TODAY),
     loans: parseDebts(settings.debts).map((d) => ({ name: d.name, amount: d.amount, dir: d.dir ?? 'owe', ...(d.closed ? { closed: true as const } : {}) })),
-    funds: JSON.parse(settings.funds ?? '[]').map((f: { id: string }) => {
+    funds: JSON.parse(settings.funds ?? '[]').map((f: { id: string; goal?: number; closed?: boolean }) => {
       const by = new Map<string, { month: string; in: number; out: number; count: number }>();
       for (const t of txs.filter((x) => x.kind === 'fund' && x.category === f.id).sort((a, b) => a.ts.localeCompare(b.ts))) {
         const m = t.month ?? t.ts.slice(0, 7), r = by.get(m) ?? { month: m, in: 0, out: 0, count: 0 };
@@ -125,7 +125,7 @@ function summary(month = TODAY.slice(0, 7)) {
         by.set(m, r);
       }
       const months = [...by.values()].sort((a, b) => a.month.localeCompare(b.month));
-      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0) };
+      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0), ...(f.goal ? { goal: f.goal } : {}), ...(f.closed ? { closed: true as const } : {}) };
     }),
     incomeSources: [...new Set(txs.filter((t) => t.kind === 'income' && t.amount > 0).map((t) => t.label ?? t.merchant ?? 'Cash'))],
     debts: owed(parseDebts(settings.debts), loanMoves()).filter((o) => !o.closed),
@@ -193,6 +193,22 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       if (body.debt) Object.assign(t, { debt: body.debt, confirmed: 1, ...(body.ts ? { ts: body.ts } : {}) });
       if (isFund(body.category)) Object.assign(t, { kind: 'fund', category: body.category, confirmed: 1 });
       txs.push(t);
+      return json(summary());
+    }
+    case '/api/fund': {
+      // Like the Worker: start a pot, set what it's saving up to, close it (optionally into a category), reopen it.
+      const funds: { id: string; goal?: number; closed?: boolean }[] = JSON.parse(settings.funds ?? '[]');
+      let f = body.add ? funds.find((x) => x.id === typedCategory(body.add)) : funds.find((x) => x.id === body.id);
+      if (body.add && !f) funds.push((f = { id: typedCategory(body.add) }));
+      if (!f) return json({ error: 'That pot doesn’t exist any more.' }, 400);
+      if (body.add) delete f.closed;
+      if (body.goal !== undefined) { if (body.goal) f.goal = body.goal; else delete f.goal; }
+      if (body.close) {
+        if (body.into) for (const t of txs.filter((x) => x.kind === 'fund' && x.category === f!.id)) Object.assign(t, { kind: 'spend', category: body.into, confirmed: 1 });
+        f.closed = true;
+      }
+      if (body.reopen) delete f.closed;
+      settings.funds = JSON.stringify(funds);
       return json(summary());
     }
     case '/api/debt': {

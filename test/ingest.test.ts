@@ -8,7 +8,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { Env } from '../src/db.ts';
 import { applyChoice } from '../src/actions.ts';
 import { owed, parseDebts } from '../src/classify.ts';
-import { fundMonths, getTx, loanPayments, txInMonth } from '../src/db.ts';
+import { fundIds, fundMonths, getTx, loanPayments, txInMonth } from '../src/db.ts';
 import { ingest, record } from '../src/ingest.ts';
 import { api } from '../src/miniapp.ts';
 import { handleUpdate, type Update } from '../src/bot.ts';
@@ -384,4 +384,41 @@ test('money back: a card refund goes back to what it reverses, chip-ins lower th
   assert.equal(s.income, 0);
   // One-off: the friend's next transfer is suggested as before (passed on), not as money back for the party.
   assert.equal((await pay('p6', '2026-11-25T09:00', 4500, 'NOVAKOVA Eva')).kind, 'podmoga');
+});
+
+test('a gift pot: start it with a goal, collect chip-ins, close it into a category so only your share is spending', async () => {
+  const { env } = setup();
+  await env.DB.prepare("INSERT INTO settings (key, value) VALUES ('categories', ?)").bind('{"friend":"💐 Friend"}').run();
+  const call = async (path: string, body: Record<string, unknown>) => {
+    const res = await api(env, new Request(`https://x${path}`, { method: 'POST', headers: { 'x-init-data': ownerInitData() }, body: JSON.stringify(body) }), new URL(`https://x${path}`));
+    const d = (await res.json()) as { error?: string; funds: { id: string; held: number; goal?: number; closed?: boolean }[]; categories: Record<string, string> };
+    assert.equal(res.status, 200, d.error);
+    return d;
+  };
+  let d = await call('/api/fund', { add: '🎁 Gift', goal: 6000 });
+  const id = Object.keys(d.categories).find((c) => d.categories[c] === '🎁 Gift')!;
+  assert.deepEqual(d.funds.map((f) => [f.id, f.goal]), [[id, 6000]]);
+  const pay = async (n: string, cents: number, who: string) => (await record(env, { ext_id: n, ts: '2026-11-22T10:00', amount: cents, currency: 'EUR', balance: null, merchant: who, iban: null, note: null, method: 'transfer', source: 'bmail', raw: null }))!;
+  for (const [n, who] of [['g1', 'NOVAK Peter'], ['g2', 'BALAZ Eva']]) await applyChoice(env, await pay(n, 2000, who), { category: id }); // two chip-ins
+  await applyChoice(env, await pay('g3', -6000, 'GIFT SHOP'), { category: id }); // the gift, bought for 60 €
+  // Done: counted as your spending on your friend, chip-ins as money back there. Your share: 20 €.
+  d = await call('/api/fund', { id, close: true, into: 'friend' });
+  assert.equal(d.funds.find((f) => f.id === id)?.closed, true);
+  const s = summarize(await txInMonth(env.DB, '2026-11'));
+  assert.deepEqual([s.byCategory, s.income], [[['friend', 2000]], 0]);
+  assert.deepEqual(await fundIds(env.DB), []); // closed: not offered on payments any more
+  d = await call('/api/fund', { id, reopen: true });
+  assert.deepEqual(await fundIds(env.DB), [id]);
+});
+
+test('a closed pot is never suggested again, even for someone who paid into it', async () => {
+  const { env } = setup();
+  const set = (k: string, v: string) => env.DB.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').bind(k, v).run();
+  await set('categories', '{"gift":"🎁 Gift"}');
+  await set('funds', '[{"id":"gift"}]');
+  const pay = async (n: string, ts: string) => (await record(env, { ext_id: n, ts, amount: 1500, currency: 'EUR', balance: null, merchant: 'NOVAK Peter', iban: null, note: null, method: 'transfer', source: 'bmail', raw: null }))!;
+  await applyChoice(env, await pay('c1', '2026-11-20T10:00'), { category: 'gift' }); // chipped in
+  assert.deepEqual((({ kind, category }) => [kind, category])(await pay('c2', '2026-11-21T10:00')), ['fund', 'gift']); // while it's open: suggested
+  await env.DB.prepare("UPDATE settings SET value = ? WHERE key = 'funds'").bind('[{"id":"gift","closed":true}]').run();
+  assert.equal((await pay('c3', '2026-11-25T10:00')).kind, 'income'); // closed: just money in, to sort
 });

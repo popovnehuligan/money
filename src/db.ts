@@ -1,4 +1,4 @@
-import { categoriesFrom, openDebts, parseDebts, parseFunds, type Categories, type Kind } from './classify.ts';
+import { categoriesFrom, openDebts, openFunds, parseDebts, parseFunds, type Categories, type Kind } from './classify.ts';
 import type { StatTx } from './stats.ts';
 import { addMonths } from './time.ts';
 
@@ -162,8 +162,8 @@ export async function unratedCount(db: D1Database): Promise<number> {
 }
 
 /** Names of your loans, for the "which loan?" buttons. */
-/** Club pots' ids (each is also a category): every payment's message offers them. */
-export const fundIds = async (db: D1Database) => parseFunds(await getSetting(db, 'funds')).map((f) => f.id);
+/** Open pots' ids (each is also a category): every payment's message offers them. */
+export const fundIds = async (db: D1Database) => openFunds(parseFunds(await getSetting(db, 'funds'))).map((f) => f.id);
 
 /** Each club pot's money in and out, by the month it counts for, oldest first. */
 export async function fundMonths(db: D1Database): Promise<{ fund: string; month: string; in: number; out: number; count: number }[]> {

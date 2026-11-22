@@ -47,6 +47,8 @@ export interface FundView {
   id: string;
   months: { month: string; in: number; out: number; count: number }[];
   held: number;
+  goal?: number; // what you're saving up to
+  closed?: true; // done: kept for its history
 }
 
 export interface DashboardInput {

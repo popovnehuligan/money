@@ -220,6 +220,9 @@ svg { display: block; }
 .pod p { margin: 0; color: var(--ink-2); }
 .pod p b { color: var(--good); }
 .pot { display: block; width: 100%; text-align: left; margin-top: 14px; }
+.pot .of { font-size: .5em; letter-spacing: -.01em; color: var(--ink-2); font-weight: 600; }
+.pot .meter { display: block; margin: 8px 0 10px; }
+.pot-foot { margin-top: 14px; }
 .pot h3 { color: var(--ink-2); }
 .pot p b { color: var(--ink); }
 .pod .big-kept { margin: 2px 0 6px; font: 700 30px/1 var(--f-ui); letter-spacing: -.04em; color: var(--good); }
@@ -806,7 +809,7 @@ const KIND = {
   savings: { icon: '🫙', name: 'Savings', c: 'var(--gold)', hint: 'Moved to or from savings. Shown in the jar, never as spending.' },
   cash: { icon: '💵', name: 'Cash', c: 'var(--ink-2)', hint: 'Cash out of an ATM, or cash paid in. Not spending: what you spend from it counts when you add it as cash.' },
   ignore: { icon: '🚫', name: 'Ignore', c: 'var(--muted)', hint: 'Not counted anywhere, e.g. moves between your own accounts.' },
-  fund: { icon: '👥', name: 'Club money', c: 'var(--c-other)', hint: 'Money you hold for a club: never your income or spending. Its own tracker shows each month’s plus or minus.' },
+  fund: { icon: '👥', name: 'Pot', c: 'var(--c-other)', hint: 'Money you collect or hold for others (a club’s dues, chip-ins for a gift): never your income or spending. Its pot shows what came in and went out.' },
 };
 const UNCOUNTED = new Set(['ignore', 'cash', 'podmoga', 'fund']); // shown, but their own amounts aren't part of any total (passed-on money counts only as its net)
 let CATS = {};
@@ -824,7 +827,8 @@ const catMeta = (id) => {
 const visual = (t) => (t.kind === 'spend' && t.amount > 0 && !t.category ? { icon: '↩️', c: 'var(--good)' } : t.kind === 'fund' && t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : t.kind === 'spend' ? (t.category ? { icon: catMeta(t.category).emoji, c: catMeta(t.category).c } : { icon: '💸', c: 'var(--c-other)' }) : { icon: KIND[t.kind].icon, c: KIND[t.kind].c });
 const isUnsorted = (t) => t.kind === 'spend' && !t.category && t.amount < 0;
 /** Club pots (🏐 Volleyball): money you hold for others. Each is a category, for its emoji and name. */
-const pots = () => (state.cur?.funds || []).filter((f) => f.id in CATS);
+const allPots = () => (state.cur?.funds || []).filter((f) => f.id in CATS);
+const pots = () => allPots().filter((f) => !f.closed); // open ones: offered on payments, shown as cards
 const isPot = (id) => pots().some((f) => f.id === id);
 /** What a payment cost as spending: half a bar bill that paid a loan back costs half. */
 const own = (t) => t.amount - (t.loanPart || 0);
@@ -1276,12 +1280,24 @@ function renderFlow() {
   }
   const potCards = pots().map((f) => {
     const m = catMeta(f.id), here = f.months.find((r) => r.month === d.month) || { in: 0, out: 0, count: 0 }, net = here.in - here.out;
+    if (f.goal) {
+      // Saving up (a gift): what's collected toward the goal.
+      const got = Math.max(0, f.held), w = Math.min(100, (100 * got) / f.goal);
+      return `<button type="button" class="pod pot" data-act="pot" data-pot="${f.id}" style="--c:${m.c}">
+        <h3>${m.emoji} ${esc(m.name)}</h3>
+        <p class="big-kept">${eur0(got)} <span class="of">of ${eur0(f.goal)}</span></p>
+        <span class="meter"><i style="--w:${w.toFixed(1)}%;--c:var(--good)"></i></span>
+        <p>${got >= f.goal ? 'There: ready to buy.' : `${eur0(f.goal - got)} to go.`}${here.count ? ` ${here.count} payment${here.count === 1 ? '' : 's'} in ${esc(d.name)}.` : ''}</p>
+      </button>`;
+    }
     return `<button type="button" class="pod pot" data-act="pot" data-pot="${f.id}" style="--c:${m.c}">
       <h3>${m.emoji} ${esc(m.name)} · ${esc(d.name)}</h3>
       <p class="big-kept${net < 0 ? ' neg' : ''}">${net ? eur0(net, true) : '±0 €'}</p>
-      <p>${here.count ? `${eur0(here.in)} in, ${eur0(here.out)} out.` : 'Nothing in or out yet.'} ${f.held >= 0 ? `You’re holding <b>${eur0(f.held)}</b> of club money.` : `You’ve put in <b>${eur0(-f.held)}</b> more than came in.`}</p>
+      <p>${here.count ? `${eur0(here.in)} in, ${eur0(here.out)} out.` : 'Nothing in or out yet.'} ${f.held >= 0 ? `You’re holding <b>${eur0(f.held)}</b> for it.` : `You’ve put in <b>${eur0(-f.held)}</b> more than came in.`}</p>
     </button>`;
   }).join('');
+  const closedPots = allPots().filter((f) => f.closed);
+  const potFoot = `<div class="chips pot-foot"><button type="button" class="chip" data-act="pot-new">＋ New pot</button>${closedPots.map((f) => `<button type="button" class="chip" data-act="pot-reopen" data-pot="${f.id}" title="Closed: tap to reopen">↩ ${catMeta(f.id).emoji} ${esc(catMeta(f.id).name)}</button>`).join('')}</div>`;
   $('#flow').innerHTML = `
     <h2 class="title" id="flow-title">Where it went</h2>
     ${finding ? `<p class="lede">${finding}</p>` : ''}
@@ -1292,10 +1308,11 @@ function renderFlow() {
     </div>
     ${bars ? `<div class="bars">${bars}${s.overdraft ? `<div class="bar-row" style="--c:var(--podmoga)"><span class="bar-top"><span>🔁 Passed on beyond what came in</span><b>${eur0(s.overdraft)}</b></span><span class="meter"><i style="--w:${((100 * s.overdraft) / max).toFixed(1)}%"></i></span></div>` : ''}</div>` : '<div class="empty"><b>Nothing spent yet</b>Categories show up here as you sort payments.</div>'}
     ${pod}
-    ${potCards}`;
+    ${potCards}
+    ${potFoot}`;
 }
 
-/** A club pot's tracker: each month's plus or minus, newest first, and what you're holding. */
+/** A pot's tracker: what it's saving up to, each month's plus or minus (newest first), what you're holding, and closing it. */
 function potHTML(id) {
   const f = pots().find((x) => x.id === id);
   if (!f) return null;
@@ -1306,11 +1323,38 @@ function potHTML(id) {
       <span class="nm"><b>${esc(label)}</b><span>${eur0(r.in)} in · ${eur0(r.out)} out · ${r.count} payment${r.count === 1 ? '' : 's'}</span></span>
       <span class="am"><b${net < 0 ? ' style="color:var(--bad)"' : net > 0 ? ' style="color:var(--good)"' : ''}>${net ? eur0(net, true) : '±0 €'}</b></span><span class="go" aria-hidden="true">›</span></button>`;
   }).join('');
-  return `<p class="rv-kicker">Club money</p>
+  return `<p class="rv-kicker">Pot</p>
     <h2 class="rv-head" id="sheet-title">${m.emoji} ${esc(m.name)}</h2>
-    <p class="rv-p">${f.held >= 0 ? `You’re holding <b>${eur(f.held)}</b> of club money.` : `You’ve put in <b>${eur(-f.held)}</b> more than came in.`}</p>
-    ${rows ? `<div class="earn-list">${rows}</div>` : '<div class="empty"><b>Nothing yet</b>Mark dues and club spending as this, in a payment or in the chat.</div>'}
-    <p class="hint" style="margin-top:14px">Not your money: never in your earnings or spending. A month’s plus or minus is what came in for it minus what went out. Dues from someone new arrive already suggested; a tap confirms them.</p>`;
+    <p class="rv-p">${f.held < 0 ? `You’ve put in <b>${eur(-f.held)}</b> more than came in.` : f.goal ? `You’ve collected <b>${eur(f.held)}</b> of the <b>${eur0(f.goal)}</b> you’re saving up to.` : `You’re holding <b>${eur(f.held)}</b> for it.`}</p>
+    ${rows ? `<div class="earn-list">${rows}</div>` : '<div class="empty"><b>Nothing yet</b>Mark payments for it with its button, in the app or in the chat.</div>'}
+    <form id="pot-goal" class="edit-row caps-row" data-pot="${id}" novalidate style="margin-top:16px">
+      <span class="who">Saving up to<small>a gift’s price, say; empty for none</small></span>
+      <span class="suffix"><input id="pot-goal-amount" inputmode="decimal" placeholder="—" value="${f.goal ? NUM.format(f.goal / 100).replace(/\s/g, '') : ''}" aria-label="Saving up to"><b>€</b></span>
+    </form>
+    <div class="chips" style="margin-top:12px"><button type="button" class="chip" data-act="pot-goal-save" data-pot="${id}">Save the goal</button><button type="button" class="chip" data-act="pot-close" data-pot="${id}">Done: close it</button></div>
+    <p class="hint" style="margin-top:14px">Not your money: never in your earnings or spending. A month’s plus or minus is what came in for it minus what went out.</p>`;
+}
+
+/** Closing a pot: count it as your own spending in a category (a gift you bought with friends’ chip-ins), or just close it. */
+function potCloseHTML(id) {
+  const m = catMeta(id), f = allPots().find((x) => x.id === id);
+  if (!f) return null;
+  return `<h2 class="sh-h" id="sheet-title">Close ${m.emoji} ${esc(m.name)}?</h2>
+    <p class="rv-p">Count it as your spending in a category: chip-ins become money back there and what you paid from it becomes spending, so the category shows your own share${f.held < 0 ? ` (${eur(-f.held)})` : ''}.</p>
+    <p class="label">Count it in</p>
+    <div class="tiles">${Object.keys(CATS).filter((c) => !isPot(c) && c !== id).map((c) => { const x = catMeta(c); return `<button type="button" class="tile" data-act="pot-into" data-pot="${id}" data-cat="${c}" style="--c:${x.c}"><span class="em">${x.emoji}</span>${esc(x.name)}</button>`; }).join('')}</div>
+    <div class="sh-foot"><button type="button" class="textbtn" data-act="pot-into" data-pot="${id}" data-cat="">Just close it: keep it as pot money</button></div>`;
+}
+
+function potNewHTML() {
+  return `<h2 class="sh-h" id="sheet-title">New pot</h2>
+    <p class="rv-p">Money you collect or hold for others: a club’s dues, friends chipping in for a gift. Never your income or spending.</p>
+    <form id="pot-new" novalidate>
+      <label class="field"><span class="field-name">Name</span><input class="input" id="pot-new-name" maxlength="30" placeholder="🎁 Gift for Kate" autocomplete="off"></label>
+      <label class="field"><span class="field-name">Saving up to (optional)</span><span class="suffix"><input id="pot-new-goal" inputmode="decimal" placeholder="e.g. 120"><b>€</b></span></label>
+      <p class="form-error" id="pot-new-error" role="alert"></p>
+      <button class="primary" type="submit">Start the pot</button>
+    </form>`;
 }
 
 function renderJar() {
@@ -2247,6 +2291,18 @@ const actions = {
   },
   tx: (el) => { haptic.tap(); openEditor(el.dataset.n); },
   pot: (el) => { haptic.tap(); const id = el.dataset.pot; openSheet('pot', potHTML(id), { key: `pot:${id}`, label: catMeta(id).name, render: () => potHTML(id) }); },
+  'pot-new': () => { haptic.tap(); openSheet('pot-new', potNewHTML(), { key: 'pot-new', label: 'New pot', render: potNewHTML }); },
+  'pot-reopen': (el) => { haptic.pick(); const id = el.dataset.pot; mutate('/api/fund', { id, reopen: true, month: state.view.month }, () => toast(`${catMeta(id).name} is open again`)); },
+  'pot-goal-save': (el) => {
+    const id = el.dataset.pot, raw = $('#pot-goal-amount').value.trim(), goal = raw ? parseEuro(raw) : 0;
+    if (raw && !goal) { haptic.err(); toast('Enter how much, e.g. 120.'); return; }
+    mutate('/api/fund', { id, goal: goal || null, month: state.view.month }, () => { haptic.ok(); toast(goal ? `Saving up to ${eur0(goal)}` : 'No goal'); sheetRedraw(); });
+  },
+  'pot-close': (el) => { haptic.pick(); const id = el.dataset.pot; openSheet('pot-close', potCloseHTML(id), { key: `pot-close:${id}`, label: `Close ${catMeta(id).name}`, render: () => potCloseHTML(id) }); },
+  'pot-into': (el) => {
+    const id = el.dataset.pot, into = el.dataset.cat, name = catMeta(id).name;
+    mutate('/api/fund', { id, close: true, ...(into ? { into } : {}), month: state.view.month }, () => { haptic.ok(); toast(into ? `${name} closed: counted in ${catMeta(into).name}` : `${name} closed`); closeSheet(); });
+  },
   'pot-month': async (el) => {
     haptic.pick();
     const id = el.dataset.pot, m = el.dataset.m, title = `${catMeta(id).emoji} ${catMeta(id).name} in ${MONTH[+m.slice(5) - 1]}`;
@@ -2333,7 +2389,7 @@ const actions = {
     applyLocal(n, { kind: isPot(cat) ? 'fund' : 'spend', category: cat, confirmed: true });
     mutate('/api/tx', { n: Number(n), category: cat, month: state.view.month }, () => {
       haptic.ok();
-      toast(t.amount > 0 && !isPot(cat) ? `↩ Money back for ${catMeta(cat).name}: it lowers that spending.` : `${catMeta(cat).name}. ${t.label} goes there from now on.`);
+      toast(isPot(cat) ? `${catMeta(cat).emoji} ${catMeta(cat).name}: pot money, not yours.` : t.amount > 0 ? `↩ Money back for ${catMeta(cat).name}: it lowers that spending.` : `${catMeta(cat).name}. ${t.label} goes there from now on.`);
       if (state.sheet === 'edit') openEditor(n);
       if (cat === 'other' && !findTx(n)?.named) focusOtherAsk();
     });
@@ -2606,6 +2662,13 @@ document.addEventListener('submit', (e) => {
     else if (state.cashDir < 0 && state.cashCat) body.category = state.cashCat;
     mutate('/api/cash', body, () => { haptic.ok(); sheetBack(); toast(`Dropped in ${eur(body.amount, true)}`); splash(0.5, 40); }, e.target);
   }
+  if (e.target.id === 'pot-new') {
+    const name = $('#pot-new-name').value.trim(), raw = $('#pot-new-goal').value.trim(), goal = raw ? parseEuro(raw) : null;
+    if (!name) { haptic.err(); $('#pot-new-error').textContent = 'Name it, e.g. 🎁 Gift for Kate.'; return; }
+    if (raw && !goal) { haptic.err(); $('#pot-new-error').textContent = 'Enter how much, e.g. 120.'; return; }
+    mutate('/api/fund', { add: name, ...(goal ? { goal } : {}), month: state.view.month }, () => { haptic.ok(); toast(`${name} started`); closeSheet(); }, e.target);
+  }
+  if (e.target.id === 'pot-goal') $('[data-act="pot-goal-save"]')?.click();
   if (e.target.id === 'debt-new') {
     const name = $('#debt-new-name').value.trim(), amount = parseEuro($('#debt-new-amount').value);
     if (!name) { haptic.err(); $('#debt-new-error').textContent = 'Who do you owe?'; return; }

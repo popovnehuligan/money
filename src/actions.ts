@@ -1,4 +1,4 @@
-import { isKind, learnLender, newCategory, openDebts, parseDebts, parseFunds, parseRules } from './classify.ts';
+import { isKind, learnLender, newCategory, openDebts, openFunds, parseDebts, parseFunds, parseRules } from './classify.ts';
 import { addCategory, fundIds, getCategories, getSetting, setSetting, updateTx, type Env, type Tx } from './db.ts';
 import { addMonths, monthOf } from './time.ts';
 import { passOnSort } from './ingest.ts';
@@ -44,7 +44,7 @@ export async function applyChoice(env: Env, t: Tx, c: Choice): Promise<Tx> {
     // 🔁 Passed on, or 🤝 paying her back while you owe her and her money doesn't cover it.
     const pass = parseRules(await getSetting(env.DB, 'rules')).find((r) => r.passOnFrom && r.category === c.category);
     // A club pot's category (e.g. 🏐 Volleyball) makes it club money, in or out: never yours.
-    if (parseFunds(await getSetting(env.DB, 'funds')).some((f) => f.id === c.category)) Object.assign(patch, { kind: 'fund', category: c.category, debt: null, loan_part: null, confirmed: 1 });
+    if (openFunds(parseFunds(await getSetting(env.DB, 'funds'))).some((f) => f.id === c.category)) Object.assign(patch, { kind: 'fund', category: c.category, debt: null, loan_part: null, confirmed: 1 });
     else if (pass) {
       const s = await passOnSort(env, pass, patch.amount ?? t.amount);
       Object.assign(patch, { kind: s.kind, category: c.category, debt: s.debt, loan_part: null, confirmed: 1 });

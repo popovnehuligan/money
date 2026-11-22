@@ -1,8 +1,8 @@
 import { BadInput, applyChoice, type Choice } from './actions.ts';
 import { telegramUserId } from './auth.ts';
-import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, newCategory, owed, parseDebts, parseFunds, reopenDebt } from './classify.ts';
+import { DEFAULT_CATEGORIES, categoriesFrom, categoryLabel, closeDebt, debtFor, newCategory, owed, parseDebts, parseFunds, reopenDebt, type Fund } from './classify.ts';
 import { dashboard, readSettings, txView } from './dashboard.ts';
-import { fundMonths, deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env } from './db.ts';
+import { fundMonths, deleteSetting, deleteTx, getSetting, getSettings, getTx, incomeSources, latestBmail, loanHistory, loanPayments, passedOnBefore, passedOnTotal, myCategories, saveMyCategories, savedByMonth, setSetting, spendDaysSince, firstDay, txInMonth, uncategorize, unratedCount, unratedTx, type Env, addCategory, getCategories, type Tx } from './db.ts';
 import { notify, record } from './ingest.ts';
 import { noSpendStreak } from './stats.ts';
 import { tg } from './telegram.ts';
@@ -44,7 +44,7 @@ async function summary(env: Env, asked?: string | null) {
     // Club pots: each month's in and out (its plus or minus), and what you're holding for it.
     funds: parseFunds(settings.funds ?? null).map((f) => {
       const months = potMonths.filter((r) => r.fund === f.id).map(({ fund: _, ...r }) => r);
-      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0) };
+      return { id: f.id, months, held: months.reduce((a, r) => a + r.in - r.out, 0), ...(f.goal ? { goal: f.goal } : {}), ...(f.closed ? { closed: true as const } : {}) };
     }),
     loanHistory: history.map((t) => ({ n: t.n, ts: t.ts, part: t.part, debt: debtFor(debts, { ...t, amount: t.part })?.name ?? t.debt, label: t.label ?? t.merchant ?? t.note ?? (t.method === 'cash' ? 'Cash' : 'Payment') })),
     categories: categoriesFrom(settings.categories ?? null),
@@ -129,6 +129,40 @@ export async function api(env: Env, req: Request, url: URL): Promise<Response> {
           await notify(env, sorted); // so it's in the chat too, like everything else
         }
         return Response.json(await summary(env));
+      }
+      case '/api/fund': {
+        // Pots: start one (a name, and what you're saving up to), change its target, close it or reopen it.
+        const funds = parseFunds(await getSetting(env.DB, 'funds'));
+        let f: Fund | undefined;
+        if (typeof body.add === 'string') {
+          const cats = await getCategories(env.DB);
+          const made = newCategory(body.add, cats);
+          if (!made) throw new BadInput('Name it, e.g. 🎁 Kate’s gift');
+          const [id, label] = made;
+          if (!(id in cats)) await addCategory(env.DB, id, label);
+          f = funds.find((x) => x.id === id);
+          if (f) delete f.closed; // the same name again: it's back
+          else funds.push((f = { id }));
+        } else if ((f = funds.find((x) => x.id === body.id)) === undefined) throw new BadInput('That pot doesn’t exist any more.');
+        if (body.goal !== undefined) {
+          const goal = cents(body.goal);
+          if (goal) f.goal = goal;
+          else delete f.goal;
+        }
+        if (body.close) {
+          // Done: optionally count it as your own spending in a category. Chip-ins become money back
+          // there and what you paid from it becomes spending, so the category shows your own share.
+          if (typeof body.into === 'string') {
+            const cats = await getCategories(env.DB);
+            if (!(body.into in cats) || funds.some((x) => x.id === body.into)) throw new BadInput('Pick a spending category.');
+            const { results } = await env.DB.prepare(`SELECT * FROM tx WHERE kind = 'fund' AND category = ?`).bind(f.id).all<Tx>();
+            for (const t of results) await applyChoice(env, t, { category: body.into });
+          }
+          f.closed = true;
+        }
+        if (body.reopen) delete f.closed;
+        await setSetting(env.DB, 'funds', JSON.stringify(funds));
+        return Response.json(await summary(env, String(body.month ?? '')));
       }
       case '/api/debt': {
         // Close a debt (what's left of it is forgiven; it leaves every list) or reopen it, even or at what you say.
